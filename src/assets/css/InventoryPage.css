@@ -1,0 +1,10 @@
+.inventory_cards {
+    display: flex;
+    justify-content: space-evenly;
+    margin: 1%;
+}
+
+.inventory_cards .card{
+    background-color: #fdfdfd;
+    border-radius: 0% !important;
+}

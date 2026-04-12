@@ -1,0 +1,33 @@
+.topbar{
+    background-color: #222d4d;
+}
+.topbar header{
+    display: flex;
+}
+.topbar .logo_topbar {
+    width: 10%;
+}
+
+.topbar .tools_topbar {
+    display: flex;
+    justify-content: flex-end;
+    width: 80%;
+    margin-right: 15px;
+    padding-right: 25px;
+    border-right: 1px solid white;
+}
+
+.topbar .tools_topbar .tool button{
+    background-color: transparent;
+    color: white;
+}
+
+.topbar .icons_topbar{
+    display: flex;
+    width: 10%;
+}
+
+.topbar .icons_topbar .icon button{
+    background-color: transparent;
+    color: white;
+}

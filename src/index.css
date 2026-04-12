@@ -1,0 +1,82 @@
+@import "tailwindcss";
+
+@theme {
+  --color-app-bg: var(--theme-bg);
+  --color-app-sidebar: var(--theme-sidebar);
+  --color-app-card: var(--theme-card);
+  --color-app-accent: var(--theme-accent);
+  --color-app-accent-hover: var(--theme-accent-hover);
+  --color-app-text: var(--theme-text-main);
+  --color-app-text-muted: var(--theme-text-muted);
+  --color-app-border: var(--theme-border);
+  --color-app-glow: var(--theme-glow);
+}
+
+:root {
+  /* Default: Glass Dark */
+  --theme-bg: #0f172a;
+  --theme-sidebar: rgba(255, 255, 255, 0.05);
+  --theme-card: rgba(255, 255, 255, 0.05);
+  --theme-accent: #22d3ee; /* cyan-400 */
+  --theme-accent-hover: #06b6d4; /* cyan-500 */
+  --theme-text-main: #f1f5f9; /* slate-100 */
+  --theme-text-muted: #94a3b8; /* slate-400 */
+  --theme-border: rgba(255, 255, 255, 0.1);
+  --theme-glow: #7c3aed; /* violet-600 */
+}
+
+[data-theme='light'] {
+  --theme-bg: #f8fafc; /* slate-50 */
+  --theme-sidebar: #ffffff;
+  --theme-card: #ffffff;
+  --theme-accent: #2563eb; /* blue-600 */
+  --theme-accent-hover: #1e40af; /* blue-800 */
+  --theme-text-main: #0f172a; /* slate-900 - OSCURO PARA CONTRASTE */
+  --theme-text-muted: #475569; /* slate-600 */
+  --theme-border: #cbd5e1; /* slate-300 */
+  --theme-glow: #3b82f6; /* blue-500 */
+}
+
+[data-theme='neon'] {
+  --theme-bg: #000000;
+  --theme-sidebar: #050505;
+  --theme-card: #0a0a0a;
+  --theme-accent: #ff007f; /* Neon Pink */
+  --theme-accent-hover: #ff00ff;
+  --theme-text-main: #ffffff;
+  --theme-text-muted: #888888;
+  --theme-border: #1a1a1a;
+  --theme-glow: #bc13fe; /* Neon Purple */
+}
+
+[data-theme='neon-light'] {
+  --theme-bg: #ffffff;
+  --theme-sidebar: #fdfdfd;
+  --theme-card: #ffffff;
+  --theme-accent: #ff007f; /* Neon Pink */
+  --theme-accent-hover: #e60073;
+  --theme-text-main: #000000;
+  --theme-text-muted: #4b5563;
+  --theme-border: #fecdd7; /* Delicado rosa */
+  --theme-glow: #ff007f;
+}
+
+[data-theme='ocean'] {
+  --theme-bg: #001f3f; /* Deep Navy */
+  --theme-sidebar: rgba(0, 51, 102, 0.5);
+  --theme-card: rgba(0, 64, 128, 0.5);
+  --theme-accent: #00ffcc; /* Turquesa */
+  --theme-accent-hover: #00cc99;
+  --theme-text-main: #e0f2f1;
+  --theme-text-muted: #80cbc4;
+  --theme-border: rgba(0, 255, 204, 0.2);
+  --theme-glow: #00e5ff;
+}
+
+@import "./assets/css/LoginPage.css";
+@import "./assets/css/TopBar.css";
+@import "./assets/css/Globals.css";
+@import "./assets/css/DashboardPage.css";
+@import "./assets/css/InventoryPage.css";
+@import "./assets/css/NewProductPage.css";
+

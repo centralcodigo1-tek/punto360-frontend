@@ -1,0 +1,93 @@
+body {
+    display: block !important;
+    background-image: url('../imgs/FONDO.png');
+    background-size: cover;
+    background-repeat: no-repeat;
+}
+
+.parent {
+    background-color: transparent !important;
+    width: 100%;
+    flex-direction: column;
+}
+
+.parent img {
+    max-width: 50%;
+    margin: auto;
+}
+
+.parent .parent_login form {
+    display: flex;
+    flex-direction: column;
+}
+
+.parent .parent_login form h2 {
+    font-size: 18px;
+    font-weight: bolder;
+}
+
+.parent .parent_login form .btn_ingresar {
+    width: 100%;
+    background-color: #466E36;
+    color: #FFFF;
+    border-radius: 3px;
+}
+
+.parent_login form .parent_user {
+    margin-bottom: 1rem;
+}
+
+.parent_login form .parent_user .user_content {
+    display: flex;
+    align-items: center;
+}
+
+.parent_login form .parent_user .user_content .input_icon {
+    width: 10%;
+    height: 100%;
+}
+
+.parent_login form .parent_user .user_content .input_text {
+    width: 90% !important;
+    height: 100%;
+    margin-bottom: 0% !important;
+
+}
+
+.parent_login form .parent_password {
+    margin-bottom: 1rem;
+}
+
+.parent_login form .parent_password .password_content {
+    display: flex;
+    align-items: center;
+}
+
+.parent_login form .parent_password .password_content .input_icon {
+    width: 10%;
+    height: 100%;
+}
+
+.parent_login form .parent_password .password_content .input_text {
+    width: 90% !important;
+    height: 100%;
+    margin-bottom: 0% !important;
+}
+
+.parent_login form .parent_password .password_content .btn_show_pass {
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    background-color: #FFFF;
+    position: absolute;
+    right: 44%;
+}
+.parent_login form .parent_password .password_content .btn_show_pass:hover{
+    border: none !important;
+}
+.parent_login form .parent_password .password_content .btn_show_pass:focus{
+    border: none !important;
+}
+.parent_login form .parent_password .password_content .btn_show_pass:focus-visible{
+    border: none !important;
+}

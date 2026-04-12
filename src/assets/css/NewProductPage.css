@@ -1,0 +1,53 @@
+.parent_product {
+    background-color: #fefefe;
+}
+
+.content_producto .fields_product {
+    padding: 5%;
+}
+
+.content_producto .data_prd {
+    display: flex;
+}
+
+.content_producto .data_prd div {
+    display: grid;
+    width: 50%;
+    justify-content: stretch;
+    margin: 1%;
+}
+
+.content_producto .data_prd div input {
+    height: 40px;
+    border: 1px solid #e1e1e1;
+
+}
+.values_prd {
+    display: flex;
+}
+.values_prd div {
+    display: grid;
+    width: 50%;
+    margin: 1%;
+}
+
+.values_prd div input, .values_prd div select{
+    border: 1px solid #e1e1e1;
+    height: 40px;
+}
+
+.footer_modal{
+    display: flex;
+    justify-content: flex-end;
+    padding: 1%;
+}
+
+.footer_modal .btn_cancelar{
+border: 1px solid #e1e1e1;
+}
+
+.footer_modal .btn_save{
+    background-color: green;
+    color: white;
+    margin: 0 1%;
+}
