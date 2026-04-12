@@ -22,9 +22,9 @@ export default function PosPage() {
   const [weightInput, setWeightInput] = useState("");
   const [hasCashSession, setHasCashSession] = useState<boolean | null>(null);
   
-  // Estados para Vueltos
   const [cashReceived, setCashReceived] = useState<string>("");
   const [isPriceEditing, setIsPriceEditing] = useState<string | null>(null); // ID del producto siendo editado
+  const [activeTab, setActiveTab] = useState<"catalog" | "cart">("catalog");
 
   useEffect(() => {
     fetchProducts();
@@ -195,7 +195,6 @@ export default function PosPage() {
   }
 
   // ── POS Activo ─────────────────────────────────────────────────────────────
-  const [activeTab, setActiveTab] = useState<"catalog" | "cart">("catalog");
 
   return (
     <DashboardLayout>
