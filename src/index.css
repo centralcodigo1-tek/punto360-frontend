@@ -13,64 +13,68 @@
 }
 
 :root {
-  /* Default: Glass Dark */
-  --theme-bg: #0f172a;
-  --theme-sidebar: rgba(255, 255, 255, 0.05);
-  --theme-card: rgba(255, 255, 255, 0.05);
-  --theme-accent: #22d3ee; /* cyan-400 */
-  --theme-accent-hover: #06b6d4; /* cyan-500 */
-  --theme-text-main: #f1f5f9; /* slate-100 */
-  --theme-text-muted: #94a3b8; /* slate-400 */
-  --theme-border: rgba(255, 255, 255, 0.1);
-  --theme-glow: #7c3aed; /* violet-600 */
+  /* Default: Modern Glass Dark (Sleek Cyan) */
+  --theme-bg: #0b0f1a;
+  --theme-sidebar: rgba(15, 23, 42, 0.8);
+  --theme-card: rgba(30, 41, 59, 0.5);
+  --theme-accent: #22d3ee;
+  --theme-accent-hover: #0891b2;
+  --theme-text-main: #f8fafc;
+  --theme-text-muted: #94a3b8;
+  --theme-border: rgba(255, 255, 255, 0.08);
+  --theme-glow: rgba(34, 211, 238, 0.3);
 }
 
 [data-theme='light'] {
-  --theme-bg: #f8fafc; /* slate-50 */
+  /* Elegant Light Retail (True Blue) */
+  --theme-bg: #f8f9fc;
   --theme-sidebar: #ffffff;
   --theme-card: #ffffff;
-  --theme-accent: #2563eb; /* blue-600 */
-  --theme-accent-hover: #1e40af; /* blue-800 */
-  --theme-text-main: #0f172a; /* slate-900 - OSCURO PARA CONTRASTE */
-  --theme-text-muted: #475569; /* slate-600 */
-  --theme-border: #cbd5e1; /* slate-300 */
-  --theme-glow: #3b82f6; /* blue-500 */
+  --theme-accent: #2563eb;
+  --theme-accent-hover: #1d4ed8;
+  --theme-text-main: #1e293b; /* slate-800 - Fuerte contraste */
+  --theme-text-muted: #64748b; /* slate-500 */
+  --theme-border: #e2e8f0;
+  --theme-glow: rgba(37, 99, 235, 0.1);
 }
 
 [data-theme='neon'] {
-  --theme-bg: #000000;
-  --theme-sidebar: #050505;
-  --theme-card: #0a0a0a;
-  --theme-accent: #ff007f; /* Neon Pink */
-  --theme-accent-hover: #ff00ff;
+  /* Cyber Night (Cyber Magenta) */
+  --theme-bg: #050505;
+  --theme-sidebar: #0a0a0a;
+  --theme-card: #111111;
+  --theme-accent: #ff007f;
+  --theme-accent-hover: #e60073;
   --theme-text-main: #ffffff;
-  --theme-text-muted: #888888;
-  --theme-border: #1a1a1a;
-  --theme-glow: #bc13fe; /* Neon Purple */
+  --theme-text-muted: #a1a1aa;
+  --theme-border: #27272a;
+  --theme-glow: rgba(255, 0, 127, 0.4);
 }
 
 [data-theme='neon-light'] {
-  --theme-bg: #ffffff;
-  --theme-sidebar: #fdfdfd;
+  /* Kawaii / Clean Pink */
+  --theme-bg: #fdf2f8; 
+  --theme-sidebar: #ffffff;
   --theme-card: #ffffff;
-  --theme-accent: #ff007f; /* Neon Pink */
-  --theme-accent-hover: #e60073;
-  --theme-text-main: #000000;
-  --theme-text-muted: #4b5563;
-  --theme-border: #fecdd7; /* Delicado rosa */
-  --theme-glow: #ff007f;
+  --theme-accent: #db2777; /* Pink-600 para mejor legibilidad en blanco */
+  --theme-accent-hover: #be185d;
+  --theme-text-main: #312e81; /* Indigo-950 para contraste suave pero legible */
+  --theme-text-muted: #6b7280;
+  --theme-border: #fbcfe8;
+  --theme-glow: rgba(219, 39, 119, 0.1);
 }
 
 [data-theme='ocean'] {
-  --theme-bg: #001f3f; /* Deep Navy */
-  --theme-sidebar: rgba(0, 51, 102, 0.5);
-  --theme-card: rgba(0, 64, 128, 0.5);
-  --theme-accent: #00ffcc; /* Turquesa */
-  --theme-accent-hover: #00cc99;
-  --theme-text-main: #e0f2f1;
-  --theme-text-muted: #80cbc4;
-  --theme-border: rgba(0, 255, 204, 0.2);
-  --theme-glow: #00e5ff;
+  /* Deep Sea (Emerald/Teal) */
+  --theme-bg: #020617;
+  --theme-sidebar: #0f172a;
+  --theme-card: #1e293b;
+  --theme-accent: #10b981; /* Emerald-500 */
+  --theme-accent-hover: #059669;
+  --theme-text-main: #f0fdf4;
+  --theme-text-muted: #94a3b8;
+  --theme-border: rgba(16, 185, 129, 0.1);
+  --theme-glow: rgba(16, 185, 129, 0.2);
 }
 
 @import "./assets/css/LoginPage.css";

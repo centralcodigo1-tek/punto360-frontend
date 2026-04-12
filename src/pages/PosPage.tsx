@@ -195,31 +195,33 @@ export default function PosPage() {
   }
 
   // ── POS Activo ─────────────────────────────────────────────────────────────
+  const [activeTab, setActiveTab] = useState<"catalog" | "cart">("catalog");
+
   return (
     <DashboardLayout>
-      <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-100px)]">
+      <div className="flex flex-col lg:flex-row gap-6 lg:h-[calc(100vh-120px)] relative">
 
         {/* LADO IZQUIERDO: CATÁLOGO */}
-        <div className="flex-1 flex flex-col h-full space-y-4">
-          <div className="flex items-center gap-4 bg-app-card backdrop-blur-md rounded-2xl p-4 border border-app-border shadow-lg">
-            <div className="p-2 bg-app-accent/20 text-app-accent rounded-lg">
+        <div className={`flex-1 flex flex-col h-full space-y-4 ${activeTab === 'catalog' ? 'flex' : 'hidden lg:flex'}`}>
+          <div className="flex items-center gap-3 md:gap-4 bg-app-card backdrop-blur-md rounded-2xl p-3 md:p-4 border border-app-border shadow-lg">
+            <div className="p-2 bg-app-accent/10 text-app-accent rounded-lg hidden md:block">
               <ShoppingCart size={24} />
             </div>
             <div className="flex-1 relative">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-app-text-muted" size={18} />
               <input
                 type="text"
-                placeholder="Escanear Código de Barras o Buscar Producto..."
+                placeholder="Escanear o buscar..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-app-bg border border-app-border rounded-xl pl-12 pr-4 py-3 text-app-text placeholder-app-text-muted focus:outline-none focus:border-app-accent/50 shadow-inner font-medium text-lg"
+                className="w-full bg-app-bg border border-app-border rounded-xl pl-12 pr-4 py-2.5 md:py-3 text-app-text placeholder-app-text-muted focus:outline-none focus:border-app-accent/50 shadow-inner font-medium text-sm md:text-lg"
                 autoFocus
               />
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
-            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4">
+          <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar pb-24 lg:pb-0">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
               {visibleProducts.map(p => {
                 const agotado = p.stockCount === 0;
                 return (
@@ -227,19 +229,24 @@ export default function PosPage() {
                     key={p.id}
                     onClick={() => addToCart(p)}
                     disabled={agotado}
-                    className={`relative bg-app-card backdrop-blur-md border ${agotado ? 'border-rose-500/20' : 'border-app-border hover:border-app-accent/50'} rounded-2xl p-4 flex flex-col text-left transition-all ${agotado ? 'opacity-50 cursor-not-allowed grayscale' : 'hover:-translate-y-1 hover:shadow-xl hover:shadow-app-accent/10 active:scale-95'}`}
+                    className={`relative bg-app-card backdrop-blur-md border ${agotado ? 'border-rose-500/20' : 'border-app-border hover:border-app-accent/50'} rounded-2xl p-4 flex flex-col text-left transition-all ${agotado ? 'opacity-50 cursor-not-allowed grayscale' : 'hover:-translate-y-1 hover:shadow-xl active:scale-95'}`}
                   >
                     {agotado && (
-                      <div className="absolute top-2 right-2 px-2 py-0.5 bg-rose-500/20 text-rose-400 text-[10px] font-bold rounded uppercase">Agotado</div>
+                      <div className="absolute top-2 right-2 px-2 py-0.5 bg-rose-500/20 text-rose-500 text-[10px] font-black rounded uppercase">Agotado</div>
                     )}
-                    <div className="w-12 h-12 rounded-full bg-app-bg border border-app-border mb-3 flex items-center justify-center font-bold text-app-text/50 text-xl overflow-hidden shadow-inner flex-shrink-0">
-                      {p.name.charAt(0).toUpperCase()}
+                    <div className="flex items-center gap-3 mb-3">
+                        <div className="w-10 h-10 rounded-full bg-app-bg border border-app-border flex items-center justify-center font-black text-app-accent text-lg overflow-hidden shadow-inner shrink-0 leading-none">
+                            {p.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="flex flex-col min-w-0">
+                            <span className="text-app-accent font-mono text-[10px] font-black leading-none">{p.sku}</span>
+                            <h4 className="text-app-text font-bold text-xs leading-none mt-1 truncate">{p.name}</h4>
+                        </div>
                     </div>
-                    <span className="text-app-accent font-mono text-[10px] mb-1 font-bold">{p.sku}</span>
-                    <h4 className="text-app-text font-medium text-sm leading-tight flex-1 mb-2">{p.name}</h4>
+                    
                     <div className="flex items-end justify-between w-full mt-auto">
-                      <span className="text-emerald-500 font-bold">${p.sale_price.toLocaleString()}</span>
-                      <span className="text-app-text-muted text-xs font-bold">{p.unit_type === 'WEIGHT' ? `${p.stockCount} Kg/Lts` : `${p.stockCount} Disp.`}</span>
+                      <span className="text-emerald-500 font-bold text-lg leading-none">${p.sale_price.toLocaleString()}</span>
+                      <span className="text-app-text-muted text-[10px] font-black uppercase">{p.unit_type === 'WEIGHT' ? `${p.stockCount} Kg` : `${p.stockCount} Un.`}</span>
                     </div>
                   </button>
                 );
@@ -249,26 +256,32 @@ export default function PosPage() {
         </div>
 
         {/* LADO DERECHO: TICKET */}
-        <div className="w-full lg:w-96 flex flex-col bg-app-sidebar backdrop-blur-md rounded-2xl border border-app-border shadow-2xl overflow-hidden h-full">
-          <div className="bg-black/10 p-4 border-b border-app-border">
-            <h3 className="text-lg font-bold text-app-text">Ticket Actual</h3>
+        <div className={`w-full lg:w-96 flex flex-col bg-app-sidebar backdrop-blur-3xl rounded-2xl border border-app-border shadow-2xl overflow-hidden h-full ${activeTab === 'cart' ? 'flex fixed inset-0 z-[70] lg:relative lg:inset-auto' : 'hidden lg:flex'}`}>
+          <div className="bg-app-accent/10 p-4 border-b border-app-border flex justify-between items-center">
+            <h3 className="text-sm font-black text-app-text uppercase tracking-widest">Resumen Ticket</h3>
+            <button 
+                onClick={() => setActiveTab('catalog')}
+                className="lg:hidden p-2 text-app-text-muted hover:text-white"
+            >
+                <Plus size={20} className="rotate-45" />
+            </button>
           </div>
 
           <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
             {cart.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-app-text/30 space-y-4">
-                <ShoppingCart size={48} className="opacity-20" />
-                <p className="font-bold">Carrito vacío</p>
+              <div className="h-full flex flex-col items-center justify-center text-app-text-muted opacity-30 space-y-4">
+                <ShoppingCart size={48} />
+                <p className="font-black uppercase tracking-widest text-xs">Carrito vacío</p>
               </div>
             ) : (
               cart.map((item) => (
                 <div key={item.product.id} className="flex flex-col bg-app-card rounded-xl p-3 border border-app-border group/cart transition-colors">
                   <div className="flex justify-between items-start mb-2">
                     <div className="flex flex-col flex-1 min-w-0">
-                        <span className="text-app-text font-medium text-sm pr-2 leading-tight truncate">{item.product.name}</span>
-                        <span className="text-app-text-muted text-[10px] uppercase font-bold tracking-tight">{item.product.sku}</span>
+                        <span className="text-app-text font-bold text-sm pr-2 leading-tight truncate">{item.product.name}</span>
+                        <span className="text-app-text-muted text-[9px] uppercase font-black tracking-widest">{item.product.sku}</span>
                     </div>
-                    <button onClick={() => removeFromCart(item.product.id)} className="text-app-text-muted hover:text-rose-400 transition-colors shrink-0">
+                    <button onClick={() => removeFromCart(item.product.id)} className="text-app-text-muted hover:text-rose-500 transition-colors shrink-0">
                       <Trash2 size={16} />
                     </button>
                   </div>
@@ -280,7 +293,7 @@ export default function PosPage() {
                                 <input 
                                     type="number"
                                     autoFocus
-                                    className="w-24 bg-black/10 border border-app-accent/50 rounded px-1.5 py-0.5 text-sm font-bold text-app-accent focus:outline-none"
+                                    className="w-full bg-app-bg border border-app-accent rounded px-1.5 py-1 text-sm font-bold text-app-accent focus:outline-none shadow-inner"
                                     value={item.customPrice}
                                     onChange={(e) => {
                                         const newP = parseFloat(e.target.value) || 0;
@@ -293,22 +306,22 @@ export default function PosPage() {
                         ) : (
                             <button 
                                 onClick={() => setIsPriceEditing(item.product.id)}
-                                className="text-app-accent font-black text-base hover:bg-black/10 px-1 py-0.5 rounded transition-colors truncate w-full text-left"
-                                title="Click para editar precio"
+                                className="text-app-accent font-black text-base hover:bg-app-accent/5 px-1 py-0.5 rounded transition-colors truncate w-full text-left"
+                                title="Click para editar"
                             >
                                 ${Number(item.customPrice).toLocaleString()}
-                                <span className="text-[10px] text-app-text-muted ml-1 font-normal italic opacity-0 group-hover/cart:opacity-100 transition-opacity">(Edit)</span>
+                                <span className="text-[9px] text-app-text-muted ml-1 font-black italic opacity-0 group-hover/cart:opacity-100 transition-opacity uppercase tracking-tighter">✎</span>
                             </button>
                         )}
                     </div>
 
                     {item.product.unit_type === "WEIGHT" ? (
-                      <span className="text-xs font-bold text-amber-500 px-2 py-1 bg-amber-500/10 rounded-lg shrink-0">{item.quantity} Kg</span>
+                      <span className="text-[10px] font-black text-amber-500 px-2 py-1 bg-amber-500/10 rounded-lg shrink-0 border border-amber-500/20 uppercase tracking-tighter">{item.quantity} Kg</span>
                     ) : (
-                      <div className="flex items-center bg-black/10 rounded-lg p-1 border border-app-border shrink-0">
-                        <button onClick={() => updateQuantity(item.product.id, -1)} className="p-1 hover:bg-black/10 rounded-md text-app-text-muted"><Minus size={14} /></button>
-                        <span className="w-8 text-center text-sm font-bold text-app-text">{item.quantity}</span>
-                        <button onClick={() => updateQuantity(item.product.id, 1)} className="p-1 hover:bg-black/10 rounded-md text-app-text-muted"><Plus size={14} /></button>
+                      <div className="flex items-center bg-app-accent/10 rounded-lg p-0.5 border border-app-accent/10 shrink-0">
+                        <button onClick={() => updateQuantity(item.product.id, -1)} className="p-1 hover:bg-app-accent/20 rounded-md text-app-accent transition-colors"><Minus size={14} /></button>
+                        <span className="w-8 text-center text-xs font-black text-app-text">{item.quantity}</span>
+                        <button onClick={() => updateQuantity(item.product.id, 1)} className="p-1 hover:bg-app-accent/20 rounded-md text-app-accent transition-colors"><Plus size={14} /></button>
                       </div>
                     )}
                   </div>
@@ -317,49 +330,49 @@ export default function PosPage() {
             )}
           </div>
 
-          {/* Checkout */}
-          <div className="bg-black/5 p-5 mt-auto border-t border-app-border space-y-4">
-            <div className="grid grid-cols-3 gap-2 bg-black/10 p-1.5 rounded-xl border border-app-border">
+          {/* Checkout Area */}
+          <div className="bg-app-accent/5 p-4 md:p-5 mt-auto border-t border-app-border space-y-4">
+            <div className="grid grid-cols-3 gap-2 bg-app-bg p-1 rounded-xl border border-app-border shadow-inner">
               {([
-                { key: "CASH", label: "Efectivo", icon: <Banknote size={16} className="mb-1" /> },
-                { key: "CARD", label: "Tarjeta", icon: <CreditCard size={16} className="mb-1" /> },
-                { key: "TRANSFER", label: "Transf.", icon: <Building2 size={16} className="mb-1" /> },
+                { key: "CASH", label: "Cash", icon: <Banknote size={16} /> },
+                { key: "CARD", label: "Card", icon: <CreditCard size={16} /> },
+                { key: "TRANSFER", label: "Transf.", icon: <Building2 size={16} /> },
               ] as const).map(m => (
                 <button
                   key={m.key}
                   onClick={() => setPaymentMethod(m.key)}
-                  className={`flex flex-col items-center py-2 rounded-lg transition-all ${paymentMethod === m.key ? 'bg-app-accent/20 text-app-accent border border-app-accent/30' : 'text-app-text-muted hover:bg-app-accent/5'}`}
+                  className={`flex flex-col items-center py-2 rounded-lg transition-all ${paymentMethod === m.key ? 'bg-app-accent text-white shadow-lg shadow-app-accent/20 scale-105' : 'text-app-text-muted hover:bg-app-accent/10'}`}
                 >
                   {m.icon}
-                  <span className="text-[10px] font-bold">{m.label}</span>
+                  <span className="text-[9px] font-black uppercase tracking-tighter mt-1">{m.label}</span>
                 </button>
               ))}
             </div>
 
             <div className="flex flex-col border-b border-app-border pb-4 space-y-3">
-                <div className="flex justify-between items-center">
-                    <span className="text-app-text-muted font-medium text-sm">Total a Pagar</span>
-                    <span className="text-2xl font-black text-app-text tracking-tight">${cartTotal.toLocaleString()}</span>
+                <div className="flex justify-between items-center px-1">
+                    <span className="text-[10px] font-black text-app-text-muted uppercase tracking-widest">A pagar</span>
+                    <span className="text-2xl font-black text-app-text tracking-tight animate-in zoom-in duration-300">${cartTotal.toLocaleString()}</span>
                 </div>
                 
-                {paymentMethod === 'CASH' && (
+                {paymentMethod === 'CASH' && cartTotal > 0 && (
                     <div className="space-y-3 pt-2 animate-in slide-in-from-bottom-2 duration-300">
                         <div className="flex justify-between items-center">
-                            <span className="text-app-accent font-bold text-xs uppercase tracking-wider">Efectivo Recibido</span>
+                            <span className="font-black text-[9px] uppercase text-app-text-muted tracking-widest">Recibido</span>
                             <div className="relative">
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-app-accent/50 text-sm">$</span>
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-app-accent font-bold text-xs">$</span>
                                 <input 
                                     type="number"
                                     value={cashReceived}
                                     onChange={(e) => setCashReceived(e.target.value)}
                                     placeholder="0"
-                                    className="w-32 bg-black/10 border border-app-accent/30 rounded-lg pl-6 pr-3 py-2 text-right text-app-accent font-bold text-lg focus:outline-none focus:ring-1 focus:ring-app-accent/50"
+                                    className="w-28 bg-app-bg border border-app-accent/30 rounded-lg pl-6 pr-2 py-1.5 text-right text-app-accent font-black text-base focus:outline-none focus:ring-2 focus:ring-app-accent/20"
                                 />
                             </div>
                         </div>
-                        <div className="flex justify-between items-center bg-app-accent/10 p-3 rounded-xl border border-app-accent/20">
-                            <span className="text-app-accent font-bold text-xs uppercase tracking-wider">Cambio (Vueltos)</span>
-                            <span className="text-2xl font-black text-app-accent">${change.toLocaleString()}</span>
+                        <div className="flex justify-between items-center bg-emerald-500/10 p-2.5 rounded-xl border border-emerald-500/20">
+                            <span className="text-emerald-500 font-black text-[9px] uppercase tracking-widest">Cambio</span>
+                            <span className="text-xl font-black text-emerald-500 animate-in fade-in duration-500">${change.toLocaleString()}</span>
                         </div>
                     </div>
                 )}
@@ -368,25 +381,47 @@ export default function PosPage() {
             <button
               onClick={handleCheckout}
               disabled={cart.length === 0 || isProcessing || (paymentMethod === 'CASH' && (parseFloat(cashReceived) < cartTotal || !cashReceived))}
-              className={`w-full py-4 rounded-xl font-bold flex justify-center items-center gap-2 transition-all shadow-xl ${cart.length === 0 || (paymentMethod === 'CASH' && parseFloat(cashReceived) < cartTotal) ? 'bg-black/10 text-app-text-muted cursor-not-allowed' : 'bg-app-accent hover:bg-app-accent-hover text-white shadow-app-accent/20'}`}
+              className={`w-full py-4 rounded-xl font-black uppercase tracking-[0.2em] flex justify-center items-center gap-2 transition-all shadow-xl ${cart.length === 0 || (paymentMethod === 'CASH' && parseFloat(cashReceived) < cartTotal) ? 'bg-app-accent/5 text-app-text-muted cursor-not-allowed border border-app-border' : 'bg-app-accent hover:bg-app-accent-hover text-white shadow-app-accent/40 active:scale-95'}`}
             >
               {isProcessing ? <Loader2 size={24} className="animate-spin" /> : <CheckCircle2 size={24} />}
-              {isProcessing ? "PROCESANDO..." : "FINALIZAR VENTA"}
+              {isProcessing ? "PROCESANDO..." : "COBRAR TICKET"}
             </button>
           </div>
         </div>
+
+        {/* BOTÓN FLOTANTE CARRITO (MOBILE) */}
+        {activeTab === 'catalog' && cart.length > 0 && (
+            <div className="fixed bottom-6 right-6 z-50 lg:hidden animate-in fade-in slide-in-from-bottom-5 duration-500">
+                <button 
+                    onClick={() => setActiveTab('cart')}
+                    className="h-16 px-6 bg-app-accent text-white rounded-2xl shadow-2xl shadow-app-accent/40 flex items-center gap-4 border border-white/20 active:scale-95 transition-all"
+                >
+                    <div className="relative">
+                        <ShoppingCart size={24} />
+                        <span className="absolute -top-3 -right-3 w-6 h-6 bg-white text-app-accent rounded-full text-[10px] font-black flex items-center justify-center border-2 border-app-accent">
+                            {cart.length}
+                        </span>
+                    </div>
+                    <div className="flex flex-col items-start pr-2">
+                        <span className="text-[10px] font-black uppercase tracking-widest leading-none mb-1 opacity-70">Ver Ticket</span>
+                        <span className="text-lg font-black leading-none">${cartTotal.toLocaleString()}</span>
+                    </div>
+                </button>
+            </div>
+        )}
+
       </div>
 
-      {/* Modal de Pesaje */}
+      {/* Modal de Pesaje (Modo Responsivo) */}
       {weightPrompt && (
-        <div className="fixed inset-0 z-50 flex justify-center items-center p-4">
+        <div className="fixed inset-0 z-[100] flex justify-center items-center p-4">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={() => setWeightPrompt(null)}></div>
-          <div className="relative w-full max-w-sm bg-app-bg rounded-2xl shadow-2xl border border-app-border p-6 flex flex-col items-center">
-            <div className="w-16 h-16 rounded-full bg-app-accent/20 text-app-accent flex items-center justify-center mb-4">
+          <div className="relative w-full max-w-sm bg-app-bg rounded-3xl shadow-2xl border border-app-border p-6 flex flex-col items-center animate-in zoom-in duration-300">
+            <div className="w-16 h-16 rounded-2xl bg-app-accent/10 text-app-accent flex items-center justify-center mb-4 shadow-inner">
               <ShoppingCart size={32} />
             </div>
-            <h2 className="text-xl font-bold text-app-text text-center mb-1">{weightPrompt.name}</h2>
-            <p className="text-sm text-center text-app-text-muted mb-6">Ingresa el peso de la báscula (ej. 1.250)</p>
+            <h2 className="text-xl font-black text-app-text text-center mb-1 tracking-tight">{weightPrompt.name}</h2>
+            <p className="text-[10px] font-black uppercase text-center text-app-text-muted mb-6 tracking-widest">Ingresa peso (Kg)</p>
             <div className="w-full relative mb-6">
               <input
                 type="number"
@@ -395,14 +430,14 @@ export default function PosPage() {
                 value={weightInput}
                 onChange={(e) => setWeightInput(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') commitWeightSale(); }}
-                className="w-full bg-black/10 border border-app-border rounded-xl px-4 py-4 text-center text-3xl font-bold text-app-text placeholder-app-text/10 focus:outline-none focus:ring-2 focus:ring-app-accent/50"
+                className="w-full bg-app-accent/5 border border-app-border rounded-2xl px-4 py-5 text-center text-4xl font-black text-app-accent placeholder-app-accent/10 focus:outline-none focus:ring-4 focus:ring-app-accent/10 shadow-inner"
                 placeholder="0.000"
               />
-              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-app-text-muted font-bold">Kg</span>
+              <span className="absolute right-5 top-1/2 -translate-y-1/2 text-app-text-muted font-black uppercase text-xs">Kg</span>
             </div>
             <div className="flex gap-3 w-full">
-              <button onClick={() => setWeightPrompt(null)} className="flex-1 py-3 rounded-lg border border-app-border text-app-text-muted hover:text-app-text transition-colors">Cancelar</button>
-              <button onClick={commitWeightSale} className="flex-1 py-3 rounded-lg bg-app-accent hover:bg-app-accent-hover text-white font-bold transition-colors">Agregar</button>
+              <button onClick={() => setWeightPrompt(null)} className="flex-1 py-4 rounded-xl border border-app-border text-app-text-muted font-black uppercase text-[10px] tracking-widest hover:text-white transition-colors">Cerrar</button>
+              <button onClick={commitWeightSale} className="flex-1 py-4 rounded-xl bg-app-accent hover:bg-app-accent-hover text-white font-black uppercase text-[10px] tracking-widest transition-all shadow-lg shadow-app-accent/20">Agregar</button>
             </div>
           </div>
         </div>

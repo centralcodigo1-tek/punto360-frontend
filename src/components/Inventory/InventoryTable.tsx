@@ -48,67 +48,125 @@ export default function InventoryTable({ products, isLoading, onRefresh, onEdit 
   }
 
   return (
-    <div className="bg-app-card backdrop-blur-md border border-app-border rounded-2xl shadow-xl overflow-hidden">
-      <div className="overflow-x-auto w-full">
-        <table className="w-full text-sm text-left">
-          <thead className="bg-black/10 text-app-text-muted border-b border-app-border">
-            <tr>
-              <th className="px-6 py-4 font-semibold">SKU</th>
-              <th className="px-6 py-4 font-semibold">Producto</th>
-              <th className="px-6 py-4 font-semibold">Precio</th>
-              <th className="px-6 py-4 font-semibold text-center">Stock</th>
-              <th className="px-6 py-4 font-semibold text-center">Estado</th>
-              <th className="px-6 py-4 font-semibold text-right min-w-[150px]">Acciones</th>
-            </tr>
-          </thead>
-
-          <tbody className="divide-y divide-app-border/10 text-app-text">
-            {products.map((p) => (
-              <tr
-                key={p.id}
-                className={`transition-colors group cursor-default ${p.is_active ? 'hover:bg-app-accent/5' : 'bg-black/10 opacity-60'}`}
-              >
-                <td className="px-6 py-4 font-mono text-app-accent font-bold">{p.sku}</td>
-                <td className="px-6 py-4 font-medium">{p.name}</td>
-                <td className="px-6 py-4">${Number(p.sale_price).toLocaleString()}</td>
-                <td className="px-6 py-4 text-center font-bold text-app-text">
-                  {p.stockCount} {p.unit_type === 'WEIGHT' ? <span className="text-[10px] text-app-text-muted ml-1">Kg / Lts</span> : ""}
-                </td>
-                <td className="px-6 py-4 text-center">
-                  <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${p.statusColor}`}>
-                    {p.statusText}
-                  </span>
-                </td>
-                <td className="px-6 py-4 text-right space-x-3 opacity-50 group-hover:opacity-100 transition-opacity">
-                  <button 
-                     onClick={() => {
-                        setPrintingProduct(p);
-                        setLabelCount(Math.max(1, p.stockCount)); // Por defecto la cantidad en stock
-                     }}
-                     className="text-indigo-400 hover:text-indigo-300 transition-colors" 
-                     title="Imprimir Etiqueta"
-                  >
-                    <Printer size={18} />
-                  </button>
-                  <button 
-                     onClick={() => onEdit?.(p)}
-                     className="text-blue-400 hover:text-blue-300 transition-colors" 
-                     title="Editar"
-                  >
-                    <Edit2 size={18} />
-                  </button>
-                  <button 
-                     onClick={() => handleToggleStatus(p.id, p.is_active)}
-                     className={`${p.is_active ? 'text-rose-400 hover:text-rose-300' : 'text-emerald-400 hover:text-emerald-300'} transition-colors`} 
-                     title={p.is_active ? "Desactivar" : "Activar"}
-                  >
-                    {p.is_active ? <PowerOff size={18} /> : <Power size={18} />}
-                  </button>
-                </td>
+    <>
+      <div className="bg-app-card backdrop-blur-md border border-app-border rounded-2xl shadow-xl overflow-hidden min-w-0">
+        
+        {/* VISTA DESKTOP: TABLA */}
+        <div className="hidden md:block overflow-x-auto w-full">
+          <table className="w-full text-sm text-left">
+            <thead className="bg-app-accent/5 text-app-text-muted border-b border-app-border">
+              <tr>
+                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest">SKU</th>
+                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest">Producto</th>
+                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest">Precio</th>
+                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-center">Stock</th>
+                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-center">Estado</th>
+                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-right">Acciones</th>
               </tr>
+            </thead>
+
+            <tbody className="divide-y divide-app-border/20 text-app-text">
+              {products.map((p) => (
+                <tr
+                  key={p.id}
+                  className={`transition-all group ${p.is_active ? 'hover:bg-app-accent/5' : 'bg-black/10 opacity-50'}`}
+                >
+                  <td className="px-6 py-4 font-mono text-app-accent font-black tracking-tighter">{p.sku}</td>
+                  <td className="px-6 py-4 font-black text-xs uppercase tracking-tight">{p.name}</td>
+                  <td className="px-6 py-4 font-black">${Number(p.sale_price).toLocaleString()}</td>
+                  <td className="px-6 py-4 text-center">
+                    <span className="font-black text-base">{p.stockCount.toLocaleString()}</span>
+                    {p.unit_type === 'WEIGHT' && <span className="text-[10px] text-app-text-muted ml-1 font-black uppercase">Kg</span>}
+                  </td>
+                  <td className="px-6 py-4 text-center">
+                    <span className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border ${p.statusColor}`}>
+                      {p.statusText}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-right space-x-2 opacity-50 group-hover:opacity-100 transition-opacity">
+                    <button 
+                       onClick={() => {
+                          setPrintingProduct(p);
+                          setLabelCount(Math.max(1, p.stockCount));
+                       }}
+                       className="p-2 bg-app-accent/10 text-app-accent hover:bg-app-accent/20 rounded-lg transition-all" 
+                       title="Etiquetar"
+                    >
+                      <Printer size={16} />
+                    </button>
+                    <button 
+                       onClick={() => onEdit?.(p)}
+                       className="p-2 bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 rounded-lg transition-all" 
+                       title="Editar"
+                    >
+                      <Edit2 size={16} />
+                    </button>
+                    <button 
+                       onClick={() => handleToggleStatus(p.id, p.is_active)}
+                       className={`p-2 rounded-lg transition-all ${p.is_active ? 'bg-rose-500/10 text-rose-400 hover:bg-rose-500/20' : 'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20'}`} 
+                       title={p.is_active ? "Desactivar" : "Reactivar"}
+                    >
+                      {p.is_active ? <PowerOff size={16} /> : <Power size={16} />}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* VISTA MÓVIL: CARDS */}
+        <div className="md:hidden divide-y divide-app-border">
+            {products.map((p) => (
+                <div key={p.id} className={`p-4 flex flex-col gap-3 ${!p.is_active ? 'bg-black/10 opacity-50' : ''}`}>
+                    <div className="flex justify-between items-start">
+                        <div className="flex flex-col gap-1 min-w-0">
+                            <span className="font-mono text-[10px] text-app-accent font-black tracking-tighter uppercase">{p.sku}</span>
+                            <h4 className="font-black text-xs uppercase tracking-tight text-app-text truncate">{p.name}</h4>
+                        </div>
+                        <div className="flex flex-col items-end">
+                            <span className="font-black text-base text-app-text">${Number(p.sale_price).toLocaleString()}</span>
+                            <span className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest border ${p.statusColor} mt-1`}>
+                              {p.statusText}
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <div className="flex justify-between items-center bg-app-accent/5 p-3 rounded-xl border border-app-border/50">
+                        <div className="flex flex-col">
+                            <span className="text-[9px] font-black text-app-text-muted uppercase tracking-widest">Stock Disponible</span>
+                            <div className="flex items-baseline gap-1">
+                                <span className="text-xl font-black text-app-text">{p.stockCount.toLocaleString()}</span>
+                                <span className="text-[10px] font-black text-app-text-muted uppercase">{p.unit_type === 'WEIGHT' ? 'Kg' : 'Un.'}</span>
+                            </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <button 
+                              onClick={() => onEdit?.(p)}
+                              className="p-3 bg-blue-500/10 text-blue-400 rounded-xl"
+                          >
+                              <Edit2 size={18} />
+                          </button>
+                          <button 
+                              onClick={() => {
+                                  setPrintingProduct(p);
+                                  setLabelCount(Math.max(1, p.stockCount));
+                              }}
+                              className="p-3 bg-app-accent/10 text-app-accent rounded-xl"
+                          >
+                              <Printer size={18} />
+                          </button>
+                          <button 
+                              onClick={() => handleToggleStatus(p.id, p.is_active)}
+                              className={`p-3 rounded-xl ${p.is_active ? 'bg-rose-500/10 text-rose-400' : 'bg-emerald-500/10 text-emerald-400'}`}
+                          >
+                              {p.is_active ? <PowerOff size={18} /> : <Power size={18} />}
+                          </button>
+                        </div>
+                    </div>
+                </div>
             ))}
-          </tbody>
-        </table>
+        </div>
       </div>
 
       {/* Modal de Impresión de Etiqueta */}
@@ -166,6 +224,6 @@ export default function InventoryTable({ products, isLoading, onRefresh, onEdit 
             </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
