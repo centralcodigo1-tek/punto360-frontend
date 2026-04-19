@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Users, GitBranch, PlusCircle, CheckCircle, XCircle, Clock, Loader2 } from 'lucide-react';
+import { ArrowLeft, Users, GitBranch, PlusCircle, CheckCircle, Clock, Loader2 } from 'lucide-react';
 import { api } from '../../api/axios';
 
 interface Subscription { id: string; start_date: string; end_date: string; amount: number; status: string; notes: string | null; }
@@ -56,11 +56,6 @@ export default function SuperAdminClientDetailPage() {
 
   if (loading) return <div className="h-64 bg-app-card rounded-2xl border border-app-border animate-pulse" />;
   if (!client) return <p className="text-app-text-muted">Cliente no encontrado</p>;
-
-  const activeSub = client.subscriptions.find(s => {
-    const end = new Date(s.end_date);
-    return s.status === 'active' && end > new Date();
-  });
 
   return (
     <div className="space-y-6 max-w-4xl">

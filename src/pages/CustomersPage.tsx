@@ -34,8 +34,6 @@ export default function CustomersPage() {
     const canAddPayment = canManage || hasPermission("pos.access");
     // Ver deuda/balance: cualquiera que pueda cobrar lo necesita ver
     const canViewBalance = canAddPayment;
-    // Ver stats detallados (totales cobrados, crédito total): solo con reports
-    const canViewFinancials = hasPermission("reports.view") || isAdmin;
 
     const [customers, setCustomers] = useState<Customer[]>([]);
     const [isLoading, setIsLoading] = useState(true);
