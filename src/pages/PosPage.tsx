@@ -1,9 +1,28 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import DashboardLayout from "../layouts/DashboardLayout";
-import { ShoppingCart, Search, CreditCard, Banknote, Building2, Plus, Minus, Trash2, CheckCircle2, Loader2, AlertTriangle } from "lucide-react";
+import { ShoppingCart, Search, CreditCard, Banknote, Building2, Plus, Minus, Trash2, CheckCircle2, Loader2, AlertTriangle, TrendingUp, Receipt, Wallet, UserCheck, X } from "lucide-react";
 import { api } from "../api/axios";
 import type { ProductRow } from "./InventoryPage";
+
+interface CustomerOption {
+  id: string;
+  name: string;
+  phone?: string;
+  balance: number;
+  credit_limit?: number;
+}
+
+interface ShiftStats {
+  cashSales: number;
+  cardSales: number;
+  transferSales: number;
+  totalSales: number;
+  ticketsCount: number;
+}
+
+const cop = (n: number) =>
+  new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(n);
 
 interface CartItem {
   product: ProductRow;
@@ -16,20 +35,50 @@ export default function PosPage() {
   const [products, setProducts] = useState<ProductRow[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [paymentMethod, setPaymentMethod] = useState<"CASH" | "CARD" | "TRANSFER">("CASH");
+  const [paymentMethod, setPaymentMethod] = useState<"CASH" | "CARD" | "TRANSFER" | "CREDIT">("CASH");
+  const [customerSearch, setCustomerSearch] = useState("");
+  const [customers, setCustomers] = useState<CustomerOption[]>([]);
+  const [selectedCustomer, setSelectedCustomer] = useState<CustomerOption | null>(null);
+  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
+  const customerSearchRef = useRef<HTMLInputElement>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [weightPrompt, setWeightPrompt] = useState<ProductRow | null>(null);
   const [weightInput, setWeightInput] = useState("");
   const [hasCashSession, setHasCashSession] = useState<boolean | null>(null);
   
   const [cashReceived, setCashReceived] = useState<string>("");
-  const [isPriceEditing, setIsPriceEditing] = useState<string | null>(null); // ID del producto siendo editado
+  const [isPriceEditing, setIsPriceEditing] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"catalog" | "cart">("catalog");
+  const [shiftStats, setShiftStats] = useState<ShiftStats | null>(null);
+
+  const fetchShiftStats = async () => {
+    try {
+      const res = await api.get("/cash-registers/current/stats");
+      if (res.data) setShiftStats(res.data);
+    } catch { /* silencioso */ }
+  };
+
+  const fetchCustomers = async () => {
+    try {
+      const res = await api.get("/customers");
+      setCustomers(res.data.map((c: any) => ({
+        id: c.id,
+        name: c.name,
+        phone: c.phone,
+        balance: Number(c.balance ?? 0),
+        credit_limit: c.credit_limit ? Number(c.credit_limit) : undefined,
+      })));
+    } catch { /* silencioso */ }
+  };
 
   useEffect(() => {
     fetchProducts();
+    fetchCustomers();
     api.get("/cash-registers/current")
-      .then(res => setHasCashSession(!!res.data))
+      .then(res => {
+        setHasCashSession(!!res.data);
+        if (res.data) fetchShiftStats();
+      })
       .catch(() => setHasCashSession(false));
   }, []);
 
@@ -134,9 +183,13 @@ export default function PosPage() {
 
   const handleCheckout = async () => {
     if (cart.length === 0) return;
+    if (paymentMethod === 'CREDIT' && !selectedCustomer) {
+      alert("Selecciona un cliente para registrar una venta a crédito.");
+      return;
+    }
     setIsProcessing(true);
     try {
-      const payload = {
+      const payload: any = {
         items: cart.map(c => ({
           productId: c.product.id,
           quantity: c.quantity,
@@ -145,10 +198,17 @@ export default function PosPage() {
         total: cartTotal,
         paymentMethod,
       };
+      if (paymentMethod === 'CREDIT' && selectedCustomer) {
+        payload.customerId = selectedCustomer.id;
+      }
       await api.post("/sales", payload);
       setCart([]);
+      setCashReceived("");
+      setSelectedCustomer(null);
+      setCustomerSearch("");
       alert("✅ ¡Venta registrada con éxito!");
       fetchProducts();
+      fetchShiftStats();
     } catch (error: any) {
       alert(error.response?.data?.message || "Error al procesar la venta.");
     } finally {
@@ -220,42 +280,99 @@ export default function PosPage() {
           </div>
 
           <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar pb-24 lg:pb-0">
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
-              {visibleProducts.map(p => {
-                const agotado = p.stockCount === 0;
-                return (
-                  <button
-                    key={p.id}
-                    onClick={() => addToCart(p)}
-                    disabled={agotado}
-                    className={`relative bg-app-card backdrop-blur-md border ${agotado ? 'border-rose-500/20' : 'border-app-border hover:border-app-accent/50'} rounded-2xl p-4 flex flex-col text-left transition-all ${agotado ? 'opacity-50 cursor-not-allowed grayscale' : 'hover:-translate-y-1 hover:shadow-xl active:scale-95'}`}
-                  >
-                    {agotado && (
-                      <div className="absolute top-2 right-2 px-2 py-0.5 bg-rose-500/20 text-rose-500 text-[10px] font-black rounded uppercase">Agotado</div>
-                    )}
-                    <div className="flex items-center gap-3 mb-3">
+            {searchQuery === '' ? (
+              /* ── Resumen de turno ── */
+              <div className="flex flex-col gap-4 animate-in fade-in duration-300">
+                {/* Total ventas */}
+                <div className="bg-app-card border border-app-border rounded-2xl p-6 flex flex-col items-center justify-center gap-2 shadow-lg">
+                  <div className="flex items-center gap-2 text-app-text-muted">
+                    <TrendingUp size={16} />
+                    <span className="text-[10px] font-black uppercase tracking-widest">Total ventas del turno</span>
+                  </div>
+                  <span className="text-4xl font-black text-app-text tracking-tight">
+                    {shiftStats ? cop(shiftStats.totalSales) : '—'}
+                  </span>
+                  <div className="flex items-center gap-1.5 text-app-text-muted mt-1">
+                    <Receipt size={13} />
+                    <span className="text-[11px] font-bold">
+                      {shiftStats ? `${shiftStats.ticketsCount} ticket${shiftStats.ticketsCount !== 1 ? 's' : ''}` : '0 tickets'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Desglose por método de pago */}
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="bg-app-card border border-app-border rounded-2xl p-4 flex flex-col gap-1.5 shadow">
+                    <div className="flex items-center gap-1.5 text-emerald-500">
+                      <Banknote size={15} />
+                      <span className="text-[9px] font-black uppercase tracking-widest">Efectivo</span>
+                    </div>
+                    <span className="text-xl font-black text-app-text">
+                      {shiftStats ? cop(shiftStats.cashSales) : '—'}
+                    </span>
+                  </div>
+                  <div className="bg-app-card border border-app-border rounded-2xl p-4 flex flex-col gap-1.5 shadow">
+                    <div className="flex items-center gap-1.5 text-blue-400">
+                      <CreditCard size={15} />
+                      <span className="text-[9px] font-black uppercase tracking-widest">Tarjeta</span>
+                    </div>
+                    <span className="text-xl font-black text-app-text">
+                      {shiftStats ? cop(shiftStats.cardSales) : '—'}
+                    </span>
+                  </div>
+                  <div className="bg-app-card border border-app-border rounded-2xl p-4 flex flex-col gap-1.5 shadow">
+                    <div className="flex items-center gap-1.5 text-violet-400">
+                      <Wallet size={15} />
+                      <span className="text-[9px] font-black uppercase tracking-widest">Transf.</span>
+                    </div>
+                    <span className="text-xl font-black text-app-text">
+                      {shiftStats ? cop(shiftStats.transferSales) : '—'}
+                    </span>
+                  </div>
+                </div>
+
+                <p className="text-center text-[10px] font-black uppercase tracking-widest text-app-text-muted opacity-40 mt-2">
+                  Escanea o busca un producto para agregar al ticket
+                </p>
+              </div>
+            ) : (
+              /* ── Resultados de búsqueda ── */
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
+                {visibleProducts.map(p => {
+                  const agotado = p.stockCount === 0;
+                  return (
+                    <button
+                      key={p.id}
+                      onClick={() => addToCart(p)}
+                      disabled={agotado}
+                      className={`relative bg-app-card backdrop-blur-md border ${agotado ? 'border-rose-500/20' : 'border-app-border hover:border-app-accent/50'} rounded-2xl p-4 flex flex-col text-left transition-all ${agotado ? 'opacity-50 cursor-not-allowed grayscale' : 'hover:-translate-y-1 hover:shadow-xl active:scale-95'}`}
+                    >
+                      {agotado && (
+                        <div className="absolute top-2 right-2 px-2 py-0.5 bg-rose-500/20 text-rose-500 text-[10px] font-black rounded uppercase">Agotado</div>
+                      )}
+                      <div className="flex items-center gap-3 mb-3">
                         <div className="w-10 h-10 rounded-full bg-app-bg border border-app-border flex items-center justify-center font-black text-app-accent text-lg overflow-hidden shadow-inner shrink-0 leading-none">
-                            {p.name.charAt(0).toUpperCase()}
+                          {p.name.charAt(0).toUpperCase()}
                         </div>
                         <div className="flex flex-col min-w-0">
-                            <span className="text-app-accent font-mono text-[10px] font-black leading-none">{p.sku}</span>
-                            <h4 className="text-app-text font-bold text-xs leading-none mt-1 truncate">{p.name}</h4>
+                          <span className="text-app-accent font-mono text-[10px] font-black leading-none">{p.sku}</span>
+                          <h4 className="text-app-text font-bold text-xs leading-none mt-1 truncate">{p.name}</h4>
                         </div>
-                    </div>
-                    
-                    <div className="flex items-end justify-between w-full mt-auto">
-                      <span className="text-emerald-500 font-bold text-lg leading-none">${p.sale_price.toLocaleString()}</span>
-                      <span className="text-app-text-muted text-[10px] font-black uppercase">{p.unit_type === 'WEIGHT' ? `${p.stockCount} Kg` : `${p.stockCount} Un.`}</span>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
+                      </div>
+                      <div className="flex items-end justify-between w-full mt-auto">
+                        <span className="text-emerald-500 font-bold text-lg leading-none">${p.sale_price.toLocaleString()}</span>
+                        <span className="text-app-text-muted text-[10px] font-black uppercase">{p.unit_type === 'WEIGHT' ? `${p.stockCount} Kg` : `${p.stockCount} Un.`}</span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
 
         {/* LADO DERECHO: TICKET */}
-        <div className={`w-full lg:w-96 flex flex-col bg-app-sidebar backdrop-blur-3xl rounded-2xl border border-app-border shadow-2xl overflow-hidden h-full ${activeTab === 'cart' ? 'flex fixed inset-0 z-[70] lg:relative lg:inset-auto' : 'hidden lg:flex'}`}>
+        <div className={`w-full lg:w-96 flex flex-col bg-app-sidebar backdrop-blur-3xl rounded-2xl border border-app-border shadow-2xl overflow-hidden lg:h-full ${activeTab === 'cart' ? 'flex fixed inset-0 h-full z-[70] lg:relative lg:inset-auto' : 'hidden lg:flex'}`}>
           <div className="bg-app-accent/10 p-4 border-b border-app-border flex justify-between items-center">
             <h3 className="text-sm font-black text-app-text uppercase tracking-widest">Resumen Ticket</h3>
             <button 
@@ -266,7 +383,7 @@ export default function PosPage() {
             </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
+          <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3 custom-scrollbar">
             {cart.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-app-text-muted opacity-30 space-y-4">
                 <ShoppingCart size={48} />
@@ -330,16 +447,17 @@ export default function PosPage() {
           </div>
 
           {/* Checkout Area */}
-          <div className="bg-app-accent/5 p-4 md:p-5 mt-auto border-t border-app-border space-y-4">
-            <div className="grid grid-cols-3 gap-2 bg-app-bg p-1 rounded-xl border border-app-border shadow-inner">
+          <div className="bg-app-accent/5 p-4 md:p-5 border-t border-app-border space-y-4 shrink-0">
+            <div className="grid grid-cols-4 gap-1.5 bg-app-bg p-1 rounded-xl border border-app-border shadow-inner">
               {([
-                { key: "CASH", label: "Cash", icon: <Banknote size={16} /> },
-                { key: "CARD", label: "Card", icon: <CreditCard size={16} /> },
-                { key: "TRANSFER", label: "Transf.", icon: <Building2 size={16} /> },
+                { key: "CASH",     label: "Efectivo", icon: <Banknote size={14} /> },
+                { key: "CARD",     label: "Tarjeta",  icon: <CreditCard size={14} /> },
+                { key: "TRANSFER", label: "Transf.",  icon: <Building2 size={14} /> },
+                { key: "CREDIT",   label: "Crédito",  icon: <UserCheck size={14} /> },
               ] as const).map(m => (
                 <button
                   key={m.key}
-                  onClick={() => setPaymentMethod(m.key)}
+                  onClick={() => { setPaymentMethod(m.key); setSelectedCustomer(null); setCustomerSearch(""); }}
                   className={`flex flex-col items-center py-2 rounded-lg transition-all ${paymentMethod === m.key ? 'bg-app-accent text-white shadow-lg shadow-app-accent/20 scale-105' : 'text-app-text-muted hover:bg-app-accent/10'}`}
                 >
                   {m.icon}
@@ -347,6 +465,68 @@ export default function PosPage() {
                 </button>
               ))}
             </div>
+
+            {paymentMethod === 'CREDIT' && (
+              <div className="relative animate-in slide-in-from-bottom-2 duration-200">
+                {selectedCustomer ? (
+                  <div className="flex items-center justify-between bg-app-accent/10 border border-app-accent/30 rounded-xl px-3 py-2.5">
+                    <div className="flex flex-col">
+                      <span className="text-app-accent font-black text-sm">{selectedCustomer.name}</span>
+                      <span className="text-[10px] text-app-text-muted font-bold">
+                        Saldo: <span className={selectedCustomer.balance > 0 ? 'text-rose-400' : 'text-emerald-400'}>${selectedCustomer.balance.toLocaleString()}</span>
+                        {selectedCustomer.credit_limit !== undefined && (
+                          <span className="ml-2 opacity-60">/ Límite: ${selectedCustomer.credit_limit.toLocaleString()}</span>
+                        )}
+                      </span>
+                    </div>
+                    <button onClick={() => { setSelectedCustomer(null); setCustomerSearch(""); }} className="text-app-text-muted hover:text-rose-400 transition-colors ml-2">
+                      <X size={16} />
+                    </button>
+                  </div>
+                ) : (
+                  <div>
+                    <div className="relative">
+                      <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-app-text-muted" />
+                      <input
+                        ref={customerSearchRef}
+                        type="text"
+                        placeholder="Buscar cliente..."
+                        value={customerSearch}
+                        onChange={(e) => { setCustomerSearch(e.target.value); setShowCustomerDropdown(true); }}
+                        onFocus={() => setShowCustomerDropdown(true)}
+                        onBlur={() => setTimeout(() => setShowCustomerDropdown(false), 150)}
+                        className="w-full bg-app-bg border border-app-border rounded-xl pl-9 pr-4 py-2.5 text-app-text placeholder-app-text-muted focus:outline-none focus:border-app-accent/50 text-sm"
+                      />
+                    </div>
+                    {showCustomerDropdown && (
+                      <div className="absolute bottom-full left-0 right-0 mb-1 bg-app-card border border-app-border rounded-xl shadow-2xl overflow-hidden z-20 max-h-48 overflow-y-auto">
+                        {customers
+                          .filter(c => !customerSearch || c.name.toLowerCase().includes(customerSearch.toLowerCase()) || (c.phone && c.phone.includes(customerSearch)))
+                          .slice(0, 6)
+                          .map(c => (
+                            <button
+                              key={c.id}
+                              onMouseDown={() => { setSelectedCustomer(c); setCustomerSearch(""); setShowCustomerDropdown(false); }}
+                              className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-app-accent/10 transition-colors border-b border-app-border last:border-0 text-left"
+                            >
+                              <div className="flex flex-col">
+                                <span className="text-app-text font-bold text-sm">{c.name}</span>
+                                {c.phone && <span className="text-app-text-muted text-[10px]">{c.phone}</span>}
+                              </div>
+                              {c.balance > 0 && (
+                                <span className="text-rose-400 font-black text-xs">${c.balance.toLocaleString()}</span>
+                              )}
+                            </button>
+                          ))}
+                        {customers.filter(c => !customerSearch || c.name.toLowerCase().includes(customerSearch.toLowerCase())).length === 0 && (
+                          <div className="px-3 py-3 text-app-text-muted text-xs text-center">Sin resultados</div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="flex flex-col border-b border-app-border pb-4 space-y-3">
                 <div className="flex justify-between items-center px-1">
@@ -379,8 +559,8 @@ export default function PosPage() {
 
             <button
               onClick={handleCheckout}
-              disabled={cart.length === 0 || isProcessing || (paymentMethod === 'CASH' && (parseFloat(cashReceived) < cartTotal || !cashReceived))}
-              className={`w-full py-4 rounded-xl font-black uppercase tracking-[0.2em] flex justify-center items-center gap-2 transition-all shadow-xl ${cart.length === 0 || (paymentMethod === 'CASH' && parseFloat(cashReceived) < cartTotal) ? 'bg-app-accent/5 text-app-text-muted cursor-not-allowed border border-app-border' : 'bg-app-accent hover:bg-app-accent-hover text-white shadow-app-accent/40 active:scale-95'}`}
+              disabled={cart.length === 0 || isProcessing || (paymentMethod === 'CASH' && (parseFloat(cashReceived) < cartTotal || !cashReceived)) || (paymentMethod === 'CREDIT' && !selectedCustomer)}
+              className={`w-full py-4 rounded-xl font-black uppercase tracking-[0.2em] flex justify-center items-center gap-2 transition-all shadow-xl ${cart.length === 0 || (paymentMethod === 'CASH' && parseFloat(cashReceived) < cartTotal) || (paymentMethod === 'CREDIT' && !selectedCustomer) ? 'bg-app-accent/5 text-app-text-muted cursor-not-allowed border border-app-border' : 'bg-app-accent hover:bg-app-accent-hover text-white shadow-app-accent/40 active:scale-95'}`}
             >
               {isProcessing ? <Loader2 size={24} className="animate-spin" /> : <CheckCircle2 size={24} />}
               {isProcessing ? "PROCESANDO..." : "COBRAR TICKET"}

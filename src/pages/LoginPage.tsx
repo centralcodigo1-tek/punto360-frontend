@@ -24,8 +24,8 @@ export default function LoginPage() {
         setLoading(true);
 
         try {
-            await login(email, password);
-            navigate('/');
+            const role = await login(email, password);
+            navigate(role === 'SUPERADMIN' ? '/superadmin' : '/');
         } catch (err: any) {
             setError(err?.response?.data?.message || 'Credenciales inválidas');
         } finally {

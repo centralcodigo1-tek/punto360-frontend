@@ -173,23 +173,23 @@ export default function UsersRolesPage() {
     <DashboardLayout>
       <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-white flex items-center gap-3">
+          <h1 className="text-3xl font-bold text-app-text flex items-center gap-3">
             <Users size={32} className="text-cyan-400" />
             Configuración del Equipo
           </h1>
-          <p className="text-white/40 mt-1">Administra los usuarios, sus roles y los permisos de acceso.</p>
+          <p className="text-app-text-muted mt-1">Administra los usuarios, sus roles y los permisos de acceso.</p>
         </div>
         
-        <div className="flex bg-white/5 p-1 rounded-xl border border-white/10 self-start">
+        <div className="flex bg-app-card p-1 rounded-xl border border-app-border self-start">
           <button 
             onClick={() => setActiveTab("users")}
-            className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === "users" ? "bg-cyan-500 text-white shadow-lg shadow-cyan-500/20" : "text-white/50 hover:text-white"}`}
+            className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === "users" ? "bg-cyan-500 text-white shadow-lg shadow-cyan-500/20" : "text-app-text-muted hover:text-app-text"}`}
           >
             Usuarios
           </button>
           <button 
             onClick={() => setActiveTab("roles")}
-            className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === "roles" ? "bg-cyan-500 text-white shadow-lg shadow-cyan-500/20" : "text-white/50 hover:text-white"}`}
+            className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === "roles" ? "bg-cyan-500 text-white shadow-lg shadow-cyan-500/20" : "text-app-text-muted hover:text-app-text"}`}
           >
             Roles y Permisos
           </button>
@@ -212,11 +212,11 @@ export default function UsersRolesPage() {
              </button>
           </div>
 
-          <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden backdrop-blur-md">
+          <div className="bg-app-card border border-app-border rounded-2xl overflow-hidden backdrop-blur-md">
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="bg-white/5 border-b border-white/10 uppercase text-[10px] font-bold text-white/40 tracking-wider">
+                  <tr className="bg-app-card border-b border-app-border uppercase text-[10px] font-bold text-app-text-muted tracking-wider">
                     <th className="px-6 py-4">Usuario</th>
                     <th className="px-6 py-4">Roles</th>
                     <th className="px-6 py-4">Sucursales</th>
@@ -226,11 +226,11 @@ export default function UsersRolesPage() {
                 </thead>
                 <tbody className="divide-y divide-white/5">
                   {users.map(user => (
-                    <tr key={user.id} className="hover:bg-white/5 transition-colors">
+                    <tr key={user.id} className="hover:bg-app-card transition-colors">
                       <td className="px-6 py-4">
                         <div className="flex flex-col">
                           <span className="text-white font-medium">{user.name}</span>
-                          <span className="text-white/40 text-xs">{user.email} | @{user.user_name}</span>
+                          <span className="text-app-text-muted text-xs">{user.email} | @{user.user_name}</span>
                         </div>
                       </td>
                       <td className="px-6 py-4">
@@ -264,10 +264,10 @@ export default function UsersRolesPage() {
                       </td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex justify-end gap-2">
-                           <button onClick={() => handleOpenUserModal(user)} className="p-2 text-white/30 hover:text-cyan-400 hover:bg-white/5 rounded-lg transition-all">
+                           <button onClick={() => handleOpenUserModal(user)} className="p-2 text-app-text-muted hover:text-cyan-400 hover:bg-app-card rounded-lg transition-all">
                               <Edit2 size={16} />
                            </button>
-                           <button onClick={() => handleDeleteUser(user)} className="p-2 text-white/30 hover:text-rose-400 hover:bg-white/5 rounded-lg transition-all">
+                           <button onClick={() => handleDeleteUser(user)} className="p-2 text-app-text-muted hover:text-rose-400 hover:bg-app-card rounded-lg transition-all">
                               <Trash2 size={16} />
                            </button>
                         </div>
@@ -283,16 +283,16 @@ export default function UsersRolesPage() {
         /* --- TAB ROLES --- */
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {roles.map(role => (
-            <div key={role.id} className="bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-md shadow-xl border-t-4 border-t-cyan-500">
+            <div key={role.id} className="bg-app-card border border-app-border rounded-2xl p-6 backdrop-blur-md shadow-xl border-t-4 border-t-cyan-500">
                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-xl font-bold text-white">{role.name}</h3>
+                  <h3 className="text-xl font-bold text-app-text">{role.name}</h3>
                   <ShieldCheck className="text-cyan-400" size={24} />
                </div>
                <div className="space-y-2">
-                  <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest mb-3">Permisos Asignados</p>
+                  <p className="text-[10px] font-bold text-app-text-muted uppercase tracking-widest mb-3">Permisos Asignados</p>
                   <div className="flex flex-col gap-2">
                     {role.role_permissions.map(rp => (
-                      <div key={rp.permissions.id} className="flex items-center gap-2 text-xs text-white/70">
+                      <div key={rp.permissions.id} className="flex items-center gap-2 text-xs text-app-text">
                          <div className="w-1 h-1 rounded-full bg-cyan-500" />
                          {rp.permissions.name}
                       </div>
@@ -300,7 +300,7 @@ export default function UsersRolesPage() {
                   </div>
                </div>
                
-               <div className="mt-8 pt-4 border-t border-white/10 flex items-center gap-2 text-[10px] text-white/30">
+               <div className="mt-8 pt-4 border-t border-app-border flex items-center gap-2 text-[10px] text-app-text-muted">
                   <Info size={12} />
                   <span>Este rol es predeterminado y no puede editarse.</span>
                </div>
@@ -312,10 +312,10 @@ export default function UsersRolesPage() {
       {/* MODAL USUARIO */}
       {showUserModal && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={() => setShowUserModal(false)}></div>
-          <div className="relative w-full max-w-2xl bg-[#0f172a] rounded-3xl border border-white/10 shadow-2xl overflow-hidden">
-             <div className="px-8 py-6 border-b border-white/5">
-                <h3 className="text-xl font-bold text-white flex items-center gap-2">
+          <div className="absolute inset-0 bg-app-bg backdrop-blur-md" onClick={() => setShowUserModal(false)}></div>
+          <div className="relative w-full max-w-2xl bg-app-bg rounded-3xl border border-app-border shadow-2xl overflow-hidden">
+             <div className="px-8 py-6 border-b border-app-border">
+                <h3 className="text-xl font-bold text-app-text flex items-center gap-2">
                    {currentUser ? <Edit2 size={20} className="text-cyan-400" /> : <Plus size={20} className="text-cyan-400" />}
                    {currentUser ? "Editar Usuario" : "Nuevo Usuario de Equipo"}
                 </h3>
@@ -324,46 +324,46 @@ export default function UsersRolesPage() {
              <div className="p-8 max-h-[70vh] overflow-y-auto custom-scrollbar">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                    <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-white/40 uppercase tracking-wider ml-1">Nombre Completo</label>
+                      <label className="text-xs font-bold text-app-text-muted uppercase tracking-wider ml-1">Nombre Completo</label>
                       <input 
                         type="text" 
                         value={formData.name}
                         onChange={e => setFormData({...formData, name: e.target.value})}
-                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-cyan-500 transition-colors"
+                        className="w-full bg-app-card border border-app-border rounded-xl px-4 py-3 text-app-text focus:outline-none focus:border-cyan-500 transition-colors"
                         placeholder="Ej. Juan Pérez"
                       />
                    </div>
                    <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-white/40 uppercase tracking-wider ml-1">Email</label>
+                      <label className="text-xs font-bold text-app-text-muted uppercase tracking-wider ml-1">Email</label>
                       <input 
                         type="email" 
                         value={formData.email}
                         onChange={e => setFormData({...formData, email: e.target.value})}
-                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-cyan-500 transition-colors"
+                        className="w-full bg-app-card border border-app-border rounded-xl px-4 py-3 text-app-text focus:outline-none focus:border-cyan-500 transition-colors"
                         placeholder="juan@ejemplo.com"
                       />
                    </div>
                    <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-white/40 uppercase tracking-wider ml-1">Nombre de Usuario</label>
+                      <label className="text-xs font-bold text-app-text-muted uppercase tracking-wider ml-1">Nombre de Usuario</label>
                       <input 
                         type="text" 
                         value={formData.user_name}
                         onChange={e => setFormData({...formData, user_name: e.target.value})}
-                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-cyan-500 transition-colors"
+                        className="w-full bg-app-card border border-app-border rounded-xl px-4 py-3 text-app-text focus:outline-none focus:border-cyan-500 transition-colors"
                         placeholder="perez_juan"
                       />
                    </div>
                    <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-white/40 uppercase tracking-wider ml-1">Contraseña</label>
+                      <label className="text-xs font-bold text-app-text-muted uppercase tracking-wider ml-1">Contraseña</label>
                       <div className="relative">
                         <input 
                           type="password" 
                           value={formData.password}
                           onChange={e => setFormData({...formData, password: e.target.value})}
-                          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-cyan-500 transition-colors"
+                          className="w-full bg-app-card border border-app-border rounded-xl px-4 py-3 text-app-text focus:outline-none focus:border-cyan-500 transition-colors"
                           placeholder={currentUser ? "Vacío para no cambiar" : "*******"}
                         />
-                        <Lock size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-white/20" />
+                        <Lock size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-app-text-muted" />
                       </div>
                    </div>
                 </div>
@@ -371,16 +371,16 @@ export default function UsersRolesPage() {
                 <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-8">
                    {/* SELECCIÓN DE ROLES */}
                    <div>
-                      <label className="text-xs font-bold text-white/40 uppercase tracking-wider mb-3 block">Asignar Roles</label>
+                      <label className="text-xs font-bold text-app-text-muted uppercase tracking-wider mb-3 block">Asignar Roles</label>
                       <div className="space-y-2">
                          {roles.map(role => (
                            <button 
                              key={role.id}
                              onClick={() => toggleRole(role.id)}
-                             className={`w-full flex items-center justify-between p-3 rounded-xl border transition-all ${formData.roleIds.includes(role.id) ? "bg-cyan-500/10 border-cyan-500/50 text-white" : "bg-white/5 border-white/5 text-white/40 hover:bg-white/10"}`}
+                             className={`w-full flex items-center justify-between p-3 rounded-xl border transition-all ${formData.roleIds.includes(role.id) ? "bg-cyan-500/10 border-cyan-500/50 text-white" : "bg-app-card border-app-border text-white-muted hover:bg-app-card"}`}
                            >
                               <div className="flex items-center gap-2">
-                                <ShieldCheck size={16} className={formData.roleIds.includes(role.id) ? "text-cyan-400" : "text-white/20"} />
+                                <ShieldCheck size={16} className={formData.roleIds.includes(role.id) ? "text-cyan-400" : "text-app-text-muted"} />
                                 <span className="text-sm font-medium">{role.name}</span>
                               </div>
                               {formData.roleIds.includes(role.id) && <CheckCircle2 size={16} className="text-cyan-400" />}
@@ -391,16 +391,16 @@ export default function UsersRolesPage() {
 
                    {/* SELECCIÓN DE SUCURSALES */}
                    <div>
-                      <label className="text-xs font-bold text-white/40 uppercase tracking-wider mb-3 block">Accesos a Sucursales</label>
+                      <label className="text-xs font-bold text-app-text-muted uppercase tracking-wider mb-3 block">Accesos a Sucursales</label>
                       <div className="space-y-2">
                          {branches.map(branch => (
                            <button 
                              key={branch.id}
                              onClick={() => toggleBranch(branch.id)}
-                             className={`w-full flex items-center justify-between p-3 rounded-xl border transition-all ${formData.branchIds.includes(branch.id) ? "bg-blue-500/10 border-blue-500/50 text-white" : "bg-white/5 border-white/5 text-white/40 hover:bg-white/10"}`}
+                             className={`w-full flex items-center justify-between p-3 rounded-xl border transition-all ${formData.branchIds.includes(branch.id) ? "bg-blue-500/10 border-blue-500/50 text-white" : "bg-app-card border-app-border text-white-muted hover:bg-app-card"}`}
                            >
                               <div className="flex items-center gap-2">
-                                <Building2 size={16} className={formData.branchIds.includes(branch.id) ? "text-blue-400" : "text-white/20"} />
+                                <Building2 size={16} className={formData.branchIds.includes(branch.id) ? "text-blue-400" : "text-app-text-muted"} />
                                 <span className="text-sm font-medium">{branch.name}</span>
                               </div>
                               {formData.branchIds.includes(branch.id) && <CheckCircle2 size={16} className="text-blue-400" />}
@@ -411,10 +411,10 @@ export default function UsersRolesPage() {
                 </div>
              </div>
 
-             <div className="p-8 bg-white/5 border-t border-white/5 flex gap-4">
+             <div className="p-8 bg-app-card border-t border-app-border flex gap-4">
                 <button 
                   onClick={() => setShowUserModal(false)}
-                  className="flex-1 py-4 text-white/50 font-bold hover:text-white transition-colors"
+                  className="flex-1 py-4 text-app-text-muted font-bold hover:text-app-text transition-colors"
                 >
                   Cancelar
                 </button>

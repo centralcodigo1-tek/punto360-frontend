@@ -22,13 +22,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
     }, []);
 
-    const login = async (email: string, password: string) => {
+    const login = async (email: string, password: string): Promise<string | null> => {
         const res = await api.post('/auth/login', { email, password });
         const token = res.data.access_token;
 
         localStorage.setItem('token', token);
         const decoded = jwtDecode<User>(token);
         setUser(decoded);
+        return decoded.role;
     };
 
     const logout = () => {

@@ -6,9 +6,10 @@ interface InventoryFiltersProps {
     setSearchQuery: (val: string) => void;
     filterType: "all" | "low" | "out";
     setFilterType: (val: "all" | "low" | "out") => void;
+    canCreate?: boolean;
 }
 
-export default function InventoryFilters({ searchQuery, setSearchQuery, filterType, setFilterType }: InventoryFiltersProps) {
+export default function InventoryFilters({ searchQuery, setSearchQuery, filterType, setFilterType, canCreate = true }: InventoryFiltersProps) {
     return (
         <div className="bg-app-card backdrop-blur-md border border-app-border rounded-2xl p-4 md:p-6 shadow-xl space-y-5">
             {/* Cabecera y Botón Nuevo */}
@@ -20,13 +21,15 @@ export default function InventoryFilters({ searchQuery, setSearchQuery, filterTy
                     <h3 className="text-[10px] font-black text-app-text-muted uppercase tracking-[0.3em]">Gestión de Filtros</h3>
                 </div>
 
-                <NavLink 
-                    to="/nuevo_producto"
-                    className="group flex items-center gap-2 bg-app-accent hover:bg-app-accent-hover text-white px-5 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-app-accent/20 transition-all active:scale-95 w-full sm:w-auto justify-center"
-                >
-                    <Plus size={16} className="transition-transform group-hover:rotate-90" />
-                    Nuevo Producto
-                </NavLink>
+                {canCreate && (
+                    <NavLink
+                        to="/nuevo_producto"
+                        className="group flex items-center gap-2 bg-app-accent hover:bg-app-accent-hover text-white px-5 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-app-accent/20 transition-all active:scale-95 w-full sm:w-auto justify-center"
+                    >
+                        <Plus size={16} className="transition-transform group-hover:rotate-90" />
+                        Nuevo Producto
+                    </NavLink>
+                )}
             </div>
 
             {/* Fila de Controles */}

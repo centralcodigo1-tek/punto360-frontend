@@ -61,6 +61,7 @@ export default function ReportsPage() {
   const [topProducts, setTopProducts] = useState<TopProduct[]>([]);
   const [categories, setCategories] = useState<CategoryStat[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(false);
 
   useEffect(() => {
     fetchReports();
@@ -68,6 +69,7 @@ export default function ReportsPage() {
 
   const fetchReports = async () => {
     setIsLoading(true);
+    setFetchError(false);
     try {
       const { start, end } = range;
       const [finRes, trendRes, topRes, catRes] = await Promise.all([
@@ -76,7 +78,7 @@ export default function ReportsPage() {
         api.get(`/reports/top-products?startDate=${start}&endDate=${end}&limit=8`),
         api.get(`/reports/category-stats?startDate=${start}&endDate=${end}`)
       ]);
-      
+
       setSummary(finRes.data);
       setTrend(trendRes.data);
       setTopProducts(topRes.data);
@@ -90,6 +92,7 @@ export default function ReportsPage() {
       }
     } catch (e) {
       console.error("Error fetching reports", e);
+      setFetchError(true);
     } finally {
       setIsLoading(false);
     }
@@ -118,7 +121,7 @@ export default function ReportsPage() {
   if (!hasPermission("reports.view")) {
     return (
       <DashboardLayout>
-        <div className="flex flex-col items-center justify-center h-[60vh] text-white/20">
+        <div className="flex flex-col items-center justify-center h-[60vh] text-app-text-muted">
             <Lock size={64} className="mb-4 opacity-20" />
             <h2 className="text-xl font-bold">Acceso Denegado</h2>
             <p>No tienes permisos para ver reportes financieros.</p>
@@ -131,32 +134,32 @@ export default function ReportsPage() {
     <DashboardLayout>
       <div className="mb-6 flex flex-col xl:flex-row xl:items-center justify-between gap-6">
         <div>
-          <h1 className="text-3xl font-bold text-white flex items-center gap-3">
+          <h1 className="text-3xl font-bold text-app-text flex items-center gap-3">
             <TrendingUp size={32} className="text-emerald-400" />
             Inteligencia de Negocio
           </h1>
-          <p className="text-white/40 mt-1">Análisis profundo de rentabilidad, tendencias y desempeño.</p>
+          <p className="text-app-text-muted mt-1">Análisis profundo de rentabilidad, tendencias y desempeño.</p>
         </div>
 
         {/* Filtros */}
-        <div className="flex flex-wrap items-center gap-3 bg-white/5 p-4 rounded-2xl border border-white/10 backdrop-blur-md">
+        <div className="flex flex-wrap items-center gap-3 bg-app-card p-4 rounded-2xl border border-app-border backdrop-blur-md">
             <div className="flex items-center gap-2">
-                <Calendar size={16} className="text-white/30" />
+                <Calendar size={16} className="text-app-text-muted" />
                 <input 
                   type="date" 
                   value={range.start} 
                   onChange={e => setRange({...range, start: e.target.value})}
-                  className="bg-black/20 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none"
+                  className="bg-app-bg border border-app-border rounded-lg px-2 py-1.5 text-xs text-app-text focus:outline-none"
                 />
-                <span className="text-white/20">al</span>
+                <span className="text-app-text-muted">al</span>
                 <input 
                   type="date" 
                   value={range.end} 
                   onChange={e => setRange({...range, end: e.target.value})}
-                  className="bg-black/20 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none"
+                  className="bg-app-bg border border-app-border rounded-lg px-2 py-1.5 text-xs text-app-text focus:outline-none"
                 />
             </div>
-            <div className="w-px h-6 bg-white/10 mx-1 hidden md:block"></div>
+            <div className="w-px h-6 bg-app-card mx-1 hidden md:block"></div>
             <button 
               onClick={fetchReports}
               className="px-4 py-2 bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 rounded-lg text-sm font-bold hover:bg-emerald-500/30 transition-all flex items-center gap-2"
@@ -167,61 +170,70 @@ export default function ReportsPage() {
       </div>
 
       {isLoading ? (
-        <div className="flex flex-col items-center justify-center h-[50vh] text-white/30 gap-4">
+        <div className="flex flex-col items-center justify-center h-[50vh] text-app-text-muted gap-4">
             <Loader2 size={48} className="animate-spin text-emerald-500" />
             <p className="animate-pulse font-medium">Calculando métricas corporativas...</p>
+        </div>
+      ) : fetchError ? (
+        <div className="flex flex-col items-center justify-center h-[50vh] text-app-text-muted gap-4">
+            <TrendingUp size={48} className="opacity-20" />
+            <p className="font-bold text-lg">No se pudieron cargar los reportes</p>
+            <p className="text-sm opacity-60">Verifica tu conexión o vuelve a intentarlo</p>
+            <button onClick={fetchReports} className="px-5 py-2.5 bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 rounded-xl font-bold text-sm hover:bg-emerald-500/30 transition-all">
+                Reintentar
+            </button>
         </div>
       ) : (
         <div className="space-y-6">
           
           {/* KPI CARDS */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-            <div className="bg-white/5 border border-white/10 p-6 rounded-2xl backdrop-blur-md relative overflow-hidden group">
+            <div className="bg-app-card border border-app-border p-6 rounded-2xl backdrop-blur-md relative overflow-hidden group">
                <div className="absolute -top-6 -right-6 w-24 h-24 bg-blue-500/10 rounded-full blur-2xl group-hover:bg-blue-500/20 transition-all"></div>
                <div className="flex justify-between items-start mb-4">
                   <div className="p-2 bg-blue-500/20 text-blue-400 rounded-lg"><DollarSign size={20} /></div>
                   <DeltaIndicator current={summary?.totalRevenue || 0} previous={prevSummary?.totalRevenue} />
                </div>
-               <p className="text-white/40 text-xs font-bold uppercase tracking-widest mb-1">Ingresos Totales</p>
-               <h3 className="text-2xl font-black text-white">{cop(summary?.totalRevenue || 0)}</h3>
+               <p className="text-app-text-muted text-xs font-bold uppercase tracking-widest mb-1">Ingresos Totales</p>
+               <h3 className="text-2xl font-black text-app-text">{cop(summary?.totalRevenue || 0)}</h3>
             </div>
 
-            <div className="bg-white/5 border border-white/10 p-6 rounded-2xl backdrop-blur-md relative overflow-hidden group">
+            <div className="bg-app-card border border-app-border p-6 rounded-2xl backdrop-blur-md relative overflow-hidden group">
                <div className="absolute -top-6 -right-6 w-24 h-24 bg-emerald-500/10 rounded-full blur-2xl group-hover:bg-emerald-500/20 transition-all"></div>
                <div className="flex justify-between items-start mb-4">
                   <div className="p-2 bg-emerald-500/20 text-emerald-400 rounded-lg"><Wallet size={20} /></div>
                   <DeltaIndicator current={summary?.grossProfit || 0} previous={prevSummary?.grossProfit} />
                </div>
-               <p className="text-white/40 text-xs font-bold uppercase tracking-widest mb-1">Utilidad Bruta</p>
+               <p className="text-app-text-muted text-xs font-bold uppercase tracking-widest mb-1">Utilidad Bruta</p>
                <h3 className="text-2xl font-black text-emerald-400">{cop(summary?.grossProfit || 0)}</h3>
             </div>
 
-            <div className="bg-white/5 border border-white/10 p-6 rounded-2xl backdrop-blur-md relative overflow-hidden group">
+            <div className="bg-app-card border border-app-border p-6 rounded-2xl backdrop-blur-md relative overflow-hidden group">
                <div className="absolute -top-6 -right-6 w-24 h-24 bg-amber-500/10 rounded-full blur-2xl group-hover:bg-amber-500/20 transition-all"></div>
                <div className="flex justify-between items-start mb-4">
                   <div className="p-2 bg-amber-500/20 text-amber-500 rounded-lg"><Percent size={20} /></div>
                   <DeltaIndicator current={summary?.profitMargin || 0} previous={prevSummary?.profitMargin} />
                </div>
-               <p className="text-white/40 text-xs font-bold uppercase tracking-widest mb-1">Margen de Ganancia</p>
-               <h3 className="text-2xl font-black text-white">{summary?.profitMargin.toFixed(1)}%</h3>
+               <p className="text-app-text-muted text-xs font-bold uppercase tracking-widest mb-1">Margen de Ganancia</p>
+               <h3 className="text-2xl font-black text-app-text">{(summary?.profitMargin ?? 0).toFixed(1)}%</h3>
             </div>
 
-            <div className="bg-white/5 border border-white/10 p-6 rounded-2xl backdrop-blur-md relative overflow-hidden group">
+            <div className="bg-app-card border border-app-border p-6 rounded-2xl backdrop-blur-md relative overflow-hidden group">
                <div className="absolute -top-6 -right-6 w-24 h-24 bg-violet-500/10 rounded-full blur-2xl group-hover:bg-violet-500/20 transition-all"></div>
                <div className="flex justify-between items-start mb-4">
                   <div className="p-2 bg-violet-500/20 text-violet-400 rounded-lg"><TrendingUp size={20} /></div>
                   <DeltaIndicator current={summary?.averageTicket || 0} previous={prevSummary?.averageTicket} />
                </div>
-               <p className="text-white/40 text-xs font-bold uppercase tracking-widest mb-1">Ticket Promedio</p>
-               <h3 className="text-2xl font-black text-white">{cop(summary?.averageTicket || 0)}</h3>
+               <p className="text-app-text-muted text-xs font-bold uppercase tracking-widest mb-1">Ticket Promedio</p>
+               <h3 className="text-2xl font-black text-app-text">{cop(summary?.averageTicket || 0)}</h3>
             </div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             
             {/* GRÁFICA DE TENDENCIA */}
-            <div className="lg:col-span-2 bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-md">
-               <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
+            <div className="lg:col-span-2 bg-app-card border border-app-border rounded-2xl p-6 backdrop-blur-md">
+               <h3 className="text-lg font-bold text-app-text mb-6 flex items-center gap-2">
                  <BarChart3 size={18} className="text-cyan-400" />
                  Evolución de Ventas Diarias
                </h3>
@@ -249,8 +261,8 @@ export default function ReportsPage() {
             </div>
 
             {/* GRÁFICA DE CATEGORÍAS */}
-            <div className="bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-md">
-               <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
+            <div className="bg-app-card border border-app-border rounded-2xl p-6 backdrop-blur-md">
+               <h3 className="text-lg font-bold text-app-text mb-6 flex items-center gap-2">
                  <PieChart size={18} className="text-violet-400" />
                  Distribución por Categoría
                </h3>
@@ -281,13 +293,13 @@ export default function ReportsPage() {
             </div>
 
             {/* TOP PRODUCTOS */}
-            <div className="lg:col-span-3 bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-md">
+            <div className="lg:col-span-3 bg-app-card border border-app-border rounded-2xl p-6 backdrop-blur-md">
                 <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                    <h3 className="text-lg font-bold text-app-text flex items-center gap-2">
                         <ArrowUpRight size={18} className="text-emerald-400" />
                         Top Productos por Rendimiento
                     </h3>
-                    <div className="p-2 bg-white/5 rounded-lg text-white/30"><Info size={16} /></div>
+                    <div className="p-2 bg-app-card rounded-lg text-app-text-muted"><Info size={16} /></div>
                 </div>
                 <div className="h-[350px] w-full">
                     <ResponsiveContainer width="100%" height="100%">

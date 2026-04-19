@@ -23,7 +23,8 @@ export interface ProductRow {
 }
 
 export default function InventoryPage() {
-    const { user } = useAuth();
+    const { user, hasPermission } = useAuth();
+    const canManageInventory = hasPermission("inventory.manage") || user?.role === "ADMIN";
     
     // Core State
     const [allProducts, setAllProducts] = useState<ProductRow[]>([]);
@@ -49,14 +50,14 @@ export default function InventoryPage() {
                 let statusColor = "bg-emerald-500/20 text-emerald-400 border-emerald-500/20";
       
                 if (currentStock === 0) {
-                  statusText = "Sin Stock";
+                  statusText = "SIN STOCK";
                   statusColor = "bg-rose-500/20 text-rose-400 border-rose-500/20";
                 } else if (currentStock <= 5) {
                   statusText = "Stock Bajo";
                   statusColor = "bg-amber-500/20 text-amber-400 border-amber-500/20";
                 } else if (!p.is_active) {
                   statusText = "Inactivo";
-                  statusColor = "bg-slate-500/20 text-slate-400 border-slate-500/20";
+                  statusColor = "bg-slate-500/20 text-app-text-muted border-slate-500/20";
                 }
       
                 return {
@@ -132,11 +133,12 @@ export default function InventoryPage() {
                 />
 
                 {/* Filtros */}
-                <InventoryFilters 
+                <InventoryFilters
                    searchQuery={searchQuery}
                    setSearchQuery={setSearchQuery}
                    filterType={filterType}
                    setFilterType={setFilterType}
+                   canCreate={canManageInventory}
                 />
 
                 {/* Tabla */}
@@ -152,11 +154,11 @@ export default function InventoryPage() {
             {/* Modal de Edición Glassmorphism */}
             {editingProduct && (
                 <div className="fixed inset-0 z-50 flex justify-center items-center p-4">
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setEditingProduct(null)}></div>
-                    <div className="relative w-full max-w-4xl bg-app-bg rounded-2xl shadow-2xl border border-white/10 max-h-[90vh] overflow-y-auto">
+                    <div className="absolute inset-0 bg-app-bg backdrop-blur-sm" onClick={() => setEditingProduct(null)}></div>
+                    <div className="relative w-full max-w-4xl bg-app-bg rounded-2xl shadow-2xl border border-app-border max-h-[90vh] overflow-y-auto">
                         <div className="sticky top-0 z-10 flex justify-between items-center p-4 bg-app-bg/90 backdrop-blur border-b border-app-border">
                             <h2 className="text-xl font-bold text-app-text">Editar Producto</h2>
-                            <button onClick={() => setEditingProduct(null)} className="p-2 text-white/50 hover:text-white bg-white/5 rounded-lg transition-colors">
+                            <button onClick={() => setEditingProduct(null)} className="p-2 text-app-text-muted hover:text-white bg-app-card rounded-lg transition-colors">
                                 <X size={20} />
                             </button>
                         </div>

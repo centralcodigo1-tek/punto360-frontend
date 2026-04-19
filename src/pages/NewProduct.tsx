@@ -13,8 +13,8 @@ export default function NewProductPage() {
                         <PackagePlus size={28} />
                     </div>
                     <div>
-                        <h1 className="text-3xl font-bold text-slate-100 drop-shadow-md">Alta de Producto</h1>
-                        <p className="text-slate-400 text-sm font-medium">Se vinculará a la empresa {user?.companyName || "tu negocio"}</p>
+                        <h1 className="text-3xl font-bold text-app-text drop-shadow-md">Alta de Producto</h1>
+                        <p className="text-app-text-muted text-sm font-medium">Se vinculará a la empresa {user?.companyName || "tu negocio"}</p>
                     </div>
                 </div>
                 <NewProductFields/>

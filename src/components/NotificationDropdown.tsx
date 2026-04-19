@@ -63,7 +63,7 @@ export default function NotificationDropdown({ notifications, onClose }: Props) 
         <span className="text-sm font-bold text-app-text">Notificaciones</span>
         <button
           onClick={onClose}
-          className="p-1 text-app-text-muted hover:text-app-text hover:bg-white/10 rounded-lg transition-all"
+          className="p-1 text-app-text-muted hover:text-app-text hover:bg-app-card rounded-lg transition-all"
         >
           <X size={14} />
         </button>

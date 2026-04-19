@@ -43,7 +43,7 @@ export default function Topbar({ onOpenMobileMenu }: TopbarProps) {
                 <div className="relative hidden sm:block">
                     <button
                         onClick={() => setDropdownOpen(prev => !prev)}
-                        className="flex p-2.5 text-app-text-muted hover:text-app-text hover:bg-white/10 rounded-xl bg-app-card border border-app-border transition-all relative group"
+                        className="flex p-2.5 text-app-text-muted hover:text-app-text hover:bg-app-card rounded-xl bg-app-card border border-app-border transition-all relative group"
                         title="Notificaciones"
                     >
                         <Bell size={18} className="group-hover:rotate-12 transition-transform" />
@@ -63,7 +63,7 @@ export default function Topbar({ onOpenMobileMenu }: TopbarProps) {
                 </div>
 
                 <div className="flex items-center gap-3 md:gap-4 bg-app-card backdrop-blur-md border border-app-border p-1 md:p-1.5 md:pr-4 rounded-2xl shadow-xl">
-                    <div className="w-8 h-8 md:w-10 md:h-10 rounded-xl bg-app-accent flex items-center justify-center text-xs md:text-sm font-bold text-white shadow-lg overflow-hidden border border-white/20 shrink-0">
+                    <div className="w-8 h-8 md:w-10 md:h-10 rounded-xl bg-app-accent flex items-center justify-center text-xs md:text-sm font-bold text-white shadow-lg overflow-hidden border border-app-border shrink-0">
                         {user?.userName?.charAt(0).toUpperCase() || "U"}
                     </div>
                     <div className="hidden lg:flex flex-col">

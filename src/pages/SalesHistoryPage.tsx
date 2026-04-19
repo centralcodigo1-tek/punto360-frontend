@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import DashboardLayout from "../layouts/DashboardLayout";
 import { History, Search, ChevronDown, ChevronUp, AlertOctagon, CheckCircle2, RotateCcw } from "lucide-react";
 import { api } from "../api/axios";
+import { useAuth } from "../auth/AuthContext";
 
 const cop = (v: number) => new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", minimumFractionDigits: 0 }).format(v);
 
@@ -29,21 +30,30 @@ interface Sale {
 }
 
 export default function SalesHistoryPage() {
+    const { hasPermission, user } = useAuth();
+    const canViewFinancials = hasPermission("reports.view");
+    const isCajero = !hasPermission("inventory.manage") && user?.role !== "ADMIN";
     const today = new Date().toISOString().split('T')[0];
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-    const [startDate, setStartDate] = useState(sevenDaysAgo);
+    const [startDate, setStartDate] = useState(isCajero ? today : sevenDaysAgo);
     const [endDate, setEndDate] = useState(today);
     const [sales, setSales] = useState<Sale[]>([]);
     const [isLoading, setIsLoading] = useState(false);
+    const [fetchError, setFetchError] = useState(false);
     const [expandedId, setExpandedId] = useState<string | null>(null);
 
     const fetchSales = async () => {
         setIsLoading(true);
+        setFetchError(false);
+        const effectiveStart = isCajero ? today : startDate;
+        const effectiveEnd = isCajero ? today : endDate;
         try {
-            const res = await api.get(`/sales?startDate=${startDate}&endDate=${endDate}`);
+            const res = await api.get(`/sales?startDate=${effectiveStart}&endDate=${effectiveEnd}`);
             setSales(res.data);
         } catch (e) {
             console.error("Error fetching sales history", e);
+            setFetchError(true);
+            setSales([]);
         } finally {
             setIsLoading(false);
         }
@@ -100,7 +110,10 @@ export default function SalesHistoryPage() {
             </div>
 
             {/* Barra de Filtros (Responsive) */}
-            <div className="bg-app-card backdrop-blur-md rounded-2xl p-4 md:p-5 border border-app-border shadow-lg mb-6 flex flex-col md:flex-row gap-4 items-end">
+            {isCajero && (
+                <p className="text-[10px] font-black text-app-text-muted uppercase tracking-widest mb-4 opacity-60">Mostrando ventas de hoy</p>
+            )}
+            {!isCajero && <div className="bg-app-card backdrop-blur-md rounded-2xl p-4 md:p-5 border border-app-border shadow-lg mb-6 flex flex-col md:flex-row gap-4 items-end">
                 <div className="grid grid-cols-2 lg:grid-cols-2 gap-3 w-full flex-1">
                     <div className="relative">
                         <label className="block text-[9px] font-black text-app-text-muted mb-1 ml-1 uppercase tracking-widest">
@@ -125,7 +138,7 @@ export default function SalesHistoryPage() {
                         />
                     </div>
                 </div>
-                <button 
+                <button
                     onClick={fetchSales}
                     disabled={isLoading}
                     className="w-full md:w-auto px-8 py-3 bg-app-accent hover:bg-app-accent-hover text-white font-black uppercase tracking-[0.2em] text-xs rounded-xl shadow-xl shadow-app-accent/20 transition-all flex items-center justify-center gap-2 active:scale-95"
@@ -133,23 +146,25 @@ export default function SalesHistoryPage() {
                     <Search size={16} />
                     {isLoading ? "CARGANDO..." : "FILTRAR"}
                 </button>
-            </div>
+            </div>}
 
             {/* Tarjetas de Resumen (Responsive) */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 mb-6">
-                <div className="bg-app-accent/5 border border-app-accent/20 rounded-2xl p-5 md:p-6 backdrop-blur-3xl shadow-sm relative overflow-hidden group">
-                    <div className="relative z-10">
-                        <p className="text-app-accent font-black text-[9px] uppercase tracking-[0.3em] mb-1">VENTAS DEL PERIODO</p>
-                        <h3 className="text-2xl md:text-3xl font-black text-app-text tracking-tight">{cop(totalCalculated)}</h3>
-                        <p className="text-[9px] text-app-text-muted mt-2 flex items-center gap-1 font-bold italic opacity-60">
-                             {sales.filter(s => s.status !== 'CANCELLED').length} Tickets efectivos
-                        </p>
-                    </div>
-                    <div className="absolute -right-4 -bottom-4 text-app-accent/5 rotate-12 transition-transform group-hover:scale-110 duration-500">
-                        <CheckCircle2 size={100} />
+            {canViewFinancials && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 mb-6">
+                    <div className="bg-app-accent/5 border border-app-accent/20 rounded-2xl p-5 md:p-6 backdrop-blur-3xl shadow-sm relative overflow-hidden group">
+                        <div className="relative z-10">
+                            <p className="text-app-accent font-black text-[9px] uppercase tracking-[0.3em] mb-1">VENTAS DEL PERIODO</p>
+                            <h3 className="text-2xl md:text-3xl font-black text-app-text tracking-tight">{cop(totalCalculated)}</h3>
+                            <p className="text-[9px] text-app-text-muted mt-2 flex items-center gap-1 font-bold italic opacity-60">
+                                 {sales.filter(s => s.status !== 'CANCELLED').length} Tickets efectivos
+                            </p>
+                        </div>
+                        <div className="absolute -right-4 -bottom-4 text-app-accent/5 rotate-12 transition-transform group-hover:scale-110 duration-500">
+                            <CheckCircle2 size={100} />
+                        </div>
                     </div>
                 </div>
-            </div>
+            )}
 
             {/* Canvas de Resultados */}
             <div className="bg-app-card backdrop-blur-md border border-app-border shadow-2xl rounded-2xl overflow-hidden min-w-0">
@@ -165,11 +180,23 @@ export default function SalesHistoryPage() {
                                 <th className="px-6 py-4 text-[10px] font-black text-app-text-muted uppercase tracking-widest">Ticket</th>
                                 <th className="px-6 py-4 text-[10px] font-black text-app-text-muted uppercase tracking-widest">Pago</th>
                                 <th className="px-6 py-4 text-[10px] font-black text-app-text-muted uppercase tracking-widest">Estado</th>
-                                <th className="px-6 py-4 text-[10px] font-black text-app-text-muted uppercase tracking-widest text-right">Monto</th>
+                                {canViewFinancials && <th className="px-6 py-4 text-[10px] font-black text-app-text-muted uppercase tracking-widest text-right">Monto</th>}
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-app-border">
-                            {sales.length === 0 ? (
+                            {isLoading ? (
+                                <tr>
+                                    <td colSpan={7} className="px-6 py-12 text-center text-app-text-muted text-xs">
+                                        Cargando...
+                                    </td>
+                                </tr>
+                            ) : fetchError ? (
+                                <tr>
+                                    <td colSpan={7} className="px-6 py-12 text-center text-rose-400 font-bold text-xs uppercase tracking-widest">
+                                        Error al cargar el historial. Verifica la conexión e intenta de nuevo.
+                                    </td>
+                                </tr>
+                            ) : sales.length === 0 ? (
                                 <tr>
                                     <td colSpan={7} className="px-6 py-12 text-center text-app-text-muted font-bold uppercase tracking-widest opacity-30 text-xs">
                                         Sin registros para este periodo.
@@ -218,11 +245,13 @@ export default function SalesHistoryPage() {
                                                     </span>
                                                 }
                                             </td>
-                                            <td className="px-6 py-4 text-right">
-                                                <span className={`text-lg font-black tracking-tighter ${isCancelled ? 'line-through text-app-text-muted' : 'text-emerald-500'}`}>
-                                                    ${Number(sale.total).toLocaleString()}
-                                                </span>
-                                            </td>
+                                            {canViewFinancials && (
+                                                <td className="px-6 py-4 text-right">
+                                                    <span className={`text-lg font-black tracking-tighter ${isCancelled ? 'line-through text-app-text-muted' : 'text-emerald-500'}`}>
+                                                        ${Number(sale.total).toLocaleString()}
+                                                    </span>
+                                                </td>
+                                            )}
                                         </tr>
                                         {isExpanded && (
                                             <tr className="bg-app-accent/5 border-none">
@@ -286,9 +315,11 @@ export default function SalesHistoryPage() {
                                         <span className="text-[10px] font-black text-app-text mt-1">{new Date(sale.created_at).toLocaleDateString()} · {new Date(sale.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                                     </div>
                                     <div className="flex flex-col items-end">
-                                        <span className={`text-base font-black tracking-tighter ${isCancelled ? 'line-through text-app-text-muted' : 'text-emerald-500'}`}>
-                                            ${Number(sale.total).toLocaleString()}
-                                        </span>
+                                        {canViewFinancials && (
+                                            <span className={`text-base font-black tracking-tighter ${isCancelled ? 'line-through text-app-text-muted' : 'text-emerald-500'}`}>
+                                                ${Number(sale.total).toLocaleString()}
+                                            </span>
+                                        )}
                                         <span className="text-[9px] font-black text-app-text-muted uppercase tracking-widest">{translatePayment(sale.payment_method)}</span>
                                     </div>
                                 </div>

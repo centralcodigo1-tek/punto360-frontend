@@ -1,5 +1,6 @@
 import { Layers, AlertTriangle, TrendingDown, DollarSign } from "lucide-react";
 import type { ProductRow } from "../../pages/InventoryPage";
+import { useAuth } from "../../auth/AuthContext";
 
 interface InventoryStatsProps {
     total: number;
@@ -9,13 +10,15 @@ interface InventoryStatsProps {
 }
 
 export default function InventoryStats({ total, lowStock, outOfStock, valorizado }: InventoryStatsProps) {
+    const { hasPermission } = useAuth();
+    const canViewFinancials = hasPermission("reports.view");
     const totalValue = valorizado.reduce((acc, p) => acc + (p.cost_price * p.stockCount), 0);
 
     const formatCurrency = (v: number) => 
         new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(v);
 
     return (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+        <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6 ${canViewFinancials ? 'lg:grid-cols-4' : 'lg:grid-cols-3'}`}>
             
             <div className="bg-app-card backdrop-blur-md rounded-2xl p-5 md:p-6 border border-app-border shadow-lg relative overflow-hidden group">
                 <div className="relative z-10">
@@ -24,7 +27,7 @@ export default function InventoryStats({ total, lowStock, outOfStock, valorizado
                             <Layers size={20} />
                         </div>
                     </div>
-                    <p className="text-[10px] font-black text-app-text-muted uppercase tracking-widest leading-none mb-1 opacity-70">Variedad SKU</p>
+                    <p className="text-[10px] font-black text-app-text-muted uppercase tracking-widest leading-none mb-1 opacity-70">Total Productos</p>
                     <h3 className="text-2xl md:text-3xl font-black text-app-text tracking-tight">{total}</h3>
                 </div>
                 <div className="absolute -right-4 -bottom-4 text-cyan-500/5 rotate-12 group-hover:scale-110 group-hover:rotate-0 transition-all duration-500">
@@ -62,7 +65,7 @@ export default function InventoryStats({ total, lowStock, outOfStock, valorizado
                 </div>
             </div>
 
-            <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-2xl p-5 md:p-6 backdrop-blur-md shadow-sm relative overflow-hidden group">
+            {canViewFinancials && <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-2xl p-5 md:p-6 backdrop-blur-md shadow-sm relative overflow-hidden group">
                 <div className="relative z-10">
                     <div className="flex justify-between items-start mb-4">
                         <div className="p-2.5 bg-emerald-500/20 text-emerald-400 rounded-xl group-hover:scale-110 transition-transform">
@@ -70,12 +73,12 @@ export default function InventoryStats({ total, lowStock, outOfStock, valorizado
                         </div>
                     </div>
                     <p className="text-[10px] font-black text-emerald-500/80 uppercase tracking-widest leading-none mb-1 opacity-70">Capital Activo</p>
-                    <h3 className="text-2xl md:text-3xl font-black text-white tracking-tight">{formatCurrency(totalValue)}</h3>
+                    <h3 className="text-2xl md:text-3xl font-black text-app-text tracking-tight">{formatCurrency(totalValue)}</h3>
                 </div>
                 <div className="absolute -right-4 -bottom-4 text-emerald-500/10 rotate-12 group-hover:scale-110 group-hover:rotate-0 transition-all duration-500">
                     <DollarSign size={100} />
                 </div>
-            </div>
+            </div>}
 
         </div>
     );

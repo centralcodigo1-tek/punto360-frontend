@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import DashboardLayout from "../layouts/DashboardLayout";
 import { api } from "../api/axios";
+import { useAuth } from "../auth/AuthContext";
 import {
     Lock, Unlock, DollarSign, Wallet, CreditCard, Building2,
     TrendingDown, Plus, CheckCircle2, AlertTriangle, Loader2,
@@ -34,6 +35,7 @@ interface CloseSummary {
         transferSales: number;
         totalSales: number;
         totalExpenses: number;
+        totalIncomes: number;
         expectedCash: number;
         closingAmount: number;
         difference: number;
@@ -45,10 +47,22 @@ function formatCOP(val: number) {
     return new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", minimumFractionDigits: 0 }).format(val);
 }
 
+interface LiveStats {
+    cashSales: number;
+    cardSales: number;
+    transferSales: number;
+    totalSales: number;
+    ticketsCount: number;
+}
+
 export default function CashRegisterPage() {
+    const { hasPermission } = useAuth();
+    const canViewFinancials = hasPermission("reports.view");
+
     const [session, setSession] = useState<Session | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [closeSummary, setCloseSummary] = useState<CloseSummary | null>(null);
+    const [liveStats, setLiveStats] = useState<LiveStats | null>(null);
 
     // Formulario de apertura
     const [openingAmount, setOpeningAmount] = useState("");
@@ -62,16 +76,22 @@ export default function CashRegisterPage() {
     const [showExpenseForm, setShowExpenseForm] = useState(false);
     const [expenseAmount, setExpenseAmount] = useState("");
     const [expenseReason, setExpenseReason] = useState("");
+    const [expenseSource, setExpenseSource] = useState<"CASH" | "CARTERA">("CASH");
 
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const fetchSession = useCallback(async () => {
         setIsLoading(true);
         try {
-            const res = await api.get("/cash-registers/current");
-            setSession(res.data);
+            const [sessionRes, statsRes] = await Promise.all([
+                api.get("/cash-registers/current"),
+                api.get("/cash-registers/current/stats"),
+            ]);
+            setSession(sessionRes.data);
+            setLiveStats(statsRes.data);
         } catch {
             setSession(null);
+            setLiveStats(null);
         } finally {
             setIsLoading(false);
         }
@@ -127,9 +147,11 @@ export default function CashRegisterPage() {
             await api.post(`/cash-registers/${session.id}/expenses`, {
                 amount,
                 reason: expenseReason,
+                source: expenseSource,
             });
             setExpenseAmount("");
             setExpenseReason("");
+            setExpenseSource("CASH");
             setShowExpenseForm(false);
             fetchSession();
         } catch (e: any) {
@@ -143,11 +165,14 @@ export default function CashRegisterPage() {
     const totalExpenses = movements
         .filter(m => m.type === "EXPENSE")
         .reduce((sum, m) => sum + Number(m.amount), 0);
+    const totalIncomes = movements
+        .filter(m => m.type === "INCOME")
+        .reduce((sum, m) => sum + Number(m.amount), 0);
 
     if (isLoading) {
         return (
             <DashboardLayout>
-                <div className="flex justify-center items-center h-64 gap-3 text-white/40">
+                <div className="flex justify-center items-center h-64 gap-3 text-app-text-muted">
                     <Loader2 size={24} className="animate-spin" />
                     <span>Verificando sesión de caja...</span>
                 </div>
@@ -166,32 +191,33 @@ export default function CashRegisterPage() {
                         <div className="w-20 h-20 mx-auto rounded-full bg-emerald-500/20 flex items-center justify-center mb-4">
                             <CheckCircle2 size={40} className="text-emerald-400" />
                         </div>
-                        <h1 className="text-3xl font-bold text-white">Caja Cerrada</h1>
-                        <p className="text-white/40 mt-1">Reporte de cierre de turno</p>
+                        <h1 className="text-3xl font-bold text-app-text">Caja Cerrada</h1>
+                        <p className="text-app-text-muted mt-1">Reporte de cierre de turno</p>
                     </div>
 
-                    <div className="bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-md shadow-xl mb-4">
-                        <h2 className="font-bold text-white/80 text-lg mb-4 pb-3 border-b border-white/10">Resumen del Turno</h2>
+                    <div className="bg-app-card border border-app-border rounded-2xl p-6 backdrop-blur-md shadow-xl mb-4">
+                        <h2 className="font-bold text-app-text text-lg mb-4 pb-3 border-b border-app-border">Resumen del Turno</h2>
                         <div className="flex flex-col gap-3">
                             {[
-                                { label: "Fondo inicial", value: summary.openingAmount, icon: <Wallet size={16}/>, color: "text-white/60" },
-                                { label: "Ventas Efectivo", value: summary.cashSales, icon: <Wallet size={16}/>, color: "text-emerald-400" },
-                                { label: "Ventas Tarjeta", value: summary.cardSales, icon: <CreditCard size={16}/>, color: "text-blue-400" },
-                                { label: "Ventas Transferencia", value: summary.transferSales, icon: <Building2 size={16}/>, color: "text-violet-400" },
-                                { label: "Gastos de Caja", value: -summary.totalExpenses, icon: <TrendingDown size={16}/>, color: "text-rose-400" },
-                            ].map(row => (
+                                { label: "Fondo inicial", value: summary.openingAmount, icon: <Wallet size={16}/>, color: "text-app-text-muted", show: true },
+                                { label: "Ventas Efectivo", value: summary.cashSales, icon: <Wallet size={16}/>, color: "text-emerald-400", show: true },
+                                { label: "Ventas Tarjeta", value: summary.cardSales, icon: <CreditCard size={16}/>, color: "text-blue-400", show: canViewFinancials },
+                                { label: "Ventas Transferencia", value: summary.transferSales, icon: <Building2 size={16}/>, color: "text-violet-400", show: canViewFinancials },
+                                { label: "Otros Ingresos (Abonos)", value: summary.totalIncomes ?? 0, icon: <DollarSign size={16}/>, color: "text-teal-400", show: (summary.totalIncomes ?? 0) > 0 },
+                                { label: "Gastos de Caja", value: -summary.totalExpenses, icon: <TrendingDown size={16}/>, color: "text-rose-400", show: true },
+                            ].filter(r => r.show).map(row => (
                                 <div key={row.label} className="flex items-center justify-between text-sm">
-                                    <span className="flex items-center gap-2 text-white/50">{row.icon}{row.label}</span>
+                                    <span className="flex items-center gap-2 text-app-text-muted">{row.icon}{row.label}</span>
                                     <span className={`font-bold ${row.color}`}>{formatCOP(row.value)}</span>
                                 </div>
                             ))}
-                            <div className="flex items-center justify-between text-sm font-bold border-t border-white/10 pt-3 mt-1">
-                                <span className="text-white/70">Efectivo Esperado en Caja</span>
-                                <span className="text-white">{formatCOP(summary.expectedCash)}</span>
+                            <div className="flex items-center justify-between text-sm font-bold border-t border-app-border pt-3 mt-1">
+                                <span className="text-app-text">Efectivo Esperado en Caja</span>
+                                <span className="text-app-text font-bold">{formatCOP(summary.expectedCash)}</span>
                             </div>
                             <div className="flex items-center justify-between text-sm font-bold">
-                                <span className="text-white/70">Efectivo Contado</span>
-                                <span className="text-white">{formatCOP(summary.closingAmount)}</span>
+                                <span className="text-app-text">Efectivo Contado</span>
+                                <span className="text-app-text font-bold">{formatCOP(summary.closingAmount)}</span>
                             </div>
                         </div>
                     </div>
@@ -201,8 +227,8 @@ export default function CashRegisterPage() {
                             <div className="flex items-center gap-3">
                                 {isOver ? <CheckCircle2 size={24} className="text-emerald-400" /> : <AlertTriangle size={24} className="text-rose-400" />}
                                 <div>
-                                    <p className="font-bold text-white">{isOver ? "Sobrante de Caja" : "Faltante de Caja"}</p>
-                                    <p className="text-xs text-white/40">{isOver ? "Hay más efectivo del esperado" : "Hay menos efectivo del esperado"}</p>
+                                    <p className="font-bold text-app-text">{isOver ? "Sobrante de Caja" : "Faltante de Caja"}</p>
+                                    <p className="text-xs text-app-text-muted">{isOver ? "Hay más efectivo del esperado" : "Hay menos efectivo del esperado"}</p>
                                 </div>
                             </div>
                             <span className={`text-2xl font-bold ${isOver ? "text-emerald-400" : "text-rose-400"}`}>
@@ -228,19 +254,19 @@ export default function CashRegisterPage() {
             <DashboardLayout>
                 <div className="max-w-md mx-auto mt-8">
                     <div className="text-center mb-8">
-                        <div className="w-20 h-20 mx-auto rounded-full bg-white/5 border border-white/10 flex items-center justify-center mb-4">
-                            <Lock size={36} className="text-white/30" />
+                        <div className="w-20 h-20 mx-auto rounded-full bg-app-card border border-app-border flex items-center justify-center mb-4">
+                            <Lock size={36} className="text-app-text-muted" />
                         </div>
-                        <h1 className="text-3xl font-bold text-white">Caja Cerrada</h1>
-                        <p className="text-white/40 mt-1">Ingresa el fondo inicial para comenzar el turno</p>
+                        <h1 className="text-3xl font-bold text-app-text">Caja Cerrada</h1>
+                        <p className="text-app-text-muted mt-1">Ingresa el fondo inicial para comenzar el turno</p>
                     </div>
 
-                    <div className="bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-md shadow-xl">
-                        <label className="block text-sm font-medium text-white/60 mb-2">
+                    <div className="bg-app-card border border-app-border rounded-2xl p-6 backdrop-blur-md shadow-xl">
+                        <label className="block text-sm font-medium text-app-text-muted mb-2">
                             Fondo Inicial (Efectivo en Caja)
                         </label>
                         <div className="relative mb-6">
-                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30 font-bold">$</span>
+                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-app-text-muted font-bold">$</span>
                             <input
                                 type="number"
                                 min="0"
@@ -249,7 +275,7 @@ export default function CashRegisterPage() {
                                 onChange={e => setOpeningAmount(e.target.value)}
                                 onKeyDown={e => e.key === "Enter" && handleOpen()}
                                 placeholder="0"
-                                className="w-full bg-black/30 border border-white/10 rounded-xl pl-8 pr-4 py-4 text-2xl font-bold text-white placeholder-white/10 focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
+                                className="w-full bg-app-bg border border-app-border rounded-xl pl-8 pr-4 py-4 text-2xl font-bold text-app-text placeholder-app-text-muted/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
                             />
                         </div>
                         <button
@@ -280,14 +306,14 @@ export default function CashRegisterPage() {
                 <div>
                     <div className="flex items-center gap-3 mb-1">
                         <div className="w-3 h-3 bg-emerald-400 rounded-full animate-pulse" />
-                        <h1 className="text-3xl font-bold text-white">{session.name}</h1>
+                        <h1 className="text-3xl font-bold text-app-text">{session.name}</h1>
                     </div>
-                    <p className="text-white/40 text-sm flex items-center gap-2">
+                    <p className="text-app-text-muted text-sm flex items-center gap-2">
                         <Clock size={13} />
                         Abierta desde {openedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                        <span className="text-white/20">·</span>
+                        <span className="text-app-text-muted">·</span>
                         {hours > 0 ? `${hours}h ` : ""}{minutes}min en turno
-                        {session.users && <><span className="text-white/20">·</span> por {session.users.name}</>}
+                        {session.users && <><span className="text-app-text-muted">·</span> por {session.users.name}</>}
                     </p>
                 </div>
                 <button
@@ -302,27 +328,51 @@ export default function CashRegisterPage() {
             {/* Stats */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                 {[
-                    { label: "Fondo Inicial", value: formatCOP(Number(session.opening_amount)), icon: <Wallet size={18}/>, color: "from-slate-600 to-slate-500" },
-                    { label: "Ventas Efectivo†", value: "—", icon: <DollarSign size={18}/>, color: "from-emerald-600 to-teal-500", note: true },
-                    { label: "Gastos de Caja", value: formatCOP(totalExpenses), icon: <TrendingDown size={18}/>, color: "from-rose-600 to-pink-500" },
-                    { label: "Movimientos", value: String(movements.length), icon: <ClipboardList size={18}/>, color: "from-violet-600 to-purple-500" },
-                ].map(c => (
-                    <div key={c.label} className="bg-white/5 border border-white/10 rounded-2xl p-4 backdrop-blur-md">
+                    { label: "Fondo Inicial", value: formatCOP(Number(session.opening_amount)), icon: <Wallet size={18}/>, color: "from-slate-600 to-slate-500", show: true },
+                    { label: "Ventas Efectivo", value: liveStats ? formatCOP(liveStats.cashSales) : "—", icon: <DollarSign size={18}/>, color: "from-emerald-600 to-teal-500", show: true },
+                    { label: "Gastos de Caja", value: formatCOP(totalExpenses), icon: <TrendingDown size={18}/>, color: "from-rose-600 to-pink-500", show: true },
+                    { label: "Total Ventas Turno", value: liveStats ? formatCOP(liveStats.totalSales) : "—", sub: liveStats ? `${liveStats.ticketsCount} tickets` : "", icon: <ClipboardList size={18}/>, color: "from-violet-600 to-purple-500", show: canViewFinancials },
+                ].filter(c => c.show).map(c => (
+                    <div key={c.label} className="bg-app-card border border-app-border rounded-2xl p-4 backdrop-blur-md">
                         <div className="flex items-center justify-between mb-3">
-                            <span className="text-xs text-white/40 font-medium">{c.label}</span>
+                            <span className="text-xs text-app-text-muted font-medium">{c.label}</span>
                             <div className={`p-1.5 rounded-lg bg-gradient-to-br ${c.color} text-white`}>{c.icon}</div>
                         </div>
-                        <p className="text-xl font-bold text-white">{c.value}</p>
-                        {c.note && <p className="text-[10px] text-white/20 mt-0.5">†Ver cierre para total</p>}
+                        <p className="text-xl font-bold text-app-text">{c.value}</p>
+                        {c.sub && <p className="text-[10px] text-app-text-muted mt-0.5">{c.sub}</p>}
                     </div>
                 ))}
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Ingresos adicionales (abonos de clientes, etc.) */}
+                {movements.filter(m => m.type === "INCOME").length > 0 && (
+                    <div className="lg:col-span-2 bg-app-card border border-app-border rounded-2xl backdrop-blur-md shadow-xl overflow-hidden">
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-app-border">
+                            <h3 className="font-semibold text-app-text flex items-center gap-2">
+                                <DollarSign size={16} className="text-emerald-400"/>
+                                Otros Ingresos del Turno
+                            </h3>
+                            <span className="text-emerald-400 font-bold text-sm">+{formatCOP(totalIncomes)}</span>
+                        </div>
+                        <div className="divide-y divide-white/5 max-h-64 overflow-y-auto">
+                            {movements.filter(m => m.type === "INCOME").map(m => (
+                                <div key={m.id} className="flex items-center justify-between px-6 py-3">
+                                    <div>
+                                        <p className="text-sm font-medium text-app-text">{m.reason}</p>
+                                        <p className="text-xs text-app-text-muted">{new Date(m.created_at).toLocaleTimeString([], { hour:"2-digit", minute:"2-digit" })}</p>
+                                    </div>
+                                    <span className="text-emerald-400 font-bold text-sm">+{formatCOP(Number(m.amount))}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
                 {/* Gastos */}
-                <div className="bg-white/5 border border-white/10 rounded-2xl backdrop-blur-md shadow-xl overflow-hidden">
-                    <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
-                        <h3 className="font-semibold text-white flex items-center gap-2">
+                <div className="bg-app-card border border-app-border rounded-2xl backdrop-blur-md shadow-xl overflow-hidden">
+                    <div className="flex items-center justify-between px-6 py-4 border-b border-app-border">
+                        <h3 className="font-semibold text-app-text flex items-center gap-2">
                             <TrendingDown size={16} className="text-rose-400"/>
                             Gastos del Turno
                         </h3>
@@ -335,7 +385,7 @@ export default function CashRegisterPage() {
                     </div>
 
                     {showExpenseForm && (
-                        <div className="px-6 py-4 bg-rose-500/5 border-b border-white/5">
+                        <div className="px-6 py-4 bg-rose-500/5 border-b border-app-border">
                             <div className="flex flex-col gap-3">
                                 <input
                                     type="number"
@@ -343,17 +393,32 @@ export default function CashRegisterPage() {
                                     placeholder="Monto ($)"
                                     value={expenseAmount}
                                     onChange={e => setExpenseAmount(e.target.value)}
-                                    className="w-full bg-black/30 border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/40"
+                                    className="w-full bg-app-bg border border-app-border rounded-xl px-4 py-2.5 text-app-text text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/40"
                                 />
                                 <input
                                     type="text"
                                     placeholder="Motivo del gasto (ej: Compra de bolsas)"
                                     value={expenseReason}
                                     onChange={e => setExpenseReason(e.target.value)}
-                                    className="w-full bg-black/30 border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/40"
+                                    className="w-full bg-app-bg border border-app-border rounded-xl px-4 py-2.5 text-app-text text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/40"
                                 />
+                                {/* Fuente del gasto */}
+                                <div className="flex gap-2 bg-app-bg p-1 rounded-xl border border-app-border">
+                                    <button
+                                        onClick={() => setExpenseSource("CASH")}
+                                        className={`flex-1 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${expenseSource === "CASH" ? "bg-rose-500 text-white" : "text-app-text-muted hover:text-app-text"}`}
+                                    >
+                                        Sale de Caja
+                                    </button>
+                                    <button
+                                        onClick={() => setExpenseSource("CARTERA")}
+                                        className={`flex-1 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${expenseSource === "CARTERA" ? "bg-app-accent text-white" : "text-app-text-muted hover:text-app-text"}`}
+                                    >
+                                        Sale de Cartera
+                                    </button>
+                                </div>
                                 <div className="flex gap-2">
-                                    <button onClick={() => setShowExpenseForm(false)} className="flex-1 py-2 rounded-lg border border-white/10 text-white/50 text-sm hover:text-white transition-colors">
+                                    <button onClick={() => setShowExpenseForm(false)} className="flex-1 py-2 rounded-lg border border-app-border text-app-text-muted text-sm hover:text-app-text transition-colors">
                                         Cancelar
                                     </button>
                                     <button onClick={handleAddExpense} disabled={isSubmitting} className="flex-1 py-2 rounded-lg bg-rose-500 hover:bg-rose-400 text-white font-bold text-sm transition-colors flex items-center justify-center gap-1">
@@ -367,12 +432,12 @@ export default function CashRegisterPage() {
 
                     <div className="divide-y divide-white/5 max-h-64 overflow-y-auto">
                         {movements.filter(m => m.type === "EXPENSE").length === 0 ? (
-                            <div className="px-6 py-8 text-center text-white/30 text-sm">Sin gastos registrados en este turno.</div>
+                            <div className="px-6 py-8 text-center text-app-text-muted text-sm">Sin gastos registrados en este turno.</div>
                         ) : movements.filter(m => m.type === "EXPENSE").map(m => (
                             <div key={m.id} className="flex items-center justify-between px-6 py-3">
                                 <div>
-                                    <p className="text-sm font-medium text-white/70">{m.reason}</p>
-                                    <p className="text-xs text-white/30">{new Date(m.created_at).toLocaleTimeString([], { hour:"2-digit", minute:"2-digit" })}</p>
+                                    <p className="text-sm font-medium text-app-text">{m.reason}</p>
+                                    <p className="text-xs text-app-text-muted">{new Date(m.created_at).toLocaleTimeString([], { hour:"2-digit", minute:"2-digit" })}</p>
                                 </div>
                                 <span className="text-rose-400 font-bold text-sm">-{formatCOP(Number(m.amount))}</span>
                             </div>
@@ -380,30 +445,30 @@ export default function CashRegisterPage() {
                     </div>
 
                     {totalExpenses > 0 && (
-                        <div className="px-6 py-3 border-t border-white/10 flex justify-between text-sm font-bold">
-                            <span className="text-white/50">Total Gastos</span>
+                        <div className="px-6 py-3 border-t border-app-border flex justify-between text-sm font-bold">
+                            <span className="text-app-text-muted">Total Gastos</span>
                             <span className="text-rose-400">{formatCOP(totalExpenses)}</span>
                         </div>
                     )}
                 </div>
 
                 {/* Cierre de Caja */}
-                <div className="bg-white/5 border border-white/10 rounded-2xl backdrop-blur-md shadow-xl overflow-hidden">
+                <div className="bg-app-card border border-app-border rounded-2xl backdrop-blur-md shadow-xl overflow-hidden">
                     <button
                         onClick={() => setShowCloseForm(!showCloseForm)}
-                        className="w-full flex items-center justify-between px-6 py-4 border-b border-white/10 hover:bg-white/5 transition-colors"
+                        className="w-full flex items-center justify-between px-6 py-4 border-b border-app-border hover:bg-app-card transition-colors"
                     >
-                        <h3 className="font-semibold text-white flex items-center gap-2">
+                        <h3 className="font-semibold text-app-text flex items-center gap-2">
                             <Lock size={16} className="text-amber-400"/>
                             Cierre de Turno
                         </h3>
-                        {showCloseForm ? <ChevronUp size={16} className="text-white/40"/> : <ChevronDown size={16} className="text-white/40"/>}
+                        {showCloseForm ? <ChevronUp size={16} className="text-app-text-muted"/> : <ChevronDown size={16} className="text-app-text-muted"/>}
                     </button>
 
                     {showCloseForm ? (
                         <div className="p-6 flex flex-col gap-4">
                             <div>
-                                <label className="block text-xs font-medium text-white/50 mb-1.5">Efectivo contado físicamente ($)</label>
+                                <label className="block text-xs font-medium text-app-text-muted mb-1.5">Efectivo contado físicamente ($)</label>
                                 <input
                                     type="number"
                                     min="0"
@@ -411,21 +476,21 @@ export default function CashRegisterPage() {
                                     value={closingAmount}
                                     onChange={e => setClosingAmount(e.target.value)}
                                     placeholder="0"
-                                    className="w-full bg-black/30 border border-white/10 rounded-xl px-4 py-3 text-xl font-bold text-white placeholder-white/10 focus:outline-none focus:ring-2 focus:ring-amber-500/40"
+                                    className="w-full bg-app-bg border border-app-border rounded-xl px-4 py-3 text-xl font-bold text-app-text placeholder-app-text-muted/40 focus:outline-none focus:ring-2 focus:ring-amber-500/40"
                                 />
                             </div>
                             {closingAmount && (
-                                <div className="bg-black/20 rounded-xl p-4 text-sm">
+                                <div className="bg-app-bg rounded-xl p-4 text-sm">
                                     <div className="flex justify-between mb-1">
-                                        <span className="text-white/40">Fondo inicial</span>
-                                        <span className="text-white/60">{formatCOP(Number(session.opening_amount))}</span>
+                                        <span className="text-app-text-muted">Fondo inicial</span>
+                                        <span className="text-app-text-muted">{formatCOP(Number(session.opening_amount))}</span>
                                     </div>
                                     <div className="flex justify-between mb-2">
-                                        <span className="text-white/40">Gastos descontados</span>
+                                        <span className="text-app-text-muted">Gastos descontados</span>
                                         <span className="text-rose-400">-{formatCOP(totalExpenses)}</span>
                                     </div>
-                                    <div className="flex justify-between font-bold border-t border-white/10 pt-2">
-                                        <span className="text-white/60">Efectivo contado</span>
+                                    <div className="flex justify-between font-bold border-t border-app-border pt-2">
+                                        <span className="text-app-text-muted">Efectivo contado</span>
                                         <span className="text-white">{formatCOP(parseFloat(closingAmount) || 0)}</span>
                                     </div>
                                 </div>
@@ -435,7 +500,7 @@ export default function CashRegisterPage() {
                                 placeholder="Observaciones (opcional)..."
                                 value={closingNotes}
                                 onChange={e => setClosingNotes(e.target.value)}
-                                className="w-full bg-black/30 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 focus:outline-none focus:ring-2 focus:ring-amber-500/40 resize-none"
+                                className="w-full bg-app-bg border border-app-border rounded-xl px-4 py-3 text-sm text-app-text placeholder-app-text-muted/40 focus:outline-none focus:ring-2 focus:ring-amber-500/40 resize-none"
                             />
                             <button
                                 onClick={handleClose}
@@ -447,7 +512,7 @@ export default function CashRegisterPage() {
                             </button>
                         </div>
                     ) : (
-                        <div className="px-6 py-10 text-center text-white/30 text-sm">
+                        <div className="px-6 py-10 text-center text-app-text-muted text-sm">
                             <Lock size={32} className="mx-auto mb-3 opacity-20"/>
                             <p>Despliega este panel cuando termines el turno para generar el arqueo.</p>
                         </div>

@@ -1,5 +1,6 @@
 import { Edit2, PackageSearch, Power, PowerOff, Printer, X } from "lucide-react";
 import { useState } from "react";
+import { useAuth } from "../../auth/AuthContext";
 import { ProductLabel } from "./ProductLabel";
 import { api } from "../../api/axios";
 import type { ProductRow } from "../../pages/InventoryPage";
@@ -12,6 +13,9 @@ interface InventoryTableProps {
 }
 
 export default function InventoryTable({ products, isLoading, onRefresh, onEdit }: InventoryTableProps) {
+  const { hasPermission, user } = useAuth();
+  const canViewFinancials = hasPermission("reports.view");
+  const canManageInventory = hasPermission("inventory.manage") || user?.role === "ADMIN";
   const [printingProduct, setPrintingProduct] = useState<ProductRow | null>(null);
   const [labelCount, setLabelCount] = useState<number>(1);
 
@@ -58,7 +62,7 @@ export default function InventoryTable({ products, isLoading, onRefresh, onEdit 
               <tr>
                 <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest">SKU</th>
                 <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest">Producto</th>
-                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest">Precio</th>
+                {canViewFinancials && <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest">Precio</th>}
                 <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-center">Stock</th>
                 <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-center">Estado</th>
                 <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-right">Acciones</th>
@@ -69,11 +73,11 @@ export default function InventoryTable({ products, isLoading, onRefresh, onEdit 
               {products.map((p) => (
                 <tr
                   key={p.id}
-                  className={`transition-all group ${p.is_active ? 'hover:bg-app-accent/5' : 'bg-black/10 opacity-50'}`}
+                  className={`transition-all group ${!p.is_active ? 'bg-app-bg opacity-50' : p.stockCount === 0 ? 'bg-rose-500/5 hover:bg-rose-500/10' : 'hover:bg-app-accent/5'}`}
                 >
                   <td className="px-6 py-4 font-mono text-app-accent font-black tracking-tighter">{p.sku}</td>
                   <td className="px-6 py-4 font-black text-xs uppercase tracking-tight">{p.name}</td>
-                  <td className="px-6 py-4 font-black">${Number(p.sale_price).toLocaleString()}</td>
+                  {canViewFinancials && <td className="px-6 py-4 font-black">${Number(p.sale_price).toLocaleString()}</td>}
                   <td className="px-6 py-4 text-center">
                     <span className="font-black text-base">{p.stockCount.toLocaleString()}</span>
                     {p.unit_type === 'WEIGHT' && <span className="text-[10px] text-app-text-muted ml-1 font-black uppercase">Kg</span>}
@@ -94,20 +98,22 @@ export default function InventoryTable({ products, isLoading, onRefresh, onEdit 
                     >
                       <Printer size={16} />
                     </button>
-                    <button 
-                       onClick={() => onEdit?.(p)}
-                       className="p-2 bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 rounded-lg transition-all" 
-                       title="Editar"
-                    >
-                      <Edit2 size={16} />
-                    </button>
-                    <button 
+                    {canManageInventory && (
+                      <button
+                         onClick={() => onEdit?.(p)}
+                         className="p-2 bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 rounded-lg transition-all"
+                         title="Editar"
+                      >
+                        <Edit2 size={16} />
+                      </button>
+                    )}
+                    {canManageInventory && <button
                        onClick={() => handleToggleStatus(p.id, p.is_active)}
-                       className={`p-2 rounded-lg transition-all ${p.is_active ? 'bg-rose-500/10 text-rose-400 hover:bg-rose-500/20' : 'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20'}`} 
+                       className={`p-2 rounded-lg transition-all ${p.is_active ? 'bg-rose-500/10 text-rose-400 hover:bg-rose-500/20' : 'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20'}`}
                        title={p.is_active ? "Desactivar" : "Reactivar"}
                     >
                       {p.is_active ? <PowerOff size={16} /> : <Power size={16} />}
-                    </button>
+                    </button>}
                   </td>
                 </tr>
               ))}
@@ -118,14 +124,14 @@ export default function InventoryTable({ products, isLoading, onRefresh, onEdit 
         {/* VISTA MÓVIL: CARDS */}
         <div className="md:hidden divide-y divide-app-border">
             {products.map((p) => (
-                <div key={p.id} className={`p-4 flex flex-col gap-3 ${!p.is_active ? 'bg-black/10 opacity-50' : ''}`}>
+                <div key={p.id} className={`p-4 flex flex-col gap-3 ${!p.is_active ? 'bg-app-bg opacity-50' : p.stockCount === 0 ? 'bg-rose-500/5' : ''}`}>
                     <div className="flex justify-between items-start">
                         <div className="flex flex-col gap-1 min-w-0">
                             <span className="font-mono text-[10px] text-app-accent font-black tracking-tighter uppercase">{p.sku}</span>
                             <h4 className="font-black text-xs uppercase tracking-tight text-app-text truncate">{p.name}</h4>
                         </div>
                         <div className="flex flex-col items-end">
-                            <span className="font-black text-base text-app-text">${Number(p.sale_price).toLocaleString()}</span>
+                            {canViewFinancials && <span className="font-black text-base text-app-text">${Number(p.sale_price).toLocaleString()}</span>}
                             <span className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest border ${p.statusColor} mt-1`}>
                               {p.statusText}
                             </span>
@@ -141,13 +147,15 @@ export default function InventoryTable({ products, isLoading, onRefresh, onEdit 
                             </div>
                         </div>
                         <div className="flex gap-2">
-                          <button 
-                              onClick={() => onEdit?.(p)}
-                              className="p-3 bg-blue-500/10 text-blue-400 rounded-xl"
-                          >
-                              <Edit2 size={18} />
-                          </button>
-                          <button 
+                          {canManageInventory && (
+                            <button
+                                onClick={() => onEdit?.(p)}
+                                className="p-3 bg-blue-500/10 text-blue-400 rounded-xl"
+                            >
+                                <Edit2 size={18} />
+                            </button>
+                          )}
+                          <button
                               onClick={() => {
                                   setPrintingProduct(p);
                                   setLabelCount(Math.max(1, p.stockCount));
@@ -156,12 +164,14 @@ export default function InventoryTable({ products, isLoading, onRefresh, onEdit 
                           >
                               <Printer size={18} />
                           </button>
-                          <button 
-                              onClick={() => handleToggleStatus(p.id, p.is_active)}
-                              className={`p-3 rounded-xl ${p.is_active ? 'bg-rose-500/10 text-rose-400' : 'bg-emerald-500/10 text-emerald-400'}`}
-                          >
-                              {p.is_active ? <PowerOff size={18} /> : <Power size={18} />}
-                          </button>
+                          {canManageInventory && (
+                            <button
+                                onClick={() => handleToggleStatus(p.id, p.is_active)}
+                                className={`p-3 rounded-xl ${p.is_active ? 'bg-rose-500/10 text-rose-400' : 'bg-emerald-500/10 text-emerald-400'}`}
+                            >
+                                {p.is_active ? <PowerOff size={18} /> : <Power size={18} />}
+                            </button>
+                          )}
                         </div>
                     </div>
                 </div>
@@ -172,7 +182,7 @@ export default function InventoryTable({ products, isLoading, onRefresh, onEdit 
       {/* Modal de Impresión de Etiqueta */}
       {printingProduct && (
         <div className="fixed inset-0 z-[60] flex justify-center items-center p-4 print:hidden">
-            <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setPrintingProduct(null)}></div>
+            <div className="absolute inset-0 bg-app-bg backdrop-blur-md" onClick={() => setPrintingProduct(null)}></div>
             <div className="relative w-full max-w-sm bg-app-bg rounded-2xl shadow-2xl border border-app-border p-6 flex flex-col items-center">
                 <div className="flex justify-between items-center w-full mb-6 border-b border-app-border pb-2">
                     <h3 className="text-app-text font-bold">Configuración de Etiquetas</h3>
@@ -187,7 +197,7 @@ export default function InventoryTable({ products, isLoading, onRefresh, onEdit 
                             min="1"
                             value={labelCount}
                             onChange={(e) => setLabelCount(parseInt(e.target.value) || 1)}
-                            className="flex-1 bg-black/10 border border-app-border rounded-xl px-4 py-3 text-app-text font-bold text-lg focus:outline-none focus:ring-1 focus:ring-app-accent/50"
+                            className="flex-1 bg-app-bg border border-app-border rounded-xl px-4 py-3 text-app-text font-bold text-lg focus:outline-none focus:ring-1 focus:ring-app-accent/50"
                         />
                         <button 
                             onClick={() => setLabelCount(printingProduct.stockCount)}

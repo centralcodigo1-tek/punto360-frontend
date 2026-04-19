@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
-import { Package, LayoutDashboard, ShoppingCart, History, Factory, Layers, PackagePlus, Users, BarChart3, ChevronLeft, ChevronRight, Palette, X } from "lucide-react";
+import { Package, LayoutDashboard, ShoppingCart, History, Factory, Layers, PackagePlus, Truck, Users, BarChart3, Archive, ChevronLeft, ChevronRight, Palette, X, Briefcase } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
 import { useTheme } from "../theme/ThemeContext";
 
@@ -10,7 +10,12 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ isMobileOpen = false, onClose }: SidebarProps) {
-    const { hasPermission } = useAuth();
+    const { hasPermission, user } = useAuth();
+    const isAdmin = user?.role === 'ADMIN';
+    const canManageUsers     = hasPermission('users.manage')     || isAdmin;
+    const canViewReports     = hasPermission('reports.view')     || isAdmin;
+    const canManageCustomers = hasPermission('customers.manage') || isAdmin;
+    const canManageProviders = hasPermission('inventory.manage') || isAdmin;
     const { theme, setTheme } = useTheme();
     const location = useLocation();
     const [isCollapsed, setIsCollapsed] = useState(false);
@@ -43,10 +48,14 @@ export default function Sidebar({ isMobileOpen = false, onClose }: SidebarProps)
         { name: "Ventas", path: "/ventas", icon: ShoppingCart, show: true },
         { name: "Caja", path: "/caja", icon: Layers, show: true },
         { name: "Compras", path: "/compras", icon: PackagePlus, show: true },
+        { name: "Proveedores", path: "/proveedores", icon: Truck, show: canManageProviders },
         { name: "Inventario", path: "/inventario", icon: Package, show: true },
         { name: "Historial", path: "/historial", icon: History, show: true },
-        { name: "Reportes", path: "/reportes", icon: BarChart3, show: hasPermission("reports.view") },
-        { name: "Usuarios", path: "/usuarios", icon: Users, show: hasPermission("users.manage") },
+        { name: "Clientes", path: "/clientes", icon: Users, show: canManageCustomers || hasPermission('pos.access') },
+        { name: "Cartera", path: "/cartera", icon: Briefcase, show: canManageCustomers },
+        { name: "Arqueos", path: "/arqueos", icon: Archive, show: canViewReports },
+        { name: "Reportes", path: "/reportes", icon: BarChart3, show: canViewReports },
+        { name: "Usuarios", path: "/usuarios", icon: Users, show: canManageUsers },
     ].filter(item => item.show);
 
     return (
@@ -69,7 +78,7 @@ export default function Sidebar({ isMobileOpen = false, onClose }: SidebarProps)
                     </div>
                 )}
                 {isMobile && (
-                    <button onClick={onClose} className="p-2 text-app-text-muted hover:text-white transition-colors">
+                    <button onClick={onClose} className="p-2 text-app-text-muted hover:text-app-text transition-colors">
                         <X size={20} />
                     </button>
                 )}
@@ -85,7 +94,7 @@ export default function Sidebar({ isMobileOpen = false, onClose }: SidebarProps)
                             `flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-300 group ${
                                 isActive 
                                 ? "bg-app-accent/20 text-app-accent border border-app-accent/20 shadow-[0_0_20px_rgba(var(--theme-accent),0.1)]" 
-                                : "text-app-text-muted hover:text-app-text hover:bg-white/5 hover:translate-x-1"
+                                : "text-app-text-muted hover:text-app-text hover:bg-app-card hover:translate-x-1"
                             }`
                         }
                     >
@@ -126,7 +135,7 @@ export default function Sidebar({ isMobileOpen = false, onClose }: SidebarProps)
                 {!isMobile && (
                     <button 
                         onClick={() => setIsCollapsed(!isCollapsed)}
-                        className="w-full flex items-center justify-center p-2 rounded-lg bg-white/5 text-app-text-muted hover:text-app-text hover:bg-white/10 transition-all border border-app-border"
+                        className="w-full flex items-center justify-center p-2 rounded-lg bg-app-card text-app-text-muted hover:text-app-text hover:bg-app-card transition-all border border-app-border"
                     >
                         {isCollapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
                     </button>

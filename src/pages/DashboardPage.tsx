@@ -71,6 +71,8 @@ export default function DashboardPage() {
     }
   };
 
+  const canViewFinancials = hasPermission("reports.view");
+
   const statCards = stats
     ? [
         {
@@ -80,6 +82,7 @@ export default function DashboardPage() {
           icon: <DollarSign size={22} />,
           from: "from-blue-600",
           to: "to-cyan-500",
+          show: true,
         },
         {
           title: "Efectivo en Caja",
@@ -88,6 +91,7 @@ export default function DashboardPage() {
           icon: <Wallet size={22} />,
           from: "from-emerald-600",
           to: "to-teal-500",
+          show: canViewFinancials,
         },
         {
           title: "Ventas del Mes",
@@ -96,6 +100,7 @@ export default function DashboardPage() {
           icon: <TrendingUp size={22} />,
           from: "from-violet-600",
           to: "to-purple-500",
+          show: canViewFinancials,
         },
         {
           title: "Inventario Activo",
@@ -104,8 +109,9 @@ export default function DashboardPage() {
           icon: <Package size={22} />,
           from: "from-orange-500",
           to: "to-amber-400",
+          show: true,
         },
-      ]
+      ].filter(c => c.show)
     : [];
 
   return (
@@ -234,7 +240,7 @@ export default function DashboardPage() {
                         <ShoppingCart size={80} />
                     </div>
                     <h3 className="text-white font-bold text-lg mb-1">Caja Registradora</h3>
-                    <p className="text-white/70 text-sm mb-6">Realiza ventas y cobra a tus clientes en segundos.</p>
+                    <p className="text-app-text text-sm mb-6">Realiza ventas y cobra a tus clientes en segundos.</p>
                     <button
                         onClick={() => navigate("/ventas")}
                         className="w-full py-3 bg-white text-indigo-600 font-bold rounded-xl shadow-lg hover:bg-indigo-50 transition-colors"
