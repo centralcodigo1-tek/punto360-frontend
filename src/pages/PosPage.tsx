@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import DashboardLayout from "../layouts/DashboardLayout";
-import { ShoppingCart, Search, CreditCard, Banknote, Building2, Plus, Minus, Trash2, CheckCircle2, Loader2, AlertTriangle, TrendingUp, Receipt, Wallet, UserCheck, X } from "lucide-react";
+import { ShoppingCart, Search, CreditCard, Banknote, Building2, Plus, Minus, Trash2, CheckCircle2, Loader2, AlertTriangle, TrendingUp, Receipt, Wallet, UserCheck, X, Pause, Clock } from "lucide-react";
 import { api } from "../api/axios";
 import type { ProductRow } from "./InventoryPage";
 
@@ -50,12 +50,64 @@ export default function PosPage() {
   const [isPriceEditing, setIsPriceEditing] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"catalog" | "cart">("catalog");
   const [shiftStats, setShiftStats] = useState<ShiftStats | null>(null);
+  const [pendingSales, setPendingSales] = useState<any[]>([]);
+  const [showPending, setShowPending] = useState(false);
 
   const fetchShiftStats = async () => {
     try {
       const res = await api.get("/cash-registers/current/stats");
       if (res.data) setShiftStats(res.data);
     } catch { /* silencioso */ }
+  };
+
+  const fetchPendingSales = async () => {
+    try {
+      const res = await api.get("/sales/pending");
+      setPendingSales(res.data);
+    } catch { /* silencioso */ }
+  };
+
+  const handleHoldSale = async () => {
+    if (cart.length === 0) return;
+    try {
+      await api.post("/sales/pending", {
+        items: cart.map(c => ({ productId: c.product.id, quantity: c.quantity, price: c.customPrice })),
+        total: cartTotal,
+      });
+      setCart([]);
+      setCashReceived("");
+      setSelectedCustomer(null);
+      setCustomerSearch("");
+      fetchPendingSales();
+    } catch (error: any) {
+      alert(error.response?.data?.message || "Error al guardar la factura.");
+    }
+  };
+
+  const handleResumeSale = (sale: any) => {
+    const items = sale.sale_items.map((item: any) => ({
+      product: {
+        id: item.product_id,
+        name: item.products.name,
+        sku: item.products.sku,
+        sale_price: Number(item.price),
+        unit_type: "UNIT",
+        stockCount: 999,
+        is_active: true,
+        cost_price: 0,
+      },
+      quantity: Number(item.quantity),
+      customPrice: Number(item.price),
+    }));
+    setCart(items);
+    setShowPending(false);
+    api.delete(`/sales/${sale.id}/discard`).then(fetchPendingSales);
+  };
+
+  const handleDiscardPending = async (id: string) => {
+    if (!window.confirm("¿Descartar esta factura pendiente?")) return;
+    await api.delete(`/sales/${id}/discard`);
+    fetchPendingSales();
   };
 
   const fetchCustomers = async () => {
@@ -77,7 +129,7 @@ export default function PosPage() {
     api.get("/cash-registers/current")
       .then(res => {
         setHasCashSession(!!res.data);
-        if (res.data) fetchShiftStats();
+        if (res.data) { fetchShiftStats(); fetchPendingSales(); }
       })
       .catch(() => setHasCashSession(false));
   }, []);
@@ -373,14 +425,37 @@ export default function PosPage() {
 
         {/* LADO DERECHO: TICKET */}
         <div className={`w-full lg:w-96 flex flex-col bg-app-sidebar backdrop-blur-3xl rounded-2xl border border-app-border shadow-2xl overflow-hidden lg:h-full ${activeTab === 'cart' ? 'flex fixed inset-0 h-full z-[70] lg:relative lg:inset-auto' : 'hidden lg:flex'}`}>
-          <div className="bg-app-accent/10 p-4 border-b border-app-border flex justify-between items-center">
+          <div className="bg-app-accent/10 p-4 border-b border-app-border flex justify-between items-center gap-2">
             <h3 className="text-sm font-black text-app-text uppercase tracking-widest">Resumen Ticket</h3>
-            <button 
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => { fetchPendingSales(); setShowPending(true); }}
+                className="relative p-2 text-app-text-muted hover:text-amber-400 transition-colors"
+                title="Facturas pendientes"
+              >
+                <Clock size={18} />
+                {pendingSales.length > 0 && (
+                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-amber-400 text-black text-[9px] font-black rounded-full flex items-center justify-center">
+                    {pendingSales.length}
+                  </span>
+                )}
+              </button>
+              {cart.length > 0 && (
+                <button
+                  onClick={handleHoldSale}
+                  className="p-2 text-app-text-muted hover:text-amber-400 transition-colors"
+                  title="Guardar factura"
+                >
+                  <Pause size={18} />
+                </button>
+              )}
+              <button
                 onClick={() => setActiveTab('catalog')}
                 className="lg:hidden p-2 text-app-text-muted hover:text-white"
-            >
+              >
                 <Plus size={20} className="rotate-45" />
-            </button>
+              </button>
+            </div>
           </div>
 
           <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3 custom-scrollbar">
@@ -590,6 +665,67 @@ export default function PosPage() {
         )}
 
       </div>
+
+      {/* Modal Facturas Pendientes */}
+      {showPending && (
+        <div className="fixed inset-0 z-[100] flex justify-center items-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={() => setShowPending(false)} />
+          <div className="relative w-full max-w-md bg-app-bg rounded-2xl shadow-2xl border border-app-border flex flex-col max-h-[80vh] animate-in zoom-in duration-200">
+            <div className="flex items-center justify-between p-5 border-b border-app-border">
+              <div className="flex items-center gap-2">
+                <Clock size={18} className="text-amber-400" />
+                <h3 className="font-black text-app-text uppercase tracking-widest text-sm">Facturas Pendientes</h3>
+              </div>
+              <button onClick={() => setShowPending(false)} className="text-app-text-muted hover:text-white transition-colors">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-3">
+              {pendingSales.length === 0 ? (
+                <p className="text-center text-app-text-muted text-sm py-8 font-bold">No hay facturas pendientes</p>
+              ) : pendingSales.map((sale: any) => (
+                <div key={sale.id} className="bg-app-card border border-app-border rounded-xl p-4 flex flex-col gap-3">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="text-[10px] font-black text-app-text-muted uppercase tracking-widest">
+                        {new Date(sale.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                      <p className="text-xs text-app-text-muted mt-1">
+                        {sale.sale_items.length} producto{sale.sale_items.length !== 1 ? 's' : ''}
+                      </p>
+                      <div className="mt-1 space-y-0.5">
+                        {sale.sale_items.slice(0, 3).map((item: any) => (
+                          <p key={item.id} className="text-[10px] text-app-text-muted">
+                            {item.products.name} × {Number(item.quantity)}
+                          </p>
+                        ))}
+                        {sale.sale_items.length > 3 && (
+                          <p className="text-[10px] text-app-text-muted italic">+{sale.sale_items.length - 3} más...</p>
+                        )}
+                      </div>
+                    </div>
+                    <span className="text-lg font-black text-app-text">${Number(sale.total).toLocaleString()}</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleResumeSale(sale)}
+                      className="flex-1 py-2.5 bg-app-accent hover:bg-app-accent-hover text-white font-black text-[10px] uppercase tracking-widest rounded-xl transition-all"
+                    >
+                      Reanudar
+                    </button>
+                    <button
+                      onClick={() => handleDiscardPending(sale.id)}
+                      className="px-3 py-2.5 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 font-black text-[10px] uppercase tracking-widest rounded-xl transition-all"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal de Pesaje (Modo Responsivo) */}
       {weightPrompt && (
