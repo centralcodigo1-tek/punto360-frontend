@@ -44,6 +44,8 @@ export default function PosPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [weightPrompt, setWeightPrompt] = useState<ProductRow | null>(null);
   const [weightInput, setWeightInput] = useState("");
+  const [consignmentPrompt, setConsignmentPrompt] = useState<ProductRow | null>(null);
+  const [consignmentPrice, setConsignmentPrice] = useState("");
   const [hasCashSession, setHasCashSession] = useState<boolean | null>(null);
   
   const [cashReceived, setCashReceived] = useState<string>("");
@@ -164,8 +166,34 @@ export default function PosPage() {
       });
   }, [products, searchQuery]);
 
+  const commitConsignmentSale = () => {
+    if (!consignmentPrompt) return;
+    const parsedPrice = parseFloat(consignmentPrice);
+    if (isNaN(parsedPrice) || parsedPrice <= 0) {
+      alert("Ingresa un valor válido mayor a cero.");
+      return;
+    }
+    setCart((prev) => {
+      const existing = prev.find((item) => item.product.id === consignmentPrompt.id);
+      if (existing) {
+        return prev.map((item) =>
+          item.product.id === consignmentPrompt.id ? { ...item, customPrice: parsedPrice } : item
+        );
+      }
+      return [...prev, { product: consignmentPrompt, quantity: 1, customPrice: parsedPrice }];
+    });
+    setConsignmentPrompt(null);
+    setConsignmentPrice("");
+  };
+
   const addToCart = (product: ProductRow) => {
-    if (product.stockCount === 0) return;
+    if (!product.is_consignment && product.stockCount === 0) return;
+
+    if (product.is_consignment) {
+      setConsignmentPrompt(product);
+      setConsignmentPrice("");
+      return;
+    }
 
     if (product.unit_type === "WEIGHT") {
       setWeightPrompt(product);
@@ -734,6 +762,36 @@ export default function PosPage() {
       )}
 
       {/* Modal de Pesaje (Modo Responsivo) */}
+      {consignmentPrompt && (
+        <div className="fixed inset-0 z-[100] flex justify-center items-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={() => setConsignmentPrompt(null)}></div>
+          <div className="relative w-full max-w-sm bg-app-bg rounded-3xl shadow-2xl border border-app-border p-6 flex flex-col items-center animate-in zoom-in duration-300">
+            <div className="w-16 h-16 rounded-2xl bg-amber-500/10 text-amber-400 flex items-center justify-center mb-4 shadow-inner">
+              <ShoppingCart size={32} />
+            </div>
+            <h2 className="text-xl font-black text-app-text text-center mb-1 tracking-tight">{consignmentPrompt.name}</h2>
+            <p className="text-[10px] font-black uppercase text-center text-amber-400 mb-6 tracking-widest">Consignación — Ingresa el valor a cobrar</p>
+            <div className="w-full relative mb-6">
+              <span className="absolute left-5 top-1/2 -translate-y-1/2 text-app-text-muted font-black text-xl">$</span>
+              <input
+                type="number"
+                step="100"
+                autoFocus
+                value={consignmentPrice}
+                onChange={(e) => setConsignmentPrice(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') commitConsignmentSale(); }}
+                className="w-full bg-amber-500/5 border border-amber-500/30 rounded-2xl pl-10 pr-4 py-5 text-center text-4xl font-black text-amber-400 placeholder-amber-400/20 focus:outline-none focus:ring-4 focus:ring-amber-500/10 shadow-inner"
+                placeholder="0"
+              />
+            </div>
+            <div className="flex gap-3 w-full">
+              <button onClick={() => setConsignmentPrompt(null)} className="flex-1 py-4 rounded-xl border border-app-border text-app-text-muted font-black uppercase text-[10px] tracking-widest hover:text-white transition-colors">Cerrar</button>
+              <button onClick={commitConsignmentSale} className="flex-1 py-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-white font-black uppercase text-[10px] tracking-widest transition-all shadow-lg shadow-amber-500/20">Agregar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {weightPrompt && (
         <div className="fixed inset-0 z-[100] flex justify-center items-center p-4">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={() => setWeightPrompt(null)}></div>
