@@ -145,7 +145,8 @@ export default function PosPage() {
         sale_price: Number(p.sale_price),
         unit_type: p.unit_type || "UNIT",
         stockCount: p.stock && p.stock.length > 0 ? Number(p.stock[0].quantity) : 0,
-        is_active: p.is_active
+        is_active: p.is_active,
+        is_consignment: p.is_consignment ?? false
       }));
       setProducts(mapped);
     } catch (error) {
@@ -391,7 +392,7 @@ export default function PosPage() {
               /* ── Resultados de búsqueda ── */
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
                 {visibleProducts.map(p => {
-                  const agotado = p.stockCount === 0;
+                  const agotado = !p.is_consignment && p.stockCount === 0;
                   return (
                     <button
                       key={p.id}
@@ -401,6 +402,9 @@ export default function PosPage() {
                     >
                       {agotado && (
                         <div className="absolute top-2 right-2 px-2 py-0.5 bg-rose-500/20 text-rose-500 text-[10px] font-black rounded uppercase">Agotado</div>
+                      )}
+                      {p.is_consignment && (
+                        <div className="absolute top-2 right-2 px-2 py-0.5 bg-amber-500/20 text-amber-400 text-[10px] font-black rounded uppercase">Consig.</div>
                       )}
                       <div className="flex items-center gap-3 mb-3">
                         <div className="w-10 h-10 rounded-full bg-app-bg border border-app-border flex items-center justify-center font-black text-app-accent text-lg overflow-hidden shadow-inner shrink-0 leading-none">
@@ -413,7 +417,9 @@ export default function PosPage() {
                       </div>
                       <div className="flex items-end justify-between w-full mt-auto">
                         <span className="text-emerald-500 font-bold text-lg leading-none">${p.sale_price.toLocaleString()}</span>
-                        <span className="text-app-text-muted text-[10px] font-black uppercase">{p.unit_type === 'WEIGHT' ? `${p.stockCount} Kg` : `${p.stockCount} Un.`}</span>
+                        {!p.is_consignment && (
+                          <span className="text-app-text-muted text-[10px] font-black uppercase">{p.unit_type === 'WEIGHT' ? `${p.stockCount} Kg` : `${p.stockCount} Un.`}</span>
+                        )}
                       </div>
                     </button>
                   );

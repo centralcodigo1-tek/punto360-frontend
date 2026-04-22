@@ -30,6 +30,7 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
     unit_type: "UNIT",
     stock: "",
     is_active: true,
+    is_consignment: false,
   });
 
   const fetchCategoriesAndSku = async () => {
@@ -49,6 +50,7 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
           unit_type: initialData.unit_type || "UNIT",
           stock: String(initialData.stockCount),
           is_active: initialData.is_active,
+          is_consignment: initialData.is_consignment ?? false,
         });
       } else {
         const [catRes, skuRes] = await Promise.all([
@@ -271,6 +273,22 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
                   <option value="yes">Activo (Venta)</option>
                   <option value="no">Inactivo (Pausado)</option>
                 </select>
+              </div>
+
+              <div className="col-span-full">
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, is_consignment: !form.is_consignment })}
+                  className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border transition-all ${form.is_consignment ? 'bg-amber-500/10 border-amber-500/40 text-amber-400' : 'bg-app-bg border-app-border text-app-text-muted'}`}
+                >
+                  <div className="text-left">
+                    <p className="text-sm font-medium">Producto de Consignación</p>
+                    <p className="text-xs opacity-70">No descuenta inventario al vender</p>
+                  </div>
+                  <div className={`w-10 h-6 rounded-full transition-all flex items-center px-1 ${form.is_consignment ? 'bg-amber-500 justify-end' : 'bg-app-border justify-start'}`}>
+                    <div className="w-4 h-4 rounded-full bg-white shadow" />
+                  </div>
+                </button>
               </div>
            </div>
 

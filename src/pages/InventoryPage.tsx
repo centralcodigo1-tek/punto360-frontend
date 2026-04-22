@@ -20,6 +20,7 @@ export interface ProductRow {
   is_active: boolean;
   unit_type: "UNIT" | "WEIGHT";
   category_id?: string;
+  is_consignment?: boolean;
 }
 
 export default function InventoryPage() {
@@ -71,7 +72,8 @@ export default function InventoryPage() {
                   statusColor,
                   is_active: p.is_active,
                   unit_type: p.unit_type || "UNIT",
-                  category_id: p.category_id
+                  category_id: p.category_id,
+                  is_consignment: p.is_consignment ?? false,
                 };
             });
             setAllProducts(mapped);

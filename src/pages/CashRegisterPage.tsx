@@ -33,6 +33,7 @@ interface CloseSummary {
         cashSales: number;
         cardSales: number;
         transferSales: number;
+        consignmentSales: number;
         totalSales: number;
         totalExpenses: number;
         totalIncomes: number;
@@ -203,6 +204,7 @@ export default function CashRegisterPage() {
                                 { label: "Ventas Efectivo", value: summary.cashSales, icon: <Wallet size={16}/>, color: "text-emerald-400", show: true },
                                 { label: "Ventas Tarjeta", value: summary.cardSales, icon: <CreditCard size={16}/>, color: "text-blue-400", show: canViewFinancials },
                                 { label: "Ventas Transferencia", value: summary.transferSales, icon: <Building2 size={16}/>, color: "text-violet-400", show: canViewFinancials },
+                                { label: "Ventas Consignación", value: summary.consignmentSales ?? 0, icon: <DollarSign size={16}/>, color: "text-amber-400", show: (summary.consignmentSales ?? 0) > 0 },
                                 { label: "Otros Ingresos (Abonos)", value: summary.totalIncomes ?? 0, icon: <DollarSign size={16}/>, color: "text-teal-400", show: (summary.totalIncomes ?? 0) > 0 },
                                 { label: "Gastos de Caja", value: -summary.totalExpenses, icon: <TrendingDown size={16}/>, color: "text-rose-400", show: true },
                             ].filter(r => r.show).map(row => (
