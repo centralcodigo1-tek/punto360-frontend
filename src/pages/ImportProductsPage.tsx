@@ -92,7 +92,7 @@ export default function ImportProductsPage() {
       setPreview([]);
       setFileName("");
     } catch (e: any) {
-      alert(e.response?.data?.message || "Error al importar productos.");
+      toast.error(e.response?.data?.message || "Error al importar productos.");
     } finally {
       setIsImporting(false);
     }
