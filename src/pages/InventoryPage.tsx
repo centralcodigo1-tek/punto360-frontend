@@ -20,6 +20,7 @@ export interface ProductRow {
   is_active: boolean;
   unit_type: "UNIT" | "WEIGHT";
   category_id?: string;
+  category_name?: string;
   is_consignment?: boolean;
 }
 
@@ -34,6 +35,7 @@ export default function InventoryPage() {
     // Filtros de UI
     const [searchQuery, setSearchQuery] = useState("");
     const [filterType, setFilterType] = useState<"all" | "low" | "out">("all");
+    const [filterCategory, setFilterCategory] = useState("");
 
     // Edición Pop-up
     const [editingProduct, setEditingProduct] = useState<ProductRow | null>(null);
@@ -73,6 +75,7 @@ export default function InventoryPage() {
                   is_active: p.is_active,
                   unit_type: p.unit_type || "UNIT",
                   category_id: p.category_id,
+                  category_name: p.categories?.name ?? "",
                   is_consignment: p.is_consignment ?? false,
                 };
             });
@@ -93,22 +96,22 @@ export default function InventoryPage() {
     const lowStockCount = allProducts.filter(p => p.stockCount > 0 && p.stockCount <= 5).length;
     const outOfStockCount = allProducts.filter(p => p.stockCount === 0).length;
 
+    // Categorías únicas para el filtro
+    const categories = [...new Set(allProducts.map(p => p.category_name).filter(Boolean))].sort() as string[];
+
     // Filter Logic
     const filteredProducts = allProducts.filter(p => {
-        // 1. Ocultar productos inactivos a menos que estemos buscando algo explícito y queramos verlos?
-        // En punto de venta, lo usual es ver todo para poder re-activarlos.
-        
         let matchesFilter = true;
         if (filterType === "low") matchesFilter = (p.stockCount > 0 && p.stockCount <= 5);
         if (filterType === "out") matchesFilter = (p.stockCount === 0);
 
-        let matchesSearch = true;
-        if (searchQuery) {
-            const q = searchQuery.toLowerCase();
-            matchesSearch = p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q);
-        }
+        const matchesSearch = searchQuery
+            ? p.name.toLowerCase().includes(searchQuery.toLowerCase()) || p.sku.toLowerCase().includes(searchQuery.toLowerCase())
+            : true;
 
-        return matchesFilter && matchesSearch;
+        const matchesCategory = filterCategory ? p.category_name === filterCategory : true;
+
+        return matchesFilter && matchesSearch && matchesCategory;
     });
 
     return (
@@ -140,6 +143,9 @@ export default function InventoryPage() {
                    setSearchQuery={setSearchQuery}
                    filterType={filterType}
                    setFilterType={setFilterType}
+                   filterCategory={filterCategory}
+                   setFilterCategory={setFilterCategory}
+                   categories={categories}
                    canCreate={canManageInventory}
                 />
 

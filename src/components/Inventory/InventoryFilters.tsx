@@ -6,10 +6,13 @@ interface InventoryFiltersProps {
     setSearchQuery: (val: string) => void;
     filterType: "all" | "low" | "out";
     setFilterType: (val: "all" | "low" | "out") => void;
+    filterCategory: string;
+    setFilterCategory: (val: string) => void;
+    categories: string[];
     canCreate?: boolean;
 }
 
-export default function InventoryFilters({ searchQuery, setSearchQuery, filterType, setFilterType, canCreate = true }: InventoryFiltersProps) {
+export default function InventoryFilters({ searchQuery, setSearchQuery, filterType, setFilterType, filterCategory, setFilterCategory, categories, canCreate = true }: InventoryFiltersProps) {
     return (
         <div className="bg-app-card backdrop-blur-md border border-app-border rounded-2xl p-4 md:p-6 shadow-xl space-y-5">
             {/* Cabecera y Botón Nuevo */}
@@ -64,6 +67,20 @@ export default function InventoryFilters({ searchQuery, setSearchQuery, filterTy
                         className="w-full bg-app-bg border border-app-border rounded-xl pl-12 pr-4 py-3 text-app-text text-sm placeholder-app-text-muted/30 focus:outline-none focus:ring-2 focus:ring-app-accent/30 transition-all font-bold"
                     />
                 </div>
+
+                {/* Categoría */}
+                {categories.length > 0 && (
+                    <select
+                        value={filterCategory}
+                        onChange={(e) => setFilterCategory(e.target.value)}
+                        className="bg-app-bg border border-app-border rounded-xl px-4 py-3 text-app-text text-sm focus:outline-none focus:ring-2 focus:ring-app-accent/30 transition-all font-bold min-w-[160px]"
+                    >
+                        <option value="">Todas las categorías</option>
+                        {categories.map(c => (
+                            <option key={c} value={c}>{c}</option>
+                        ))}
+                    </select>
+                )}
             </div>
         </div>
     );
