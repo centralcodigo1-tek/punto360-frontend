@@ -1,3 +1,4 @@
+import { toast } from "../lib/toast";
 import { useEffect, useState, useMemo } from "react";
 import DashboardLayout from "../layouts/DashboardLayout";
 import { api } from "../api/axios";
@@ -101,7 +102,7 @@ export default function CustomersPage() {
     };
 
     const handleSave = async () => {
-        if (!formData.name.trim()) return alert("El nombre es obligatorio.");
+        if (!formData.name.trim()) return toast.error("El nombre es obligatorio.");
         setIsSaving(true);
         try {
             const payload = {

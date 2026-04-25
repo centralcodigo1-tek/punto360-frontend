@@ -1,5 +1,6 @@
-import { Edit2, PackageSearch, Power, PowerOff, Printer, X } from "lucide-react";
-import { useState } from "react";
+import { Edit2, PackageSearch, Power, PowerOff, Printer, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { useState, useEffect } from "react";
+import { toast } from "../../lib/toast";
 import { useAuth } from "../../auth/AuthContext";
 import { ProductLabel } from "./ProductLabel";
 import { api } from "../../api/axios";
@@ -12,12 +13,20 @@ interface InventoryTableProps {
   onEdit?: (product: ProductRow) => void;
 }
 
+const PAGE_SIZE = 20;
+
 export default function InventoryTable({ products, isLoading, onRefresh, onEdit }: InventoryTableProps) {
   const { hasPermission, user } = useAuth();
   const canViewFinancials = hasPermission("reports.view");
   const canManageInventory = hasPermission("inventory.manage") || user?.role === "ADMIN";
   const [printingProduct, setPrintingProduct] = useState<ProductRow | null>(null);
   const [labelCount, setLabelCount] = useState<number>(1);
+  const [page, setPage] = useState(1);
+
+  const totalPages = Math.ceil(products.length / PAGE_SIZE);
+  const paginated = products.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  useEffect(() => { setPage(1); }, [products.length]);
 
 
 
@@ -33,7 +42,7 @@ export default function InventoryTable({ products, isLoading, onRefresh, onEdit 
       onRefresh(); // Dispara la recarga de la tabla en el padre
     } catch (error) {
       console.error("Error cambiando estado del producto", error);
-      alert("No se pudo cambiar el estado del producto");
+      toast.error("No se pudo cambiar el estado del producto");
     }
   };
 
@@ -70,7 +79,7 @@ export default function InventoryTable({ products, isLoading, onRefresh, onEdit 
             </thead>
 
             <tbody className="divide-y divide-app-border/20 text-app-text">
-              {products.map((p) => (
+              {paginated.map((p) => (
                 <tr
                   key={p.id}
                   className={`transition-all group ${!p.is_active ? 'bg-app-bg opacity-50' : p.stockCount === 0 ? 'bg-rose-500/5 hover:bg-rose-500/10' : 'hover:bg-app-accent/5'}`}
@@ -123,7 +132,7 @@ export default function InventoryTable({ products, isLoading, onRefresh, onEdit 
 
         {/* VISTA MÓVIL: CARDS */}
         <div className="md:hidden divide-y divide-app-border">
-            {products.map((p) => (
+            {paginated.map((p) => (
                 <div key={p.id} className={`p-4 flex flex-col gap-3 ${!p.is_active ? 'bg-app-bg opacity-50' : p.stockCount === 0 ? 'bg-rose-500/5' : ''}`}>
                     <div className="flex justify-between items-start">
                         <div className="flex flex-col gap-1 min-w-0">
@@ -178,6 +187,47 @@ export default function InventoryTable({ products, isLoading, onRefresh, onEdit 
             ))}
         </div>
       </div>
+
+      {/* Paginación */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between px-6 py-3 border-t border-app-border bg-app-bg/30">
+          <span className="text-xs text-app-text-muted font-medium">
+            {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, products.length)} de {products.length} productos
+          </span>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="p-2 rounded-lg text-app-text-muted hover:text-app-text hover:bg-app-card disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+            >
+              <ChevronLeft size={16} />
+            </button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1)
+              .filter(n => n === 1 || n === totalPages || Math.abs(n - page) <= 1)
+              .reduce<(number | '...')[]>((acc, n, idx, arr) => {
+                if (idx > 0 && n - (arr[idx - 1] as number) > 1) acc.push('...');
+                acc.push(n);
+                return acc;
+              }, [])
+              .map((n, i) => n === '...'
+                ? <span key={`e${i}`} className="px-1 text-app-text-muted text-xs">…</span>
+                : <button
+                    key={n}
+                    onClick={() => setPage(n as number)}
+                    className={`w-8 h-8 rounded-lg text-xs font-bold transition-all ${page === n ? 'bg-app-accent text-white shadow-md' : 'text-app-text-muted hover:text-app-text hover:bg-app-card'}`}
+                  >{n}</button>
+              )
+            }
+            <button
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages}
+              className="p-2 rounded-lg text-app-text-muted hover:text-app-text hover:bg-app-card disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Modal de Impresión de Etiqueta */}
       {printingProduct && (
