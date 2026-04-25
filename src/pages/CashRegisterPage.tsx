@@ -1,3 +1,4 @@
+import { toast } from "../lib/toast";
 import { useEffect, useState, useCallback } from "react";
 import DashboardLayout from "../layouts/DashboardLayout";
 import { api } from "../api/axios";
@@ -102,7 +103,7 @@ export default function CashRegisterPage() {
 
     const handleOpen = async () => {
         const amount = parseFloat(openingAmount);
-        if (isNaN(amount) || amount < 0) return alert("Ingresa un monto inicial válido.");
+        if (isNaN(amount) || amount < 0) return toast.error("Ingresa un monto inicial válido.");
         setIsSubmitting(true);
         try {
             await api.post("/cash-registers/open", { opening_amount: amount, name: "Caja Principal" });
@@ -118,7 +119,7 @@ export default function CashRegisterPage() {
     const handleClose = async () => {
         if (!session) return;
         const amount = parseFloat(closingAmount);
-        if (isNaN(amount) || amount < 0) return alert("Ingresa el monto de cierre.");
+        if (isNaN(amount) || amount < 0) return toast.error("Ingresa el monto de cierre.");
         if (!window.confirm("¿Confirmas el cierre de caja? Esta acción cerrará el turno actual.")) return;
 
         setIsSubmitting(true);
@@ -140,8 +141,8 @@ export default function CashRegisterPage() {
     const handleAddExpense = async () => {
         if (!session) return;
         const amount = parseFloat(expenseAmount);
-        if (isNaN(amount) || amount <= 0) return alert("Monto inválido.");
-        if (!expenseReason.trim()) return alert("Ingresa el motivo del gasto.");
+        if (isNaN(amount) || amount <= 0) return toast.error("Monto inválido.");
+        if (!expenseReason.trim()) return toast.error("Ingresa el motivo del gasto.");
 
         setIsSubmitting(true);
         try {

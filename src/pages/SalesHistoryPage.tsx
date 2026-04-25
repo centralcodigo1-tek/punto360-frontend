@@ -1,3 +1,4 @@
+import { toast } from "../lib/toast";
 import React, { useEffect, useState } from "react";
 import DashboardLayout from "../layouts/DashboardLayout";
 import { History, Search, ChevronDown, ChevronUp, AlertOctagon, CheckCircle2, RotateCcw } from "lucide-react";
@@ -79,7 +80,7 @@ export default function SalesHistoryPage() {
 
         try {
             await api.put(`/sales/${id}/cancel`);
-            alert("Venta anulada con éxito.");
+            toast.success("Venta anulada con éxito.");
             fetchSales(); // Refresh list to see updated status
         } catch (e: any) {
             alert(e.response?.data?.message || "Ocurrió un error al intentar anular.");

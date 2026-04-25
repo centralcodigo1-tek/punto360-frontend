@@ -1,3 +1,4 @@
+import { toast } from "../lib/toast";
 import { useEffect, useState, useMemo } from "react";
 import DashboardLayout from "../layouts/DashboardLayout";
 import { api } from "../api/axios";
@@ -151,14 +152,14 @@ export default function PurchasesPage() {
             setSelectedSupplier(res.data.id);
             setShowNewSupplier(false);
             setNewSupplierName(""); setNewSupplierPhone("");
-        } catch { alert("Error al guardar el proveedor."); }
+        } catch { toast.error("Error al guardar el proveedor."); }
         finally { setIsSavingSupplier(false); }
     };
 
     // ── Submit purchase ────────────────────────────────────────────────────────
     const handleSubmit = async () => {
-        if (items.length === 0) return alert("Agrega al menos un producto.");
-        if (items.some(i => i.quantity <= 0 || i.cost < 0)) return alert("Revisa las cantidades y costos.");
+        if (items.length === 0) return toast.error("Agrega al menos un producto.");
+        if (items.some(i => i.quantity <= 0 || i.cost < 0)) return toast.error("Revisa las cantidades y costos.");
 
         setIsSubmitting(true);
         try {
@@ -176,7 +177,7 @@ export default function PurchasesPage() {
             setPaidAmount("");
             setPaymentSource("CASH");
             setDueDate("");
-            alert("✅ Compra registrada. El stock ha sido actualizado.");
+            toast.success("Compra registrada. El stock ha sido actualizado.");
             fetchHistory();
         } catch (e: any) {
             alert(e.response?.data?.message || "Error al registrar la compra.");
@@ -602,9 +603,9 @@ export default function PurchasesPage() {
                                                             const payAmount = prompt(`¿Cuánto deseas abonar a esta deuda? (Saldo actual: ${cop(balance)})`);
                                                             if (payAmount) {
                                                                 const amt = parseFloat(payAmount);
-                                                                if (isNaN(amt) || amt <= 0 || amt > balance) return alert("Monto inválido");
+                                                                if (isNaN(amt) || amt <= 0 || amt > balance) return toast.warning("Monto inválido");
                                                                 api.post(`/purchases/${p.id}/payments`, { amount: amt, method: 'CASH' })
-                                                                   .then(() => { alert("Abono registrado con éxito"); fetchHistory(); })
+                                                                   .then(() => { toast.success("Abono registrado con éxito"); fetchHistory(); })
                                                                    .catch(err => alert(err.response?.data?.message || "Error al pagar"));
                                                             }
                                                         }}

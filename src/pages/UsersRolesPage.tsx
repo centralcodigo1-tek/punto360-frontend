@@ -1,3 +1,4 @@
+import { toast } from "../lib/toast";
 import { useEffect, useState } from "react";
 import DashboardLayout from "../layouts/DashboardLayout";
 import { api } from "../api/axios";
@@ -115,11 +116,11 @@ export default function UsersRolesPage() {
 
   const handleSubmitUser = async () => {
     if (!formData.name || !formData.email || !formData.user_name) {
-      alert("Por favor completa los campos básicos.");
+      toast.error("Por favor completa los campos básicos.");
       return;
     }
     if (!currentUser && !formData.password) {
-      alert("La contraseña es obligatoria para nuevos usuarios.");
+      toast.warning("La contraseña es obligatoria para nuevos usuarios.");
       return;
     }
 
@@ -127,10 +128,10 @@ export default function UsersRolesPage() {
     try {
       if (currentUser) {
         await api.put(`/users/${currentUser.id}`, formData);
-        alert("Usuario actualizado correctamente.");
+        toast.success("Usuario actualizado correctamente.");
       } else {
         await api.post("/users", formData);
-        alert("Usuario creado correctamente.");
+        toast.success("Usuario creado correctamente.");
       }
       setShowUserModal(false);
       fetchData();

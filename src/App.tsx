@@ -23,10 +23,12 @@ import SuperAdminNewClientPage from './pages/superadmin/SuperAdminNewClientPage'
 import SuperAdminClientDetailPage from './pages/superadmin/SuperAdminClientDetailPage';
 
 import { ThemeProvider } from './theme/ThemeContext';
+import ToastContainer from './components/ui/ToastContainer';
 
 const AppRoutes = () => {
   return (
     <ThemeProvider>
+      <ToastContainer />
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<LoginPage />} />

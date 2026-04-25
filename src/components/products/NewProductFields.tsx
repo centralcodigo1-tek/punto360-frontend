@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../../api/axios";
 import { PlusCircle, Loader2 } from "lucide-react";
+import { toast } from "../../lib/toast";
 import type { ProductRow } from "../../pages/InventoryPage";
 
 interface Category {
@@ -99,7 +100,7 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
       if (isEdit && initialData?.id) {
         // ACTUALIZAR MODO
         await api.put(`/products/${initialData.id}`, payload);
-        alert("Producto actualizado exitosamente");
+        toast.success("Producto actualizado exitosamente");
       } else {
         // CREAR MODO
         await api.post("/products", payload);
@@ -113,14 +114,14 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
           stock: "",
           sku: skuRes.data.sku 
         }));
-        alert("Producto creado exitosamente");
+        toast.success("Producto creado exitosamente");
       }
 
       if (onSaveSuccess) onSaveSuccess();
       
     } catch (error) {
       console.error(error);
-      alert("Error al procesar el producto");
+      toast.error("Error al procesar el producto");
     } finally {
       setIsLoading(false);
     }

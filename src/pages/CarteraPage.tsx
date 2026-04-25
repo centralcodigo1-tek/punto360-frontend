@@ -1,3 +1,4 @@
+import { toast } from "../lib/toast";
 import { useEffect, useState } from "react";
 import DashboardLayout from "../layouts/DashboardLayout";
 import { api } from "../api/axios";
@@ -45,7 +46,7 @@ export default function CarteraPage() {
 
     const handleConvert = async () => {
         const parsed = parseFloat(convertAmount);
-        if (isNaN(parsed) || parsed <= 0) return alert("Ingresa un monto válido.");
+        if (isNaN(parsed) || parsed <= 0) return toast.error("Ingresa un monto válido.");
         setIsConverting(true);
         try {
             await api.post("/cartera/convert", { amount: parsed });
@@ -73,8 +74,8 @@ export default function CarteraPage() {
 
     const handleAddExpense = async () => {
         const parsed = parseFloat(amount);
-        if (isNaN(parsed) || parsed <= 0) return alert("Ingresa un monto válido.");
-        if (!reason.trim()) return alert("Ingresa el motivo del gasto.");
+        if (isNaN(parsed) || parsed <= 0) return toast.error("Ingresa un monto válido.");
+        if (!reason.trim()) return toast.error("Ingresa el motivo del gasto.");
         setIsSaving(true);
         try {
             await api.post("/cartera/expenses", { amount: parsed, reason: reason.trim() });

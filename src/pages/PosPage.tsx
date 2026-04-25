@@ -1,3 +1,4 @@
+import { toast } from "../lib/toast";
 import { useEffect, useState, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import DashboardLayout from "../layouts/DashboardLayout";
@@ -170,7 +171,7 @@ export default function PosPage() {
     if (!consignmentPrompt) return;
     const parsedPrice = parseFloat(consignmentPrice);
     if (isNaN(parsedPrice) || parsedPrice <= 0) {
-      alert("Ingresa un valor válido mayor a cero.");
+      toast.error("Ingresa un valor válido mayor a cero.");
       return;
     }
     setCart((prev) => {
@@ -217,7 +218,7 @@ export default function PosPage() {
     if (!weightPrompt) return;
     const parsedWeight = parseFloat(weightInput);
     if (isNaN(parsedWeight) || parsedWeight <= 0) {
-      alert("Ingresa un peso válido mayor a cero.");
+      toast.error("Ingresa un peso válido mayor a cero.");
       return;
     }
     if (parsedWeight > weightPrompt.stockCount) {
@@ -265,7 +266,7 @@ export default function PosPage() {
   const handleCheckout = async () => {
     if (cart.length === 0) return;
     if (paymentMethod === 'CREDIT' && !selectedCustomer) {
-      alert("Selecciona un cliente para registrar una venta a crédito.");
+      toast.warning("Selecciona un cliente para registrar una venta a crédito.");
       return;
     }
     setIsProcessing(true);
@@ -287,7 +288,7 @@ export default function PosPage() {
       setCashReceived("");
       setSelectedCustomer(null);
       setCustomerSearch("");
-      alert("✅ ¡Venta registrada con éxito!");
+      toast.success("¡Venta registrada con éxito!");
       fetchProducts();
       fetchShiftStats();
     } catch (error: any) {
