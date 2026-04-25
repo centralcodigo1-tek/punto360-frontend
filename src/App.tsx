@@ -14,6 +14,7 @@ import UsersRolesPage from './pages/UsersRolesPage';
 import ReportsPage from './pages/ReportsPage';
 import CustomersPage from './pages/CustomersPage';
 import CarteraPage from './pages/CarteraPage';
+import ImportProductsPage from './pages/ImportProductsPage';
 import PrivateRoute from './routes/PrivateRoute';
 import SuperAdminRoute from './routes/SuperAdminRoute';
 import SuperAdminLayout from './pages/superadmin/SuperAdminLayout';
@@ -43,6 +44,7 @@ const AppRoutes = () => {
           <Route path="/clientes" element={<PrivateRoute><CustomersPage /></PrivateRoute>} />
           <Route path="/cartera" element={<PrivateRoute><CarteraPage /></PrivateRoute>} />
           <Route path="/nuevo_producto" element={<NewProductPage />} />
+          <Route path="/importar-productos" element={<PrivateRoute><ImportProductsPage /></PrivateRoute>} />
 
           {/* Super Admin */}
           <Route path="/superadmin" element={<SuperAdminRoute><SuperAdminLayout /></SuperAdminRoute>}>
