@@ -199,7 +199,7 @@ export default function SuppliersPage() {
             );
             setPayingId(null);
         } catch (e: any) {
-            alert(e?.response?.data?.message ?? "Error registrando el abono");
+            toast.error(e?.response?.data?.message ?? "Error registrando el abono");
         } finally {
             setIsSubmittingPay(false);
         }
