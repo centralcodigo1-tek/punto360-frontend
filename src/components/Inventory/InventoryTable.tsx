@@ -1,8 +1,8 @@
-import { Edit2, PackageSearch, Power, PowerOff, Printer, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { Edit2, PackageSearch, Power, PowerOff, Printer, ChevronLeft, ChevronRight } from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "../../lib/toast";
 import { useAuth } from "../../auth/AuthContext";
-import { ProductLabel } from "./ProductLabel";
+import LabelPrintModal from "./LabelPrintModal";
 import { api } from "../../api/axios";
 import type { ProductRow } from "../../pages/InventoryPage";
 
@@ -20,7 +20,6 @@ export default function InventoryTable({ products, isLoading, onRefresh, onEdit 
   const canViewFinancials = hasPermission("reports.view");
   const canManageInventory = hasPermission("inventory.manage") || user?.role === "ADMIN";
   const [printingProduct, setPrintingProduct] = useState<ProductRow | null>(null);
-  const [labelCount, setLabelCount] = useState<number>(1);
   const [page, setPage] = useState(1);
 
   const totalPages = Math.ceil(products.length / PAGE_SIZE);
@@ -98,10 +97,7 @@ export default function InventoryTable({ products, isLoading, onRefresh, onEdit 
                   </td>
                   <td className="px-6 py-4 text-right space-x-2 opacity-50 group-hover:opacity-100 transition-opacity">
                     <button 
-                       onClick={() => {
-                          setPrintingProduct(p);
-                          setLabelCount(Math.max(1, p.stockCount));
-                       }}
+                       onClick={() => setPrintingProduct(p)}
                        className="p-2 bg-app-accent/10 text-app-accent hover:bg-app-accent/20 rounded-lg transition-all" 
                        title="Etiquetar"
                     >
@@ -231,58 +227,11 @@ export default function InventoryTable({ products, isLoading, onRefresh, onEdit 
 
       {/* Modal de Impresión de Etiqueta */}
       {printingProduct && (
-        <div className="fixed inset-0 z-[60] flex justify-center items-center p-4 print:hidden">
-            <div className="absolute inset-0 bg-app-bg backdrop-blur-md" onClick={() => setPrintingProduct(null)}></div>
-            <div className="relative w-full max-w-sm bg-app-bg rounded-2xl shadow-2xl border border-app-border p-6 flex flex-col items-center">
-                <div className="flex justify-between items-center w-full mb-6 border-b border-app-border pb-2">
-                    <h3 className="text-app-text font-bold">Configuración de Etiquetas</h3>
-                    <button onClick={() => setPrintingProduct(null)} className="text-app-text-muted hover:text-app-text transition-colors"><X size={18}/></button>
-                </div>
-
-                <div className="w-full mb-6 text-left">
-                    <label className="block text-[10px] font-bold text-app-text-muted uppercase mb-2">Cantidad a Imprimir</label>
-                    <div className="flex items-center gap-3">
-                        <input 
-                            type="number" 
-                            min="1"
-                            value={labelCount}
-                            onChange={(e) => setLabelCount(parseInt(e.target.value) || 1)}
-                            className="flex-1 bg-app-bg border border-app-border rounded-xl px-4 py-3 text-app-text font-bold text-lg focus:outline-none focus:ring-1 focus:ring-app-accent/50"
-                        />
-                        <button 
-                            onClick={() => setLabelCount(printingProduct.stockCount)}
-                            className="px-3 py-3 bg-app-card border border-app-border rounded-xl text-xs text-app-text-muted hover:text-app-text hover:bg-app-accent/10 transition-all font-bold"
-                        >
-                            Toda la Existencia ({printingProduct.stockCount})
-                        </button>
-                    </div>
-                </div>
-                
-                <div className="bg-white p-4 rounded shadow-inner mb-6 max-h-[200px] overflow-y-auto w-full custom-scrollbar">
-                    <div className="flex flex-col gap-2 scale-90 origin-top">
-                        {Array.from({ length: Math.min(labelCount, 100) }).map((_, i) => (
-                            <ProductLabel 
-                                key={i}
-                                name={printingProduct.name} 
-                                price={printingProduct.sale_price} 
-                                sku={printingProduct.sku} 
-                            />
-                        ))}
-                        {labelCount > 100 && <p className="text-[10px] text-black/50 text-center italic">... y {labelCount - 100} etiquetas más</p>}
-                    </div>
-                </div>
-
-                <div className="flex flex-col w-full gap-3">
-                    <button 
-                        onClick={() => window.print()}
-                        className="w-full py-4 bg-app-accent hover:bg-app-accent-hover text-white font-black rounded-xl shadow-lg shadow-app-accent/20 transition-all flex items-center justify-center gap-3"
-                    >
-                        <Printer size={20} /> IMPRIMIR {labelCount} ETIQUETAS
-                    </button>
-                    <p className="text-[10px] text-app-text-muted text-center uppercase tracking-widest font-bold">Cada etiqueta saldrá en una hoja/sticker diferente</p>
-                </div>
-            </div>
-        </div>
+        <LabelPrintModal
+          product={{ name: printingProduct.name, price: Number(printingProduct.sale_price), sku: printingProduct.sku }}
+          defaultCount={Math.max(1, printingProduct.stockCount)}
+          onClose={() => setPrintingProduct(null)}
+        />
       )}
     </>
   );
