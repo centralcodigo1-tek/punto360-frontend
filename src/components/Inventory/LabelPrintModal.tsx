@@ -9,11 +9,12 @@ interface LabelPrintModalProps {
 }
 
 const LABEL_SIZES = [
-  { id: "50x30",  label: "50 × 30 mm",  w: 50,  h: 30,  desc: "Estándar pequeña" },
-  { id: "62x29",  label: "62 × 29 mm",  w: 62,  h: 29,  desc: "Rollo estándar" },
+  { id: "50x30",  label: "50 × 30 mm",  w: 50,  h: 30,  desc: "Estándar" },
+  { id: "62x29",  label: "62 × 29 mm",  w: 62,  h: 29,  desc: "Rollo" },
   { id: "40x25",  label: "40 × 25 mm",  w: 40,  h: 25,  desc: "Mini" },
   { id: "100x50", label: "100 × 50 mm", w: 100, h: 50,  desc: "Grande" },
   { id: "57x32",  label: "57 × 32 mm",  w: 57,  h: 32,  desc: "Intermedia" },
+  { id: "custom", label: "Personalizado", w: 0, h: 0, desc: "Ingresar mm" },
 ];
 
 const AGENT_URL = "https://localhost:9101";
@@ -119,6 +120,8 @@ interface AgentStatus {
 
 export default function LabelPrintModal({ product, defaultCount = 1, onClose }: LabelPrintModalProps) {
   const [sizeId, setSizeId] = useState("50x30");
+  const [customW, setCustomW] = useState(50);
+  const [customH, setCustomH] = useState(30);
   const [count, setCount] = useState(defaultCount);
   const [cols, setCols] = useState(3);
   const [agent, setAgent] = useState<AgentStatus | null>(null);
@@ -130,7 +133,10 @@ export default function LabelPrintModal({ product, defaultCount = 1, onClose }: 
   const [printing, setPrinting] = useState(false);
   const previewRef = useRef<HTMLDivElement>(null);
 
-  const size = LABEL_SIZES.find(s => s.id === sizeId)!;
+  const baseSize = LABEL_SIZES.find(s => s.id === sizeId)!;
+  const size = sizeId === "custom"
+    ? { ...baseSize, w: customW || 50, h: customH || 30 }
+    : baseSize;
 
   // Detectar agente al abrir el modal
   useEffect(() => {
@@ -344,27 +350,59 @@ export default function LabelPrintModal({ product, defaultCount = 1, onClose }: 
         {/* Tamaños */}
         <div>
           <p className="text-[10px] font-black text-app-text-muted uppercase tracking-widest mb-2">Tamaño de etiqueta</p>
-          <div className="grid grid-cols-5 gap-2">
+          <div className="grid grid-cols-3 gap-2">
             {LABEL_SIZES.map(s => (
               <button
                 key={s.id}
                 onClick={() => setSizeId(s.id)}
-                className={`flex flex-col items-center gap-1 p-2 rounded-xl border text-center transition-all ${sizeId === s.id ? "border-app-accent bg-app-accent/10 text-app-accent" : "border-app-border text-app-text-muted hover:border-app-accent/40"}`}
+                className={`flex items-center gap-2 p-2 rounded-xl border text-left transition-all ${sizeId === s.id ? "border-app-accent bg-app-accent/10 text-app-accent" : "border-app-border text-app-text-muted hover:border-app-accent/40"}`}
               >
-                <div className="flex items-center justify-center w-10 h-7">
-                  <div
-                    className={`border-2 rounded-sm ${sizeId === s.id ? "border-app-accent bg-app-accent/20" : "border-app-text-muted/40"}`}
-                    style={{
-                      width: `${Math.round((s.w / 100) * 36)}px`,
-                      height: `${Math.round((s.h / 100) * 36)}px`,
-                    }}
-                  />
+                {s.id === "custom" ? (
+                  <div className="flex items-center justify-center w-8 h-6 shrink-0">
+                    <span className="text-base leading-none">✏️</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center w-8 h-6 shrink-0">
+                    <div
+                      className={`border-2 rounded-sm ${sizeId === s.id ? "border-app-accent bg-app-accent/20" : "border-app-text-muted/40"}`}
+                      style={{
+                        width: `${Math.round((s.w / 100) * 28)}px`,
+                        height: `${Math.round((s.h / 100) * 28)}px`,
+                      }}
+                    />
+                  </div>
+                )}
+                <div className="min-w-0">
+                  <p className="text-[9px] font-black leading-tight truncate">{s.label}</p>
+                  <p className="text-[8px] opacity-60">{s.desc}</p>
                 </div>
-                <span className="text-[9px] font-black leading-tight">{s.label}</span>
-                <span className="text-[8px] opacity-60">{s.desc}</span>
               </button>
             ))}
           </div>
+
+          {/* Inputs personalizados */}
+          {sizeId === "custom" && (
+            <div className="flex items-center gap-3 mt-3">
+              <div className="flex-1">
+                <label className="text-[10px] text-app-text-muted block mb-1">Ancho (mm)</label>
+                <input
+                  type="number" min={10} max={300} value={customW}
+                  onChange={e => setCustomW(Math.max(10, parseInt(e.target.value) || 50))}
+                  className="w-full bg-app-bg border border-app-accent/40 rounded-xl px-3 py-2 text-app-text font-bold text-center focus:outline-none focus:ring-2 focus:ring-app-accent/30"
+                />
+              </div>
+              <span className="text-app-text-muted font-bold mt-4">×</span>
+              <div className="flex-1">
+                <label className="text-[10px] text-app-text-muted block mb-1">Alto (mm)</label>
+                <input
+                  type="number" min={10} max={300} value={customH}
+                  onChange={e => setCustomH(Math.max(10, parseInt(e.target.value) || 30))}
+                  className="w-full bg-app-bg border border-app-accent/40 rounded-xl px-3 py-2 text-app-text font-bold text-center focus:outline-none focus:ring-2 focus:ring-app-accent/30"
+                />
+              </div>
+              <div className="mt-4 text-[10px] text-app-text-muted">mm</div>
+            </div>
+          )}
         </div>
 
         {/* Cantidad */}
