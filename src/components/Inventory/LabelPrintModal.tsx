@@ -46,19 +46,32 @@ function buildPrintHTML(
   sku: string,
   count: number,
   wMm: number,
-  hMm: number
+  hMm: number,
+  cols: number
 ): string {
   const barcodeSVG = generateBarcodeSVG(sku);
   const priceFormatted = cop(price);
+  const pageW = wMm * cols;
+  const rows = Math.ceil(count / cols);
 
-  const oneLabel = `
+  const filledLabel = `
     <div class="label">
       <div class="product-name">${name}</div>
       <div class="product-price">${priceFormatted}</div>
       <div class="barcode-wrap">${barcodeSVG}</div>
     </div>`;
+  const emptyLabel = `<div class="label label-empty"></div>`;
 
-  const labels = Array(count).fill(oneLabel).join("");
+  // Construir array de etiquetas y rellenar hasta múltiplo de cols
+  const labelArr = [
+    ...Array(count).fill(filledLabel),
+    ...Array((rows * cols) - count).fill(emptyLabel),
+  ];
+
+  // Agrupar en filas
+  const rowsHTML = Array.from({ length: rows }, (_, r) =>
+    `<div class="row">${labelArr.slice(r * cols, (r + 1) * cols).join("")}</div>`
+  ).join("");
 
   return `<!DOCTYPE html>
 <html>
@@ -68,13 +81,18 @@ function buildPrintHTML(
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
     @page {
-      size: ${wMm}mm ${hMm}mm;
+      size: ${pageW}mm ${hMm}mm;
       margin: 0;
     }
 
-    body {
-      width: ${wMm}mm;
-      background: white;
+    body { width: ${pageW}mm; background: white; }
+
+    .row {
+      display: grid;
+      grid-template-columns: repeat(${cols}, ${wMm}mm);
+      width: ${pageW}mm;
+      height: ${hMm}mm;
+      page-break-after: always;
     }
 
     .label {
@@ -85,11 +103,12 @@ function buildPrintHTML(
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      page-break-after: always;
       overflow: hidden;
       background: white;
       font-family: Arial, sans-serif;
     }
+
+    .label-empty { background: white; }
 
     .product-name {
       font-size: ${hMm < 30 ? 7 : 9}pt;
@@ -119,13 +138,14 @@ function buildPrintHTML(
     }
   </style>
 </head>
-<body>${labels}</body>
+<body>${rowsHTML}</body>
 </html>`;
 }
 
 export default function LabelPrintModal({ product, defaultCount = 1, onClose }: LabelPrintModalProps) {
   const [sizeId, setSizeId] = useState("50x30");
   const [count, setCount] = useState(defaultCount);
+  const [cols, setCols] = useState(1);
   const previewRef = useRef<HTMLDivElement>(null);
 
   const size = LABEL_SIZES.find(s => s.id === sizeId)!;
@@ -151,7 +171,7 @@ export default function LabelPrintModal({ product, defaultCount = 1, onClose }: 
   }, [product.sku, sizeId]);
 
   const handlePrint = () => {
-    const html = buildPrintHTML(product.name, product.price, product.sku, count, size.w, size.h);
+    const html = buildPrintHTML(product.name, product.price, product.sku, count, size.w, size.h, cols);
     const win = window.open("", "_blank", `width=${size.w * 4},height=${size.h * 4 * count}`);
     if (!win) { alert("Permite las ventanas emergentes para imprimir."); return; }
     win.document.write(html);
@@ -230,6 +250,27 @@ export default function LabelPrintModal({ product, defaultCount = 1, onClose }: 
           </div>
         </div>
 
+        {/* Columnas por fila */}
+        <div>
+          <p className="text-[10px] font-black text-app-text-muted uppercase tracking-widest mb-2">Etiquetas por fila</p>
+          <div className="flex gap-2">
+            {[1, 2, 3, 4].map(n => (
+              <button
+                key={n}
+                onClick={() => setCols(n)}
+                className={`flex-1 py-2.5 rounded-xl border text-sm font-black transition-all ${cols === n ? "border-app-accent bg-app-accent/10 text-app-accent" : "border-app-border text-app-text-muted hover:border-app-accent/40"}`}
+              >
+                {n} {n === 1 ? "col." : "cols."}
+              </button>
+            ))}
+          </div>
+          {cols > 1 && (
+            <p className="text-[10px] text-app-text-muted mt-1.5">
+              Ancho total de página: <span className="font-bold text-app-accent">{size.w * cols} mm</span> · {Math.ceil(count / cols)} {Math.ceil(count / cols) === 1 ? "fila" : "filas"}
+            </p>
+          )}
+        </div>
+
         {/* Preview */}
         <div>
           <div className="flex items-center justify-between mb-2">
@@ -260,7 +301,7 @@ export default function LabelPrintModal({ product, defaultCount = 1, onClose }: 
         {/* Nota sobre configuración */}
         <div className="flex items-start gap-2 px-3 py-2 bg-blue-500/10 border border-blue-500/20 rounded-xl text-xs text-blue-300">
           <ZoomIn size={14} className="shrink-0 mt-0.5" />
-          <span>En el diálogo de impresión selecciona <strong>Sin márgenes</strong> y el tamaño de papel <strong>{size.w} × {size.h} mm</strong> (o el rollo de tu impresora).</span>
+          <span>En el diálogo de impresión selecciona <strong>Sin márgenes</strong> y tamaño de papel <strong>{size.w * cols} × {size.h} mm</strong>{cols > 1 ? ` (${cols} etiquetas × ${size.w}mm)` : ""}.</span>
         </div>
 
         {/* Botón */}
