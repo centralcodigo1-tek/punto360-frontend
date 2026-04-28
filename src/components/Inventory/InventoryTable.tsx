@@ -161,10 +161,7 @@ export default function InventoryTable({ products, isLoading, onRefresh, onEdit 
                             </button>
                           )}
                           <button
-                              onClick={() => {
-                                  setPrintingProduct(p);
-                                  setLabelCount(Math.max(1, p.stockCount));
-                              }}
+                              onClick={() => setPrintingProduct(p)}
                               className="p-3 bg-app-accent/10 text-app-accent rounded-xl"
                           >
                               <Printer size={18} />
