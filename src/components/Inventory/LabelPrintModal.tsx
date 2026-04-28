@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { X, Printer, ZoomIn, ZoomOut } from "lucide-react";
+import { X, Printer, ZoomIn } from "lucide-react";
 import JsBarcode from "jsbarcode";
 
 interface LabelPrintModalProps {
