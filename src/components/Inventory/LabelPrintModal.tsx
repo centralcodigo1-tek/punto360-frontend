@@ -16,7 +16,7 @@ const LABEL_SIZES = [
   { id: "57x32",  label: "57 × 32 mm",  w: 57,  h: 32,  desc: "Intermedia" },
 ];
 
-const AGENT_URL = "http://localhost:9100";
+const AGENT_URL = "https://localhost:9101";
 
 const cop = (v: number) =>
   new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", minimumFractionDigits: 0 }).format(v);
@@ -135,7 +135,10 @@ export default function LabelPrintModal({ product, defaultCount = 1, onClose }: 
     const check = async () => {
       setAgentLoading(true);
       try {
-        const res = await fetch(`${AGENT_URL}/status`, { signal: AbortSignal.timeout(1500) });
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 2000);
+        const res = await fetch(`${AGENT_URL}/status`, { signal: controller.signal });
+        clearTimeout(timer);
         const data = await res.json();
         setAgent({
           connected: true,
