@@ -114,17 +114,19 @@ interface AgentStatus {
   printers: string[];
   selectedPrinter: string | null;
   printerLanguage: string;
+  rotate180: boolean;
 }
 
 export default function LabelPrintModal({ product, defaultCount = 1, onClose }: LabelPrintModalProps) {
   const [sizeId, setSizeId] = useState("50x30");
   const [count, setCount] = useState(defaultCount);
-  const [cols, setCols] = useState(1);
+  const [cols, setCols] = useState(3);
   const [agent, setAgent] = useState<AgentStatus | null>(null);
   const [agentLoading, setAgentLoading] = useState(true);
   const [showConfig, setShowConfig] = useState(false);
   const [selectedPrinter, setSelectedPrinter] = useState("");
   const [selectedLang, setSelectedLang] = useState("TSPL");
+  const [rotate180, setRotate180] = useState(false);
   const [printing, setPrinting] = useState(false);
   const previewRef = useRef<HTMLDivElement>(null);
 
@@ -145,11 +147,13 @@ export default function LabelPrintModal({ product, defaultCount = 1, onClose }: 
           printers: data.printers ?? [],
           selectedPrinter: data.selectedPrinter ?? null,
           printerLanguage: data.printerLanguage ?? "TSPL",
+          rotate180: data.rotate180 ?? false,
         });
         setSelectedPrinter(data.selectedPrinter ?? "");
         setSelectedLang(data.printerLanguage ?? "TSPL");
+        setRotate180(data.rotate180 ?? false);
       } catch {
-        setAgent({ connected: false, printers: [], selectedPrinter: null, printerLanguage: "TSPL" });
+        setAgent({ connected: false, printers: [], selectedPrinter: null, printerLanguage: "TSPL", rotate180: false });
       } finally {
         setAgentLoading(false);
       }
@@ -175,9 +179,9 @@ export default function LabelPrintModal({ product, defaultCount = 1, onClose }: 
       await fetch(`${AGENT_URL}/config`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ printerName: selectedPrinter, printerLanguage: selectedLang }),
+        body: JSON.stringify({ printerName: selectedPrinter, printerLanguage: selectedLang, rotate180 }),
       });
-      setAgent(prev => prev ? { ...prev, selectedPrinter, printerLanguage: selectedLang } : prev);
+      setAgent(prev => prev ? { ...prev, selectedPrinter, printerLanguage: selectedLang, rotate180 } : prev);
       setShowConfig(false);
     } catch {
       alert("No se pudo guardar la configuración en el agente.");
@@ -198,6 +202,7 @@ export default function LabelPrintModal({ product, defaultCount = 1, onClose }: 
           count,
           wMm: size.w,
           hMm: size.h,
+          cols,
         }),
       });
       const data = await res.json();
@@ -316,6 +321,18 @@ export default function LabelPrintModal({ product, defaultCount = 1, onClose }: 
               </div>
             </div>
             <button
+              onClick={() => setRotate180(v => !v)}
+              className={`flex items-center justify-between px-3 py-2.5 rounded-lg border transition-all ${rotate180 ? 'border-amber-500/40 bg-amber-500/10 text-amber-400' : 'border-app-border text-app-text-muted'}`}
+            >
+              <div className="text-left">
+                <p className="text-xs font-bold">Rotar etiqueta 180°</p>
+                <p className="text-[10px] opacity-70">Activar si el texto sale invertido</p>
+              </div>
+              <div className={`w-9 h-5 rounded-full transition-all flex items-center px-0.5 ${rotate180 ? 'bg-amber-500 justify-end' : 'bg-app-border justify-start'}`}>
+                <div className="w-4 h-4 rounded-full bg-white shadow" />
+              </div>
+            </button>
+            <button
               onClick={saveAgentConfig}
               className="w-full py-2 bg-app-accent/10 hover:bg-app-accent/20 text-app-accent font-bold rounded-lg text-xs transition-all"
             >
@@ -370,9 +387,8 @@ export default function LabelPrintModal({ product, defaultCount = 1, onClose }: 
           </div>
         </div>
 
-        {/* Columnas (solo en modo popup) */}
-        {!agentReady && (
-          <div>
+        {/* Columnas */}
+        <div>
             <p className="text-[10px] font-black text-app-text-muted uppercase tracking-widest mb-2">Etiquetas por fila</p>
             <div className="flex gap-2">
               {[1, 2, 3, 4].map(n => (
@@ -391,7 +407,6 @@ export default function LabelPrintModal({ product, defaultCount = 1, onClose }: 
               </p>
             )}
           </div>
-        )}
 
         {/* Preview */}
         <div>
