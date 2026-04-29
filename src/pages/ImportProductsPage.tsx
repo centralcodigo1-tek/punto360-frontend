@@ -11,6 +11,7 @@ interface ParsedProduct {
   precio_venta: number;
   stock: number;
   categoria: string;
+  tipo_venta: number;
 }
 
 interface ImportResult {
@@ -36,10 +37,11 @@ function parseXML(xmlStr: string): ParsedProduct[] {
       precio_venta: parseFloat(get("precio_venta")) || 0,
       stock: parseFloat(get("stock")) || 0,
       categoria: get("categoria") || "General",
+      tipo_venta: parseInt(get("tipo_venta")) || 1,
     });
   });
 
-  return products.filter((p) => p.reference && p.nombre);
+  return products.filter((p) => p.nombre);
 }
 
 function formatCOP(n: number) {
@@ -240,6 +242,7 @@ export default function ImportProductsPage() {
                         <th className="text-left px-4 py-3 text-[10px] font-black uppercase tracking-widest text-app-text-muted">Referencia</th>
                         <th className="text-left px-4 py-3 text-[10px] font-black uppercase tracking-widest text-app-text-muted">Nombre</th>
                         <th className="text-left px-4 py-3 text-[10px] font-black uppercase tracking-widest text-app-text-muted">Categoría</th>
+                        <th className="text-left px-4 py-3 text-[10px] font-black uppercase tracking-widest text-app-text-muted">Tipo venta</th>
                         <th className="text-right px-4 py-3 text-[10px] font-black uppercase tracking-widest text-app-text-muted">P. Costo</th>
                         <th className="text-right px-4 py-3 text-[10px] font-black uppercase tracking-widest text-app-text-muted">P. Venta</th>
                         <th className="text-right px-4 py-3 text-[10px] font-black uppercase tracking-widest text-app-text-muted">Stock</th>
@@ -248,10 +251,19 @@ export default function ImportProductsPage() {
                     <tbody>
                       {preview.map((p, i) => (
                         <tr key={i} className="border-b border-app-border/50 hover:bg-app-accent/5 transition-colors">
-                          <td className="px-4 py-3 font-mono text-app-accent text-xs">{p.reference}</td>
+                          <td className="px-4 py-3 font-mono text-xs">
+                            {p.reference
+                              ? <span className="text-app-accent">{p.reference}</span>
+                              : <span className="text-app-text-muted italic">(auto)</span>}
+                          </td>
                           <td className="px-4 py-3 font-medium text-app-text">{p.nombre}</td>
                           <td className="px-4 py-3">
                             <span className="px-2 py-0.5 bg-app-accent/10 text-app-accent text-[10px] font-bold rounded-full">{p.categoria}</span>
+                          </td>
+                          <td className="px-4 py-3">
+                            {p.tipo_venta === 2
+                              ? <span className="px-2 py-0.5 bg-amber-500/10 text-amber-400 text-[10px] font-bold rounded-full">Granel</span>
+                              : <span className="px-2 py-0.5 bg-sky-500/10 text-sky-400 text-[10px] font-bold rounded-full">Unidad</span>}
                           </td>
                           <td className="px-4 py-3 text-right text-app-text-muted">{formatCOP(p.precio_compra)}</td>
                           <td className="px-4 py-3 text-right font-bold text-emerald-400">{formatCOP(p.precio_venta)}</td>
