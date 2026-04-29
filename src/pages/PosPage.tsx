@@ -78,7 +78,6 @@ export default function PosPage() {
   const [pendingSales, setPendingSales] = useState<any[]>([]);
   const [showPending, setShowPending] = useState(false);
   const [variantPrompt, setVariantPrompt] = useState<{ product: ProductRow; variants: VariantOption[] } | null>(null);
-  const [loadingVariants, setLoadingVariants] = useState(false);
 
   const fetchShiftStats = async () => {
     try {
@@ -214,14 +213,11 @@ export default function PosPage() {
 
   const addToCart = async (product: ProductRow) => {
     if (product.has_variants) {
-      setLoadingVariants(true);
       try {
         const res = await api.get(`/products/${product.id}/variants`);
         setVariantPrompt({ product, variants: res.data });
       } catch {
         toast.error("No se pudieron cargar las variantes");
-      } finally {
-        setLoadingVariants(false);
       }
       return;
     }
