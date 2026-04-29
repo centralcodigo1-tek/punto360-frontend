@@ -1,8 +1,20 @@
 import { useEffect, useState } from "react";
 import { api } from "../../api/axios";
-import { PlusCircle, Loader2 } from "lucide-react";
+import { PlusCircle, Loader2, Layers, Trash2, Plus, X, ChevronDown, ChevronUp } from "lucide-react";
 import { toast } from "../../lib/toast";
 import type { ProductRow } from "../../pages/InventoryPage";
+
+interface AttributeValue { id: string; value: string; position: number; }
+interface Attribute { id: string; name: string; values: AttributeValue[]; }
+interface VariantRow {
+  id: string;
+  sku: string;
+  sale_price: number;
+  cost_price: number;
+  is_active: boolean;
+  stock: { quantity: number }[];
+  values: { attribute_value: { id: string; value: string; attribute: { name: string } } }[];
+}
 
 interface Category {
   id: string;
@@ -21,6 +33,16 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
   const [isLoading, setIsLoading] = useState(false);
   const [isCreatingCategory, setIsCreatingCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
+
+  // Variantes
+  const [showVariants, setShowVariants] = useState(false);
+  const [attributes, setAttributes] = useState<Attribute[]>([]);
+  const [variants, setVariants] = useState<VariantRow[]>([]);
+  const [newAttrName, setNewAttrName] = useState("");
+  const [newAttrValues, setNewAttrValues] = useState("");
+  const [addingAttr, setAddingAttr] = useState(false);
+  const [newVariant, setNewVariant] = useState({ sku: "", sale_price: "", cost_price: "", stock: "", valueIds: [] as string[] });
+  const [addingVariant, setAddingVariant] = useState(false);
 
   const [form, setForm] = useState({
     name: "",
@@ -83,6 +105,86 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
     } finally {
       setIsCreatingCategory(false);
     }
+  };
+
+  const fetchVariantData = async (productId: string) => {
+    const [attrRes, varRes] = await Promise.all([
+      api.get(`/products/${productId}/attributes`),
+      api.get(`/products/${productId}/variants`),
+    ]);
+    setAttributes(attrRes.data);
+    setVariants(varRes.data);
+    setShowVariants(true);
+  };
+
+  const handleAddAttribute = async () => {
+    if (!initialData?.id || !newAttrName.trim() || !newAttrValues.trim()) return;
+    const values = newAttrValues.split(",").map(v => v.trim()).filter(Boolean);
+    if (values.length === 0) return;
+    setAddingAttr(true);
+    try {
+      await api.post(`/products/${initialData.id}/attributes`, { name: newAttrName, values });
+      setNewAttrName("");
+      setNewAttrValues("");
+      await fetchVariantData(initialData.id);
+      toast.success("Atributo agregado");
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || "Error al agregar atributo");
+    } finally {
+      setAddingAttr(false);
+    }
+  };
+
+  const handleDeleteAttribute = async (attrId: string) => {
+    if (!initialData?.id) return;
+    if (!window.confirm("¿Eliminar este atributo y todas sus variantes?")) return;
+    try {
+      await api.delete(`/products/${initialData.id}/attributes/${attrId}`);
+      await fetchVariantData(initialData.id);
+      toast.success("Atributo eliminado");
+    } catch {
+      toast.error("Error al eliminar atributo");
+    }
+  };
+
+  const handleAddVariant = async () => {
+    if (!initialData?.id || !newVariant.sku || !newVariant.sale_price) return;
+    setAddingVariant(true);
+    try {
+      await api.post(`/products/${initialData.id}/variants`, {
+        sku: newVariant.sku,
+        sale_price: Number(newVariant.sale_price),
+        cost_price: Number(newVariant.cost_price) || 0,
+        stock: Number(newVariant.stock) || 0,
+        attribute_value_ids: newVariant.valueIds,
+      });
+      setNewVariant({ sku: "", sale_price: "", cost_price: "", stock: "", valueIds: [] });
+      await fetchVariantData(initialData.id);
+      toast.success("Variante creada");
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || "Error al crear variante");
+    } finally {
+      setAddingVariant(false);
+    }
+  };
+
+  const handleDeleteVariant = async (variantId: string) => {
+    if (!initialData?.id) return;
+    if (!window.confirm("¿Eliminar esta variante?")) return;
+    try {
+      await api.delete(`/products/${initialData.id}/variants/${variantId}`);
+      await fetchVariantData(initialData.id);
+      toast.success("Variante eliminada");
+    } catch {
+      toast.error("Error al eliminar variante");
+    }
+  };
+
+  const toggleValueId = (id: string) => {
+    setNewVariant(prev => ({
+      ...prev,
+      valueIds: prev.valueIds.includes(id) ? prev.valueIds.filter(x => x !== id) : [...prev.valueIds, id],
+    }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -305,6 +407,180 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
         </div>
 
       </div>
+
+      {/* Panel de Variantes (solo en modo edición) */}
+      {isEdit && initialData?.id && (
+        <div className="mt-8 border-t border-app-border pt-6">
+          <button
+            type="button"
+            onClick={() => {
+              if (!showVariants) fetchVariantData(initialData.id!);
+              else setShowVariants(false);
+            }}
+            className="flex items-center gap-3 w-full text-left group"
+          >
+            <div className="p-2 bg-violet-500/10 text-violet-400 rounded-lg group-hover:bg-violet-500/20 transition-colors">
+              <Layers size={18} />
+            </div>
+            <div className="flex-1">
+              <p className="font-bold text-app-text text-sm">Variantes del producto</p>
+              <p className="text-xs text-app-text-muted">Talla, Color u otros atributos</p>
+            </div>
+            {showVariants ? <ChevronUp size={16} className="text-app-text-muted" /> : <ChevronDown size={16} className="text-app-text-muted" />}
+          </button>
+
+          {showVariants && (
+            <div className="mt-4 space-y-6">
+
+              {/* Atributos existentes */}
+              {attributes.length > 0 && (
+                <div className="space-y-2">
+                  {attributes.map(attr => (
+                    <div key={attr.id} className="bg-app-bg border border-app-border rounded-xl p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-bold text-sm text-app-text">{attr.name}</span>
+                        <button type="button" onClick={() => handleDeleteAttribute(attr.id)} className="text-app-text-muted hover:text-rose-400 transition-colors">
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {attr.values.map(v => (
+                          <span key={v.id} className="px-2 py-0.5 bg-violet-500/10 text-violet-400 text-[11px] font-bold rounded-full border border-violet-500/20">{v.value}</span>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Agregar atributo */}
+              <div className="bg-app-bg border border-app-border rounded-xl p-4 space-y-3">
+                <p className="text-xs font-black uppercase tracking-widest text-app-text-muted">Agregar atributo</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="text"
+                    placeholder="Nombre (ej. Talla)"
+                    value={newAttrName}
+                    onChange={e => setNewAttrName(e.target.value)}
+                    className="bg-app-card border border-app-border rounded-lg px-3 py-2 text-sm text-app-text focus:outline-none focus:border-violet-500/50"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Valores: S, M, L, XL"
+                    value={newAttrValues}
+                    onChange={e => setNewAttrValues(e.target.value)}
+                    className="bg-app-card border border-app-border rounded-lg px-3 py-2 text-sm text-app-text focus:outline-none focus:border-violet-500/50"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={handleAddAttribute}
+                  disabled={addingAttr || !newAttrName.trim() || !newAttrValues.trim()}
+                  className="flex items-center gap-2 px-4 py-2 bg-violet-500/10 hover:bg-violet-500/20 text-violet-400 rounded-lg text-sm font-bold transition-colors border border-violet-500/20 disabled:opacity-40"
+                >
+                  {addingAttr ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+                  Agregar atributo
+                </button>
+              </div>
+
+              {/* Crear variante */}
+              {attributes.length > 0 && (
+                <div className="bg-app-bg border border-violet-500/20 rounded-xl p-4 space-y-3">
+                  <p className="text-xs font-black uppercase tracking-widest text-violet-400">Nueva variante</p>
+
+                  {/* Selección de valores por atributo */}
+                  <div className="space-y-2">
+                    {attributes.map(attr => (
+                      <div key={attr.id}>
+                        <p className="text-[10px] font-black uppercase text-app-text-muted mb-1">{attr.name}</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {attr.values.map(v => (
+                            <button
+                              key={v.id}
+                              type="button"
+                              onClick={() => toggleValueId(v.id)}
+                              className={`px-2.5 py-1 text-[11px] font-bold rounded-full border transition-all ${newVariant.valueIds.includes(v.id) ? 'bg-violet-500 text-white border-violet-500' : 'bg-app-card text-app-text-muted border-app-border hover:border-violet-500/40'}`}
+                            >
+                              {v.value}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[10px] font-black uppercase text-app-text-muted mb-1 block">SKU variante</label>
+                      <input type="text" placeholder="Ej. NIKE-38-ROJO" value={newVariant.sku}
+                        onChange={e => setNewVariant(p => ({ ...p, sku: e.target.value }))}
+                        className="w-full bg-app-card border border-app-border rounded-lg px-3 py-2 text-sm font-mono text-app-accent focus:outline-none focus:border-violet-500/50" />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-black uppercase text-app-text-muted mb-1 block">Stock inicial</label>
+                      <input type="number" placeholder="0" value={newVariant.stock}
+                        onChange={e => setNewVariant(p => ({ ...p, stock: e.target.value }))}
+                        className="w-full bg-app-card border border-app-border rounded-lg px-3 py-2 text-sm text-app-text focus:outline-none focus:border-violet-500/50" />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-black uppercase text-app-text-muted mb-1 block">Precio costo</label>
+                      <input type="number" placeholder="0" value={newVariant.cost_price}
+                        onChange={e => setNewVariant(p => ({ ...p, cost_price: e.target.value }))}
+                        className="w-full bg-app-card border border-app-border rounded-lg px-3 py-2 text-sm text-app-text focus:outline-none focus:border-violet-500/50" />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-black uppercase text-app-text-muted mb-1 block">Precio venta</label>
+                      <input type="number" placeholder="0" value={newVariant.sale_price}
+                        onChange={e => setNewVariant(p => ({ ...p, sale_price: e.target.value }))}
+                        className="w-full bg-app-card border border-app-border rounded-lg px-3 py-2 text-sm text-emerald-400 font-bold focus:outline-none focus:border-violet-500/50" />
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleAddVariant}
+                    disabled={addingVariant || !newVariant.sku || !newVariant.sale_price}
+                    className="flex items-center gap-2 px-4 py-2 bg-violet-500 hover:bg-violet-400 text-white rounded-lg text-sm font-black transition-colors disabled:opacity-40 shadow-lg shadow-violet-500/20"
+                  >
+                    {addingVariant ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+                    Crear variante
+                  </button>
+                </div>
+              )}
+
+              {/* Lista de variantes existentes */}
+              {variants.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs font-black uppercase tracking-widest text-app-text-muted">Variantes ({variants.length})</p>
+                  {variants.map(v => (
+                    <div key={v.id} className="flex items-center justify-between bg-app-bg border border-app-border rounded-xl px-4 py-3">
+                      <div>
+                        <div className="flex flex-wrap gap-1 mb-1">
+                          {v.values.map((x, i) => (
+                            <span key={i} className="px-1.5 py-0.5 bg-violet-500/10 text-violet-400 text-[10px] font-bold rounded">
+                              {x.attribute_value.attribute.name}: {x.attribute_value.value}
+                            </span>
+                          ))}
+                        </div>
+                        <span className="font-mono text-app-accent text-xs">{v.sku}</span>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <div className="text-right">
+                          <p className="text-emerald-400 font-black text-sm">${Number(v.sale_price).toLocaleString()}</p>
+                          <p className="text-app-text-muted text-[10px]">{v.stock[0]?.quantity ?? 0} un. stock</p>
+                        </div>
+                        <button type="button" onClick={() => handleDeleteVariant(v.id)} className="text-app-text-muted hover:text-rose-400 transition-colors">
+                          <X size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="mt-8 pt-6 border-t border-app-border flex justify-end gap-4">
         {onCancel && (
