@@ -124,8 +124,9 @@ export default function LabelPrintModal({ product, defaultCount = 1, onClose }: 
   const [customH, setCustomH] = useState(30);
   const [count, setCount] = useState(defaultCount);
   const [cols, setCols] = useState(3);
-  const [marginMm, setMarginMm] = useState(5);
-  const [gapMm, setGapMm] = useState(5);
+  const [paperWidthMm, setPaperWidthMm] = useState(107);
+  const [marginMm, setMarginMm] = useState(0);
+  const [gapMm, setGapMm] = useState(0);
   const [agent, setAgent] = useState<AgentStatus | null>(null);
   const [agentLoading, setAgentLoading] = useState(true);
   const [showConfig, setShowConfig] = useState(false);
@@ -213,6 +214,7 @@ export default function LabelPrintModal({ product, defaultCount = 1, onClose }: 
           cols,
           marginMm,
           gapMm,
+          paperWidthMm,
         }),
       });
       const data = await res.json();
@@ -444,33 +446,52 @@ export default function LabelPrintModal({ product, defaultCount = 1, onClose }: 
               ))}
             </div>
             {/* Resumen de ancho */}
-            <p className="text-[10px] text-app-text-muted mt-1.5">
-              Ancho total: <span className="font-bold text-app-accent">
-                {(marginMm * 2 + size.w * cols + gapMm * (cols - 1)).toFixed(0)} mm
-              </span>
-              {" · "}{Math.ceil(count / cols)} {Math.ceil(count / cols) === 1 ? "fila" : "filas"}
+            {(() => {
+              const totalCalc = parseFloat((marginMm * 2 + size.w * cols + gapMm * (cols - 1)).toFixed(1));
+              const diff = parseFloat((paperWidthMm - totalCalc).toFixed(1));
+              const ok = Math.abs(diff) <= 1;
+              return (
+                <div className={`mt-2 px-2 py-1.5 rounded-lg text-[10px] flex items-center justify-between ${ok ? 'bg-emerald-500/10 text-emerald-400' : 'bg-amber-500/10 text-amber-400'}`}>
+                  <span>Etiquetas: <strong>{totalCalc} mm</strong></span>
+                  <span>Papel: <strong>{paperWidthMm} mm</strong></span>
+                  <span>{ok ? '✓ Ajustado' : `${diff > 0 ? '+' : ''}${diff} mm`}</span>
+                </div>
+              );
+            })()}
+            <p className="text-[10px] text-app-text-muted mt-1">
+              {Math.ceil(count / cols)} {Math.ceil(count / cols) === 1 ? "fila" : "filas"}
             </p>
           </div>
 
-          {/* Márgenes y separación */}
-          <div className="mt-3 grid grid-cols-2 gap-3">
+          {/* Ancho del papel y márgenes */}
+          <div className="mt-3 space-y-3">
             <div>
-              <label className="text-[10px] text-app-text-muted block mb-1">Margen lateral (mm)</label>
+              <label className="text-[10px] text-app-text-muted block mb-1">Ancho del papel (mm)</label>
               <input
-                type="number" min={0} max={50} step={0.5} value={marginMm}
-                onChange={e => setMarginMm(Math.max(0, parseFloat(e.target.value) || 0))}
-                className="w-full bg-app-bg border border-app-border rounded-lg px-3 py-2 text-app-text font-bold text-center text-sm focus:outline-none focus:ring-2 focus:ring-app-accent/30"
+                type="number" min={20} max={500} step={1} value={paperWidthMm}
+                onChange={e => setPaperWidthMm(Math.max(20, parseFloat(e.target.value) || 107))}
+                className="w-full bg-app-bg border border-app-accent/40 rounded-lg px-3 py-2 text-app-accent font-bold text-center text-sm focus:outline-none focus:ring-2 focus:ring-app-accent/30"
               />
-              <p className="text-[9px] text-app-text-muted mt-0.5 text-center">Izquierda y derecha</p>
             </div>
-            <div>
-              <label className="text-[10px] text-app-text-muted block mb-1">Separación entre etiquetas (mm)</label>
-              <input
-                type="number" min={0} max={50} step={0.5} value={gapMm}
-                onChange={e => setGapMm(Math.max(0, parseFloat(e.target.value) || 0))}
-                className="w-full bg-app-bg border border-app-border rounded-lg px-3 py-2 text-app-text font-bold text-center text-sm focus:outline-none focus:ring-2 focus:ring-app-accent/30"
-              />
-              <p className="text-[9px] text-app-text-muted mt-0.5 text-center">Entre columnas</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-[10px] text-app-text-muted block mb-1">Margen lateral (mm)</label>
+                <input
+                  type="number" min={0} max={50} step={0.5} value={marginMm}
+                  onChange={e => setMarginMm(Math.max(0, parseFloat(e.target.value) || 0))}
+                  className="w-full bg-app-bg border border-app-border rounded-lg px-3 py-2 text-app-text font-bold text-center text-sm focus:outline-none focus:ring-2 focus:ring-app-accent/30"
+                />
+                <p className="text-[9px] text-app-text-muted mt-0.5 text-center">Izq. y der.</p>
+              </div>
+              <div>
+                <label className="text-[10px] text-app-text-muted block mb-1">Separación entre cols (mm)</label>
+                <input
+                  type="number" min={0} max={50} step={0.5} value={gapMm}
+                  onChange={e => setGapMm(Math.max(0, parseFloat(e.target.value) || 0))}
+                  className="w-full bg-app-bg border border-app-border rounded-lg px-3 py-2 text-app-text font-bold text-center text-sm focus:outline-none focus:ring-2 focus:ring-app-accent/30"
+                />
+                <p className="text-[9px] text-app-text-muted mt-0.5 text-center">Entre etiquetas</p>
+              </div>
             </div>
           </div>
 
