@@ -48,7 +48,9 @@ export default function InventoryPage() {
             const res = await api.get("/products");
             
             const mapped = res.data.map((p: any) => {
-                const currentStock = p.stock && p.stock.length > 0 ? p.stock[0].quantity : 0;
+                const currentStock = p.has_variants
+                    ? (p.product_variants ?? []).flatMap((v: any) => v.stock ?? []).reduce((sum: number, s: any) => sum + Number(s.quantity), 0)
+                    : p.stock && p.stock.length > 0 ? p.stock[0].quantity : 0;
                 
                 let statusText = "Activo";
                 let statusColor = "bg-emerald-500/20 text-emerald-400 border-emerald-500/20";
