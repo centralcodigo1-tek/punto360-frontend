@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../../api/axios";
-import { PlusCircle, Loader2, Layers, Trash2, Plus, X, ChevronDown, ChevronUp, Info } from "lucide-react";
+import { PlusCircle, Loader2, Layers, Trash2, Plus, X, ChevronDown, ChevronUp, CheckCircle2 } from "lucide-react";
 import { toast } from "../../lib/toast";
 import type { ProductRow } from "../../pages/InventoryPage";
 
@@ -15,11 +15,7 @@ interface VariantRow {
   stock: { quantity: number }[];
   values: { attribute_value: { id: string; value: string; attribute: { name: string } } }[];
 }
-
-interface Category {
-  id: string;
-  name: string;
-}
+interface Category { id: string; name: string; }
 
 interface NewProductFieldsProps {
   initialData?: ProductRow;
@@ -29,6 +25,11 @@ interface NewProductFieldsProps {
 
 export default function NewProductFields({ initialData, onSaveSuccess, onCancel }: NewProductFieldsProps) {
   const isEdit = !!initialData;
+
+  // ID del producto activo — viene de initialData (edición) o del producto recién creado
+  const [activeProductId, setActiveProductId] = useState<string | null>(initialData?.id ?? null);
+  const [productJustCreated, setProductJustCreated] = useState(false);
+
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isCreatingCategory, setIsCreatingCategory] = useState(false);
@@ -60,11 +61,8 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
   const fetchCategoriesAndSku = async () => {
     try {
       if (isEdit) {
-        // En modo edición solo necesitamos las categorías
         const catRes = await api.get("/categories");
         setCategories(catRes.data);
-        
-        // Rellenar formulario
         setForm({
           name: initialData.name,
           sku: initialData.sku,
@@ -90,9 +88,7 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
     }
   };
 
-  useEffect(() => {
-    fetchCategoriesAndSku();
-  }, [initialData]);
+  useEffect(() => { fetchCategoriesAndSku(); }, [initialData]);
 
   const handleCreateCategory = async () => {
     if (!newCategoryName.trim()) return;
@@ -102,8 +98,8 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
       setCategories([...categories, res.data]);
       setForm({ ...form, category_id: res.data.id });
       setNewCategoryName("");
-    } catch (error) {
-      console.error("Error creando categoría", error);
+    } catch {
+      console.error("Error creando categoría");
     } finally {
       setIsCreatingCategory(false);
     }
@@ -120,40 +116,36 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
   };
 
   const handleAddAttribute = async () => {
-    if (!initialData?.id || !newAttrName.trim() || !newAttrValues.trim()) return;
+    if (!activeProductId || !newAttrName.trim() || !newAttrValues.trim()) return;
     const values = newAttrValues.split(",").map(v => v.trim()).filter(Boolean);
     if (values.length === 0) return;
     setAddingAttr(true);
     try {
-      await api.post(`/products/${initialData.id}/attributes`, { name: newAttrName, values });
+      await api.post(`/products/${activeProductId}/attributes`, { name: newAttrName, values });
       setNewAttrName("");
       setNewAttrValues("");
-      await fetchVariantData(initialData.id);
+      await fetchVariantData(activeProductId);
       toast.success("Atributo agregado");
     } catch (e: any) {
       toast.error(e.response?.data?.message || "Error al agregar atributo");
-    } finally {
-      setAddingAttr(false);
-    }
+    } finally { setAddingAttr(false); }
   };
 
   const handleDeleteAttribute = async (attrId: string) => {
-    if (!initialData?.id) return;
+    if (!activeProductId) return;
     if (!window.confirm("¿Eliminar este atributo y todas sus variantes?")) return;
     try {
-      await api.delete(`/products/${initialData.id}/attributes/${attrId}`);
-      await fetchVariantData(initialData.id);
+      await api.delete(`/products/${activeProductId}/attributes/${attrId}`);
+      await fetchVariantData(activeProductId);
       toast.success("Atributo eliminado");
-    } catch {
-      toast.error("Error al eliminar atributo");
-    }
+    } catch { toast.error("Error al eliminar atributo"); }
   };
 
   const handleAddVariant = async () => {
-    if (!initialData?.id || !newVariant.sku || !newVariant.sale_price) return;
+    if (!activeProductId || !newVariant.sku || !newVariant.sale_price) return;
     setAddingVariant(true);
     try {
-      await api.post(`/products/${initialData.id}/variants`, {
+      await api.post(`/products/${activeProductId}/variants`, {
         sku: newVariant.sku,
         sale_price: Number(newVariant.sale_price),
         cost_price: Number(newVariant.cost_price) || 0,
@@ -161,25 +153,21 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
         attribute_value_ids: newVariant.valueIds,
       });
       setNewVariant({ sku: "", sale_price: "", cost_price: "", stock: "", valueIds: [] });
-      await fetchVariantData(initialData.id);
+      await fetchVariantData(activeProductId);
       toast.success("Variante creada");
     } catch (e: any) {
       toast.error(e.response?.data?.message || "Error al crear variante");
-    } finally {
-      setAddingVariant(false);
-    }
+    } finally { setAddingVariant(false); }
   };
 
   const handleDeleteVariant = async (variantId: string) => {
-    if (!initialData?.id) return;
+    if (!activeProductId) return;
     if (!window.confirm("¿Eliminar esta variante?")) return;
     try {
-      await api.delete(`/products/${initialData.id}/variants/${variantId}`);
-      await fetchVariantData(initialData.id);
+      await api.delete(`/products/${activeProductId}/variants/${variantId}`);
+      await fetchVariantData(activeProductId);
       toast.success("Variante eliminada");
-    } catch {
-      toast.error("Error al eliminar variante");
-    }
+    } catch { toast.error("Error al eliminar variante"); }
   };
 
   const toggleValueId = (id: string) => {
@@ -193,7 +181,6 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
     e.preventDefault();
     try {
       setIsLoading(true);
-      
       const payload = {
         ...form,
         cost_price: Number(form.cost_price),
@@ -202,27 +189,24 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
       };
 
       if (isEdit && initialData?.id) {
-        // ACTUALIZAR MODO
         await api.put(`/products/${initialData.id}`, payload);
         toast.success("Producto actualizado exitosamente");
+        if (onSaveSuccess) onSaveSuccess();
       } else {
-        // CREAR MODO
-        await api.post("/products", payload);
-        
-        const skuRes = await api.get("/products/next-sku");
-        setForm((prev) => ({ 
-          ...prev, 
-          name: "", 
-          cost_price: "", 
-          sale_price: "", 
-          stock: "",
-          sku: skuRes.data.sku 
-        }));
-        toast.success("Producto creado exitosamente");
-      }
+        const res = await api.post("/products", payload);
+        const newProductId: string = res.data.id;
 
-      if (onSaveSuccess) onSaveSuccess();
-      
+        if (form.has_variants) {
+          // Quedarse en la página y mostrar el panel de variantes
+          setActiveProductId(newProductId);
+          setProductJustCreated(true);
+          setShowVariants(true);
+          toast.success("Producto creado. Ahora agrega sus variantes.");
+        } else {
+          toast.success("Producto creado exitosamente");
+          if (onSaveSuccess) onSaveSuccess();
+        }
+      }
     } catch (error) {
       console.error(error);
       toast.error("Error al procesar el producto");
@@ -236,80 +220,92 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
   const margin = cost > 0 && sale > 0 ? ((sale - cost) / cost) * 100 : null;
   const marginColor = margin === null ? '' : margin >= 30 ? 'text-emerald-400' : margin >= 10 ? 'text-amber-400' : 'text-rose-400';
 
+  // El panel de variantes se muestra cuando hay un ID activo y has_variants está activado
+  const showVariantPanel = !!activeProductId && form.has_variants;
+
   return (
     <form onSubmit={handleSubmit} className="bg-app-card border border-app-border rounded-2xl p-6 shadow-2xl">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
 
-        {/* Columna Izquierda */}
-        <div className="space-y-5">
-          <h3 className="text-xl font-semibold text-app-text mb-4 border-b border-app-border pb-2">Datos Principales</h3>
-
-          <div>
-            <label className="block text-sm font-medium text-app-text-muted mb-1">Nombre del Producto</label>
-            <input
-              required
-              className="w-full bg-app-bg border border-app-border rounded-xl px-4 py-3 text-app-text placeholder-app-text-muted/50 focus:outline-none focus:ring-2 focus:ring-app-accent/50 transition-all"
-              placeholder="Ej. Tenis Deportivos Azules"
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-app-text-muted mb-1">SKU (Código)</label>
-            <input
-              disabled
-              className="w-full bg-app-bg/50 border border-app-border rounded-xl px-4 py-3 text-app-accent font-mono focus:outline-none"
-              value={form.sku || "Cargando..."}
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-app-text-muted mb-1">Categoría</label>
-            <div className="flex gap-2 items-center">
-              <select
-                required
-                value={form.category_id}
-                onChange={(e) => setForm({ ...form, category_id: e.target.value })}
-                className="flex-1 bg-app-bg border border-app-border rounded-xl px-4 py-3 text-app-text focus:outline-none focus:ring-2 focus:ring-app-accent/50 transition-all"
-              >
-                <option value="">Seleccione una categoría...</option>
-                {categories.map((cat) => (
-                  <option key={cat.id} value={cat.id}>{cat.name}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="mt-3 flex gap-2">
-              <input
-                placeholder="O nombra una categoría nueva..."
-                value={newCategoryName}
-                onChange={(e) => setNewCategoryName(e.target.value)}
-                className="flex-1 bg-app-bg border border-app-border rounded-lg px-3 py-2 text-sm text-app-text focus:outline-none focus:border-app-accent/50"
-              />
-              <button
-                type="button"
-                onClick={handleCreateCategory}
-                disabled={isCreatingCategory || !newCategoryName.trim()}
-                className="px-3 py-2 bg-app-accent/10 hover:bg-app-accent/20 text-app-accent rounded-lg flex items-center gap-2 focus:outline-none transition-colors border border-app-accent/20"
-              >
-                {isCreatingCategory ? <Loader2 size={16} className="animate-spin" /> : <PlusCircle size={16} />}
-                <span className="text-sm font-medium">Crear</span>
-              </button>
-            </div>
-          </div>
+      {/* Banner post-creación */}
+      {productJustCreated && (
+        <div className="flex items-center gap-3 mb-6 px-4 py-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300">
+          <CheckCircle2 size={18} className="text-emerald-400 shrink-0" />
+          <p className="text-sm font-medium">Producto creado correctamente. Agrega los atributos y variantes, y cuando termines pulsa <strong>Finalizar</strong>.</p>
         </div>
+      )}
 
-        {/* Columna Derecha */}
-        <div className="space-y-5">
-           <h3 className="text-xl font-semibold text-app-text mb-4 border-b border-app-border pb-2">Precios y Stock</h3>
+      {/* Campos del producto — bloqueados después de crear */}
+      {!productJustCreated && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
 
-           <div className="grid grid-cols-2 gap-4">
+          {/* Columna Izquierda */}
+          <div className="space-y-5">
+            <h3 className="text-xl font-semibold text-app-text mb-4 border-b border-app-border pb-2">Datos Principales</h3>
+
+            <div>
+              <label className="block text-sm font-medium text-app-text-muted mb-1">Nombre del Producto</label>
+              <input
+                required
+                className="w-full bg-app-bg border border-app-border rounded-xl px-4 py-3 text-app-text placeholder-app-text-muted/50 focus:outline-none focus:ring-2 focus:ring-app-accent/50 transition-all"
+                placeholder="Ej. Tenis Deportivos Azules"
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-app-text-muted mb-1">SKU (Código)</label>
+              <input
+                disabled
+                className="w-full bg-app-bg/50 border border-app-border rounded-xl px-4 py-3 text-app-accent font-mono focus:outline-none"
+                value={form.sku || "Cargando..."}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-app-text-muted mb-1">Categoría</label>
+              <div className="flex gap-2 items-center">
+                <select
+                  required
+                  value={form.category_id}
+                  onChange={(e) => setForm({ ...form, category_id: e.target.value })}
+                  className="flex-1 bg-app-bg border border-app-border rounded-xl px-4 py-3 text-app-text focus:outline-none focus:ring-2 focus:ring-app-accent/50 transition-all"
+                >
+                  <option value="">Seleccione una categoría...</option>
+                  {categories.map((cat) => (
+                    <option key={cat.id} value={cat.id}>{cat.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="mt-3 flex gap-2">
+                <input
+                  placeholder="O nombra una categoría nueva..."
+                  value={newCategoryName}
+                  onChange={(e) => setNewCategoryName(e.target.value)}
+                  className="flex-1 bg-app-bg border border-app-border rounded-lg px-3 py-2 text-sm text-app-text focus:outline-none focus:border-app-accent/50"
+                />
+                <button
+                  type="button"
+                  onClick={handleCreateCategory}
+                  disabled={isCreatingCategory || !newCategoryName.trim()}
+                  className="px-3 py-2 bg-app-accent/10 hover:bg-app-accent/20 text-app-accent rounded-lg flex items-center gap-2 focus:outline-none transition-colors border border-app-accent/20"
+                >
+                  {isCreatingCategory ? <Loader2 size={16} className="animate-spin" /> : <PlusCircle size={16} />}
+                  <span className="text-sm font-medium">Crear</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Columna Derecha */}
+          <div className="space-y-5">
+            <h3 className="text-xl font-semibold text-app-text mb-4 border-b border-app-border pb-2">Precios y Stock</h3>
+
+            <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-app-text-muted mb-1">Precio Costo ($)</label>
                 <input
-                  required
-                  type="number" step="0.01"
+                  required type="number" step="0.01"
                   className="w-full bg-app-bg border border-app-border rounded-xl px-4 py-3 text-app-text focus:outline-none focus:ring-2 focus:ring-app-accent/50 transition-all"
                   placeholder="0.00"
                   value={form.cost_price}
@@ -319,30 +315,27 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
               <div>
                 <label className="block text-sm font-medium text-app-text-muted mb-1">Precio Venta ($)</label>
                 <input
-                  required
-                  type="number" step="0.01"
+                  required type="number" step="0.01"
                   className="w-full bg-app-bg border border-app-border rounded-xl px-4 py-3 text-emerald-400 font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all"
                   placeholder="0.00"
                   value={form.sale_price}
                   onChange={(e) => setForm({ ...form, sale_price: e.target.value })}
                 />
               </div>
-           </div>
+            </div>
 
-           {/* Rentabilidad */}
-           {margin !== null && (
-             <div className={`flex items-center justify-between px-4 py-3 rounded-xl border ${margin >= 30 ? 'bg-emerald-500/10 border-emerald-500/20' : margin >= 10 ? 'bg-amber-500/10 border-amber-500/20' : 'bg-rose-500/10 border-rose-500/20'}`}>
-               <span className="text-xs font-bold text-app-text-muted uppercase tracking-widest">Rentabilidad</span>
-               <span className={`text-xl font-black ${marginColor}`}>{margin.toFixed(1)}%</span>
-             </div>
-           )}
+            {margin !== null && (
+              <div className={`flex items-center justify-between px-4 py-3 rounded-xl border ${margin >= 30 ? 'bg-emerald-500/10 border-emerald-500/20' : margin >= 10 ? 'bg-amber-500/10 border-amber-500/20' : 'bg-rose-500/10 border-rose-500/20'}`}>
+                <span className="text-xs font-bold text-app-text-muted uppercase tracking-widest">Rentabilidad</span>
+                <span className={`text-xl font-black ${marginColor}`}>{margin.toFixed(1)}%</span>
+              </div>
+            )}
 
-           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="col-span-full">
                 <label className="block text-sm font-medium text-app-accent mb-1">Forma de Venta</label>
                 <select
                   disabled={isEdit}
-                  title={isEdit ? "No se puede cambiar la forma de venta después de creado" : ""}
                   className={`w-full border border-app-border rounded-xl px-4 py-3 focus:outline-none transition-all ${isEdit ? 'bg-app-bg/50 text-app-text-muted cursor-not-allowed' : 'bg-app-bg text-app-text focus:ring-2 focus:ring-app-accent/50'}`}
                   value={form.unit_type}
                   onChange={(e) => setForm({ ...form, unit_type: e.target.value })}
@@ -352,14 +345,13 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
                 </select>
               </div>
 
-             <div>
+              <div>
                 <label className="block flex justify-between text-sm font-medium text-app-text-muted mb-1">
-                    Stock {form.unit_type === "WEIGHT" ? "(Cantidad ej. 1.5)" : "(Unidades)"}
-                    {isEdit && <span className="text-[10px] text-rose-400 font-normal ml-2" title="Requiere ajuste formal">(Protegido)</span>}
+                  Stock {form.unit_type === "WEIGHT" ? "(Cantidad ej. 1.5)" : "(Unidades)"}
+                  {isEdit && <span className="text-[10px] text-rose-400 font-normal ml-2">(Protegido)</span>}
                 </label>
                 <input
-                  required
-                  type="number"
+                  required type="number"
                   step={form.unit_type === "WEIGHT" ? "0.001" : "1"}
                   disabled={isEdit}
                   className={`w-full border rounded-xl px-4 py-3 focus:outline-none transition-all ${isEdit ? 'bg-app-bg/30 border-rose-500/20 text-app-text-muted cursor-not-allowed' : 'bg-app-bg border-app-border text-app-text focus:ring-2 focus:ring-app-accent/50'}`}
@@ -411,43 +403,37 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
                   </div>
                 </button>
               </div>
-           </div>
+            </div>
+          </div>
 
-        </div>
-
-      </div>
-
-      {/* Aviso de variantes en modo creación */}
-      {!isEdit && form.has_variants && (
-        <div className="mt-6 flex items-start gap-3 px-4 py-3 rounded-xl bg-violet-500/10 border border-violet-500/20 text-violet-300">
-          <Info size={16} className="shrink-0 mt-0.5 text-violet-400" />
-          <p className="text-sm">Después de guardar el producto podrás agregar atributos y variantes (talla, color, etc.) desde el inventario.</p>
         </div>
       )}
 
-      {/* Panel de Variantes (solo en modo edición y con has_variants activo) */}
-      {isEdit && initialData?.id && form.has_variants && (
-        <div className="mt-8 border-t border-app-border pt-6">
-          <button
-            type="button"
-            onClick={() => {
-              if (!showVariants) fetchVariantData(initialData.id!);
-              else setShowVariants(false);
-            }}
-            className="flex items-center gap-3 w-full text-left group"
-          >
-            <div className="p-2 bg-violet-500/10 text-violet-400 rounded-lg group-hover:bg-violet-500/20 transition-colors">
-              <Layers size={18} />
-            </div>
-            <div className="flex-1">
-              <p className="font-bold text-app-text text-sm">Variantes del producto</p>
-              <p className="text-xs text-app-text-muted">Talla, Color u otros atributos</p>
-            </div>
-            {showVariants ? <ChevronUp size={16} className="text-app-text-muted" /> : <ChevronDown size={16} className="text-app-text-muted" />}
-          </button>
+      {/* Panel de Variantes */}
+      {showVariantPanel && (
+        <div className={`${productJustCreated ? '' : 'mt-8 border-t border-app-border pt-6'}`}>
+          {!productJustCreated && (
+            <button
+              type="button"
+              onClick={() => {
+                if (!showVariants) fetchVariantData(activeProductId!);
+                else setShowVariants(false);
+              }}
+              className="flex items-center gap-3 w-full text-left group"
+            >
+              <div className="p-2 bg-violet-500/10 text-violet-400 rounded-lg group-hover:bg-violet-500/20 transition-colors">
+                <Layers size={18} />
+              </div>
+              <div className="flex-1">
+                <p className="font-bold text-app-text text-sm">Variantes del producto</p>
+                <p className="text-xs text-app-text-muted">Talla, Color u otros atributos</p>
+              </div>
+              {showVariants ? <ChevronUp size={16} className="text-app-text-muted" /> : <ChevronDown size={16} className="text-app-text-muted" />}
+            </button>
+          )}
 
-          {showVariants && (
-            <div className="mt-4 space-y-6">
+          {(showVariants || productJustCreated) && (
+            <div className={`space-y-6 ${productJustCreated ? '' : 'mt-4'}`}>
 
               {/* Atributos existentes */}
               {attributes.length > 0 && (
@@ -475,23 +461,18 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
                 <p className="text-xs font-black uppercase tracking-widest text-app-text-muted">Agregar atributo</p>
                 <div className="grid grid-cols-2 gap-2">
                   <input
-                    type="text"
-                    placeholder="Nombre (ej. Talla)"
-                    value={newAttrName}
-                    onChange={e => setNewAttrName(e.target.value)}
+                    type="text" placeholder="Nombre (ej. Talla)"
+                    value={newAttrName} onChange={e => setNewAttrName(e.target.value)}
                     className="bg-app-card border border-app-border rounded-lg px-3 py-2 text-sm text-app-text focus:outline-none focus:border-violet-500/50"
                   />
                   <input
-                    type="text"
-                    placeholder="Valores: S, M, L, XL"
-                    value={newAttrValues}
-                    onChange={e => setNewAttrValues(e.target.value)}
+                    type="text" placeholder="Valores: S, M, L, XL"
+                    value={newAttrValues} onChange={e => setNewAttrValues(e.target.value)}
                     className="bg-app-card border border-app-border rounded-lg px-3 py-2 text-sm text-app-text focus:outline-none focus:border-violet-500/50"
                   />
                 </div>
                 <button
-                  type="button"
-                  onClick={handleAddAttribute}
+                  type="button" onClick={handleAddAttribute}
                   disabled={addingAttr || !newAttrName.trim() || !newAttrValues.trim()}
                   className="flex items-center gap-2 px-4 py-2 bg-violet-500/10 hover:bg-violet-500/20 text-violet-400 rounded-lg text-sm font-bold transition-colors border border-violet-500/20 disabled:opacity-40"
                 >
@@ -505,7 +486,6 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
                 <div className="bg-app-bg border border-violet-500/20 rounded-xl p-4 space-y-3">
                   <p className="text-xs font-black uppercase tracking-widest text-violet-400">Nueva variante</p>
 
-                  {/* Selección de valores por atributo */}
                   <div className="space-y-2">
                     {attributes.map(attr => (
                       <div key={attr.id}>
@@ -513,9 +493,7 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
                         <div className="flex flex-wrap gap-1.5">
                           {attr.values.map(v => (
                             <button
-                              key={v.id}
-                              type="button"
-                              onClick={() => toggleValueId(v.id)}
+                              key={v.id} type="button" onClick={() => toggleValueId(v.id)}
                               className={`px-2.5 py-1 text-[11px] font-bold rounded-full border transition-all ${newVariant.valueIds.includes(v.id) ? 'bg-violet-500 text-white border-violet-500' : 'bg-app-card text-app-text-muted border-app-border hover:border-violet-500/40'}`}
                             >
                               {v.value}
@@ -554,8 +532,7 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
                   </div>
 
                   <button
-                    type="button"
-                    onClick={handleAddVariant}
+                    type="button" onClick={handleAddVariant}
                     disabled={addingVariant || !newVariant.sku || !newVariant.sale_price}
                     className="flex items-center gap-2 px-4 py-2 bg-violet-500 hover:bg-violet-400 text-white rounded-lg text-sm font-black transition-colors disabled:opacity-40 shadow-lg shadow-violet-500/20"
                   >
@@ -565,7 +542,7 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
                 </div>
               )}
 
-              {/* Lista de variantes existentes */}
+              {/* Lista de variantes */}
               {variants.length > 0 && (
                 <div className="space-y-2">
                   <p className="text-xs font-black uppercase tracking-widest text-app-text-muted">Variantes ({variants.length})</p>
@@ -600,23 +577,33 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
       )}
 
       <div className="mt-8 pt-6 border-t border-app-border flex justify-end gap-4">
-        {onCancel && (
-            <button
-              type="button"
-              onClick={onCancel}
-              className="px-6 py-3 rounded-xl border border-app-border text-app-text-muted hover:bg-app-accent/5 hover:text-app-text transition-all font-medium"
-            >
-              Cancelar
-            </button>
+        {onCancel && !productJustCreated && (
+          <button
+            type="button" onClick={onCancel}
+            className="px-6 py-3 rounded-xl border border-app-border text-app-text-muted hover:bg-app-accent/5 hover:text-app-text transition-all font-medium"
+          >
+            Cancelar
+          </button>
         )}
-        <button
-          type="submit"
-          disabled={isLoading}
-          className="px-6 py-3 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white shadow-lg shadow-cyan-500/20 transition-all font-semibold flex items-center gap-2"
-        >
-          {isLoading && <Loader2 size={18} className="animate-spin" />}
-          {isEdit ? "Guardar Cambios" : "Guardar Producto"}
-        </button>
+
+        {productJustCreated ? (
+          <button
+            type="button"
+            onClick={() => { if (onSaveSuccess) onSaveSuccess(); }}
+            className="px-6 py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-lg shadow-emerald-500/20 transition-all font-semibold flex items-center gap-2"
+          >
+            <CheckCircle2 size={18} />
+            Finalizar e ir al Inventario
+          </button>
+        ) : (
+          <button
+            type="submit" disabled={isLoading}
+            className="px-6 py-3 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white shadow-lg shadow-cyan-500/20 transition-all font-semibold flex items-center gap-2"
+          >
+            {isLoading && <Loader2 size={18} className="animate-spin" />}
+            {isEdit ? "Guardar Cambios" : form.has_variants ? "Guardar y agregar variantes" : "Guardar Producto"}
+          </button>
+        )}
       </div>
 
     </form>
