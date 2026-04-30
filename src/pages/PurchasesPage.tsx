@@ -14,7 +14,16 @@ interface VariantOption {
     id: string;
     sku: string;
     sale_price: number;
+    cost_price: number;
     values: { attribute_value: { value: string; attribute: { name: string } } }[];
+}
+interface VariantEntry {
+    variantId: string;
+    label: string;
+    sku: string;
+    quantity: string;
+    cost: string;
+    salePrice: string;
 }
 interface Product {
     id: string;
@@ -79,6 +88,7 @@ export default function PurchasesPage() {
 
     // Variant picker modal
     const [variantPickerProduct, setVariantPickerProduct] = useState<Product | null>(null);
+    const [variantEntries, setVariantEntries] = useState<VariantEntry[]>([]);
     const [loadingVariants, setLoadingVariants] = useState(false);
 
     // ── Purchase items ─────────────────────────────────────────────────────────
@@ -152,11 +162,19 @@ export default function PurchasesPage() {
         setProductSearch(""); setShowProductDropdown(false);
 
         if (product.has_variants) {
-            // Cargar variantes y abrir picker
             setLoadingVariants(true);
             try {
                 const res = await api.get(`/products/${product.id}/variants`);
-                setVariantPickerProduct({ ...product, variants: res.data });
+                const loaded: VariantOption[] = res.data;
+                setVariantPickerProduct({ ...product, variants: loaded });
+                setVariantEntries(loaded.map(v => ({
+                    variantId: v.id,
+                    label: variantLabel(v),
+                    sku: v.sku,
+                    quantity: "",
+                    cost: String(v.cost_price ?? 0),
+                    salePrice: String(v.sale_price ?? 0),
+                })));
             } catch {
                 toast.error("No se pudieron cargar las variantes");
             } finally { setLoadingVariants(false); }
@@ -171,21 +189,39 @@ export default function PurchasesPage() {
         }]);
     };
 
-    const addVariantItem = (product: Product, variant: VariantOption) => {
-        const key = `${product.id}::${variant.id}`;
-        if (items.find(i => i.productId === product.id && i.variantId === variant.id)) {
-            toast.warning("Esa variante ya está en la lista"); return;
-        }
-        setItems(prev => [...prev, {
-            productId: product.id,
-            productName: product.name,
-            sku: variant.sku,
-            unit_type: product.unit_type,
-            quantity: 1, cost: 0, salePrice: variant.sale_price,
-            variantId: variant.id,
-            variantLabel: variantLabel(variant),
-        }]);
+    const updateEntry = (idx: number, field: keyof VariantEntry, value: string) => {
+        setVariantEntries(prev => prev.map((e, i) => i === idx ? { ...e, [field]: value } : e));
+    };
+
+    const confirmVariantEntries = () => {
+        if (!variantPickerProduct) return;
+        const toAdd = variantEntries.filter(e => parseFloat(e.quantity) > 0);
+        if (toAdd.length === 0) { toast.warning("Ingresa cantidad en al menos una variante"); return; }
+
+        const newItems: PurchaseItem[] = toAdd
+            .filter(e => !items.find(i => i.variantId === e.variantId))
+            .map(e => ({
+                productId: variantPickerProduct.id,
+                productName: variantPickerProduct.name,
+                sku: e.sku,
+                unit_type: variantPickerProduct.unit_type,
+                quantity: parseFloat(e.quantity),
+                cost: parseFloat(e.cost) || 0,
+                salePrice: parseFloat(e.salePrice) || 0,
+                variantId: e.variantId,
+                variantLabel: e.label,
+            }));
+
+        // Actualizar existentes si ya estaban
+        const updatedItems = items.map(item => {
+            const entry = toAdd.find(e => e.variantId === item.variantId);
+            if (!entry) return item;
+            return { ...item, quantity: parseFloat(entry.quantity), cost: parseFloat(entry.cost) || 0, salePrice: parseFloat(entry.salePrice) || 0 };
+        });
+
+        setItems([...updatedItems, ...newItems]);
         setVariantPickerProduct(null);
+        setVariantEntries([]);
     };
 
     const updateItem = (idx: number, field: "quantity" | "cost" | "salePrice", value: number) => {
@@ -255,45 +291,91 @@ export default function PurchasesPage() {
                 <p className="text-app-text-muted mt-1 text-sm">Registra recepciones de mercancía — el stock se actualiza automáticamente.</p>
             </div>
 
-            {/* ── Modal selector de variante ── */}
+            {/* ── Modal ingreso de variantes ── */}
             {variantPickerProduct && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
                     <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setVariantPickerProduct(null)} />
-                    <div className="relative w-full max-w-md bg-app-card border border-app-border rounded-2xl shadow-2xl p-6 z-10">
-                        <div className="flex items-center gap-2 mb-4">
+                    <div className="relative w-full max-w-2xl bg-app-card border border-app-border rounded-2xl shadow-2xl z-10 flex flex-col max-h-[90vh]">
+
+                        {/* Header */}
+                        <div className="flex items-center gap-3 px-6 py-4 border-b border-app-border">
                             <Layers size={18} className="text-violet-400" />
-                            <div>
-                                <p className="font-bold text-app-text text-sm">{variantPickerProduct.name}</p>
-                                <p className="text-xs text-app-text-muted">Selecciona la variante a ingresar</p>
+                            <div className="flex-1">
+                                <p className="font-bold text-app-text">{variantPickerProduct.name}</p>
+                                <p className="text-xs text-app-text-muted">Ingresa la cantidad que llega por variante</p>
                             </div>
                         </div>
 
-                        {!variantPickerProduct.variants || variantPickerProduct.variants.length === 0 ? (
-                            <p className="text-center text-sm text-app-text-muted py-6">Este producto aún no tiene variantes creadas.</p>
-                        ) : (
-                            <div className="space-y-2 max-h-72 overflow-y-auto">
-                                {variantPickerProduct.variants.map(v => (
-                                    <button
-                                        key={v.id}
-                                        onClick={() => addVariantItem(variantPickerProduct, v)}
-                                        className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-app-bg border border-app-border hover:border-violet-500/40 hover:bg-violet-500/5 transition-all text-left group"
-                                    >
-                                        <div>
-                                            <p className="text-sm font-medium text-app-text group-hover:text-violet-300 transition-colors">{variantLabel(v)}</p>
-                                            <p className="text-xs font-mono text-app-text-muted">{v.sku}</p>
+                        {/* Body */}
+                        <div className="flex-1 overflow-y-auto p-6">
+                            {variantEntries.length === 0 ? (
+                                <p className="text-center text-sm text-app-text-muted py-8">Este producto aún no tiene variantes creadas.</p>
+                            ) : (
+                                <div className="space-y-3">
+                                    {/* Cabecera */}
+                                    <div className="grid grid-cols-12 gap-2 px-1 text-[10px] font-bold text-app-text-muted uppercase">
+                                        <span className="col-span-3">Variante</span>
+                                        <span className="col-span-3">SKU</span>
+                                        <span className="col-span-2 text-center">Cantidad</span>
+                                        <span className="col-span-2 text-center">Costo</span>
+                                        <span className="col-span-2 text-center">Precio venta</span>
+                                    </div>
+                                    {variantEntries.map((entry, idx) => (
+                                        <div key={entry.variantId} className="grid grid-cols-12 gap-2 items-center bg-app-bg border border-app-border rounded-xl px-3 py-2">
+                                            <div className="col-span-3">
+                                                <p className="text-xs font-bold text-violet-300">{entry.label}</p>
+                                            </div>
+                                            <div className="col-span-3">
+                                                <p className="text-xs font-mono text-app-text-muted">{entry.sku}</p>
+                                            </div>
+                                            <div className="col-span-2">
+                                                <input
+                                                    type="number" min="0" step="1"
+                                                    placeholder="0"
+                                                    value={entry.quantity}
+                                                    onChange={e => updateEntry(idx, "quantity", e.target.value)}
+                                                    className="w-full bg-app-card border border-app-border rounded-lg px-2 py-1.5 text-sm text-app-text text-center focus:outline-none focus:ring-1 focus:ring-violet-500/40"
+                                                />
+                                            </div>
+                                            <div className="col-span-2">
+                                                <input
+                                                    type="number" min="0" step="100"
+                                                    value={entry.cost}
+                                                    onChange={e => updateEntry(idx, "cost", e.target.value)}
+                                                    className="w-full bg-app-card border border-app-border rounded-lg px-2 py-1.5 text-sm text-app-text text-center focus:outline-none focus:ring-1 focus:ring-violet-500/40"
+                                                />
+                                            </div>
+                                            <div className="col-span-2">
+                                                <input
+                                                    type="number" min="0" step="100"
+                                                    value={entry.salePrice}
+                                                    onChange={e => updateEntry(idx, "salePrice", e.target.value)}
+                                                    className="w-full bg-app-card border border-emerald-500/20 rounded-lg px-2 py-1.5 text-sm text-emerald-400 font-bold text-center focus:outline-none focus:ring-1 focus:ring-emerald-500/40"
+                                                />
+                                            </div>
                                         </div>
-                                        <span className="text-emerald-400 font-bold text-sm">{cop(v.sale_price)}</span>
-                                    </button>
-                                ))}
-                            </div>
-                        )}
+                                    ))}
+                                </div>
+                            )}
+                        </div>
 
-                        <button
-                            onClick={() => setVariantPickerProduct(null)}
-                            className="mt-4 w-full py-2 rounded-xl border border-app-border text-app-text-muted text-sm hover:text-app-text transition-colors"
-                        >
-                            Cancelar
-                        </button>
+                        {/* Footer */}
+                        <div className="flex gap-3 px-6 py-4 border-t border-app-border">
+                            <button
+                                onClick={() => { setVariantPickerProduct(null); setVariantEntries([]); }}
+                                className="flex-1 py-2.5 rounded-xl border border-app-border text-app-text-muted text-sm hover:text-app-text transition-colors"
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={confirmVariantEntries}
+                                disabled={variantEntries.length === 0}
+                                className="flex-1 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-bold text-sm transition-colors flex items-center justify-center gap-2 disabled:opacity-40"
+                            >
+                                <CheckCircle2 size={16} />
+                                Confirmar
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
