@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../../api/axios";
-import { PlusCircle, Loader2, Layers, Trash2, Plus, X, ChevronDown, ChevronUp } from "lucide-react";
+import { PlusCircle, Loader2, Layers, Trash2, Plus, X, ChevronDown, ChevronUp, Info } from "lucide-react";
 import { toast } from "../../lib/toast";
 import type { ProductRow } from "../../pages/InventoryPage";
 
@@ -416,6 +416,14 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
         </div>
 
       </div>
+
+      {/* Aviso de variantes en modo creación */}
+      {!isEdit && form.has_variants && (
+        <div className="mt-6 flex items-start gap-3 px-4 py-3 rounded-xl bg-violet-500/10 border border-violet-500/20 text-violet-300">
+          <Info size={16} className="shrink-0 mt-0.5 text-violet-400" />
+          <p className="text-sm">Después de guardar el producto podrás agregar atributos y variantes (talla, color, etc.) desde el inventario.</p>
+        </div>
+      )}
 
       {/* Panel de Variantes (solo en modo edición y con has_variants activo) */}
       {isEdit && initialData?.id && form.has_variants && (

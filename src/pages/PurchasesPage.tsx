@@ -5,13 +5,36 @@ import { api } from "../api/axios";
 import { useAuth } from "../auth/AuthContext";
 import {
     PackagePlus, Search, Trash2, Plus, ChevronDown, ChevronUp,
-    Loader2, CheckCircle2, Truck, Calendar, ShoppingBag
+    Loader2, CheckCircle2, Truck, Calendar, ShoppingBag, Layers
 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface Supplier { id: string; name: string; phone?: string; }
-interface Product { id: string; name: string; sku: string; unit_type: string; }
-interface PurchaseItem { productId: string; productName: string; sku: string; unit_type: string; quantity: number; cost: number; salePrice: number; }
+interface VariantOption {
+    id: string;
+    sku: string;
+    sale_price: number;
+    values: { attribute_value: { value: string; attribute: { name: string } } }[];
+}
+interface Product {
+    id: string;
+    name: string;
+    sku: string;
+    unit_type: string;
+    has_variants: boolean;
+    variants?: VariantOption[];
+}
+interface PurchaseItem {
+    productId: string;
+    productName: string;
+    sku: string;
+    unit_type: string;
+    quantity: number;
+    cost: number;
+    salePrice: number;
+    variantId?: string;
+    variantLabel?: string;
+}
 interface PurchaseRecord {
     id: string;
     created_at: string;
@@ -34,6 +57,8 @@ interface PurchaseRecord {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const cop = (v: number) => new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", minimumFractionDigits: 0 }).format(v);
+const variantLabel = (v: VariantOption) =>
+    v.values.map(x => `${x.attribute_value.attribute.name}: ${x.attribute_value.value}`).join(" / ") || v.sku;
 
 export default function PurchasesPage() {
     const { hasPermission, user } = useAuth();
@@ -52,6 +77,10 @@ export default function PurchasesPage() {
     const [productSearch, setProductSearch] = useState("");
     const [showProductDropdown, setShowProductDropdown] = useState(false);
 
+    // Variant picker modal
+    const [variantPickerProduct, setVariantPickerProduct] = useState<Product | null>(null);
+    const [loadingVariants, setLoadingVariants] = useState(false);
+
     // ── Purchase items ─────────────────────────────────────────────────────────
     const [items, setItems] = useState<PurchaseItem[]>([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -65,9 +94,9 @@ export default function PurchasesPage() {
     const [endDate, setEndDate] = useState(today);
     const [view, setView] = useState<"history" | "debts">("history");
 
-    // Cajero: forzar siempre fecha de hoy
-    const effectiveStart = isCajero ? today : startDate;
-    const effectiveEnd = isCajero ? today : endDate;
+    const isCajeroView = isCajero;
+    const effectiveStart = isCajeroView ? today : startDate;
+    const effectiveEnd = isCajeroView ? today : endDate;
     const [debts, setDebts] = useState<PurchaseRecord[]>([]);
 
     // ── Payment state ──────────────────────────────────────────────────────────
@@ -86,6 +115,7 @@ export default function PurchasesPage() {
             setAllProducts(pRes.data.map((p: any) => ({
                 id: p.id, name: p.name, sku: p.sku,
                 unit_type: p.unit_type || "UNIT",
+                has_variants: p.has_variants ?? false,
             })));
         });
         fetchHistory();
@@ -97,20 +127,16 @@ export default function PurchasesPage() {
             const endpoint = view === "history"
                 ? `/purchases?startDate=${effectiveStart}&endDate=${effectiveEnd}`
                 : `/purchases/debts`;
-            
             const res = await api.get(endpoint);
             if (view === "history") setPurchases(res.data);
             else setDebts(res.data);
-        } catch { 
-            if (view === "history") setPurchases([]); 
+        } catch {
+            if (view === "history") setPurchases([]);
             else setDebts([]);
-        }
-        finally { setIsLoadingHistory(false); }
+        } finally { setIsLoadingHistory(false); }
     };
 
-    useEffect(() => {
-        fetchHistory();
-    }, [view]);
+    useEffect(() => { fetchHistory(); }, [view]);
 
     // ── Product search filter ──────────────────────────────────────────────────
     const filteredProducts = useMemo(() => {
@@ -122,23 +148,51 @@ export default function PurchasesPage() {
     }, [productSearch, allProducts]);
 
     // ── Add product to items ───────────────────────────────────────────────────
-    const addItem = (product: Product) => {
-        if (items.find(i => i.productId === product.id)) {
-            setProductSearch(""); setShowProductDropdown(false); return;
+    const addItem = async (product: Product) => {
+        setProductSearch(""); setShowProductDropdown(false);
+
+        if (product.has_variants) {
+            // Cargar variantes y abrir picker
+            setLoadingVariants(true);
+            try {
+                const res = await api.get(`/products/${product.id}/variants`);
+                setVariantPickerProduct({ ...product, variants: res.data });
+            } catch {
+                toast.error("No se pudieron cargar las variantes");
+            } finally { setLoadingVariants(false); }
+            return;
         }
+
+        if (items.find(i => i.productId === product.id && !i.variantId)) return;
         setItems(prev => [...prev, {
             productId: product.id, productName: product.name,
             sku: product.sku, unit_type: product.unit_type,
             quantity: 1, cost: 0, salePrice: 0,
         }]);
-        setProductSearch(""); setShowProductDropdown(false);
     };
 
-    const updateItem = (id: string, field: "quantity" | "cost" | "salePrice", value: number) => {
-        setItems(prev => prev.map(i => i.productId === id ? { ...i, [field]: value } : i));
+    const addVariantItem = (product: Product, variant: VariantOption) => {
+        const key = `${product.id}::${variant.id}`;
+        if (items.find(i => i.productId === product.id && i.variantId === variant.id)) {
+            toast.warning("Esa variante ya está en la lista"); return;
+        }
+        setItems(prev => [...prev, {
+            productId: product.id,
+            productName: product.name,
+            sku: variant.sku,
+            unit_type: product.unit_type,
+            quantity: 1, cost: 0, salePrice: variant.sale_price,
+            variantId: variant.id,
+            variantLabel: variantLabel(variant),
+        }]);
+        setVariantPickerProduct(null);
     };
 
-    const removeItem = (id: string) => setItems(prev => prev.filter(i => i.productId !== id));
+    const updateItem = (idx: number, field: "quantity" | "cost" | "salePrice", value: number) => {
+        setItems(prev => prev.map((i, n) => n === idx ? { ...i, [field]: value } : i));
+    };
+
+    const removeItem = (idx: number) => setItems(prev => prev.filter((_, n) => n !== idx));
 
     const total = useMemo(() => items.reduce((sum, i) => sum + (i.quantity * i.cost), 0), [items]);
 
@@ -165,7 +219,13 @@ export default function PurchasesPage() {
         try {
             await api.post("/purchases", {
                 supplierId: selectedSupplier || undefined,
-                items: items.map(i => ({ productId: i.productId, quantity: i.quantity, cost: i.cost, salePrice: i.salePrice || undefined })),
+                items: items.map(i => ({
+                    productId: i.productId,
+                    variantId: i.variantId,
+                    quantity: i.quantity,
+                    cost: i.cost,
+                    salePrice: i.salePrice || undefined,
+                })),
                 total,
                 paidAmount: paidAmount ? parseFloat(paidAmount) : total,
                 paymentMethod: paymentSource === 'CARTERA' ? 'CASH' : paymentMethod,
@@ -194,6 +254,49 @@ export default function PurchasesPage() {
                 </h1>
                 <p className="text-app-text-muted mt-1 text-sm">Registra recepciones de mercancía — el stock se actualiza automáticamente.</p>
             </div>
+
+            {/* ── Modal selector de variante ── */}
+            {variantPickerProduct && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setVariantPickerProduct(null)} />
+                    <div className="relative w-full max-w-md bg-app-card border border-app-border rounded-2xl shadow-2xl p-6 z-10">
+                        <div className="flex items-center gap-2 mb-4">
+                            <Layers size={18} className="text-violet-400" />
+                            <div>
+                                <p className="font-bold text-app-text text-sm">{variantPickerProduct.name}</p>
+                                <p className="text-xs text-app-text-muted">Selecciona la variante a ingresar</p>
+                            </div>
+                        </div>
+
+                        {!variantPickerProduct.variants || variantPickerProduct.variants.length === 0 ? (
+                            <p className="text-center text-sm text-app-text-muted py-6">Este producto aún no tiene variantes creadas.</p>
+                        ) : (
+                            <div className="space-y-2 max-h-72 overflow-y-auto">
+                                {variantPickerProduct.variants.map(v => (
+                                    <button
+                                        key={v.id}
+                                        onClick={() => addVariantItem(variantPickerProduct, v)}
+                                        className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-app-bg border border-app-border hover:border-violet-500/40 hover:bg-violet-500/5 transition-all text-left group"
+                                    >
+                                        <div>
+                                            <p className="text-sm font-medium text-app-text group-hover:text-violet-300 transition-colors">{variantLabel(v)}</p>
+                                            <p className="text-xs font-mono text-app-text-muted">{v.sku}</p>
+                                        </div>
+                                        <span className="text-emerald-400 font-bold text-sm">{cop(v.sale_price)}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+
+                        <button
+                            onClick={() => setVariantPickerProduct(null)}
+                            className="mt-4 w-full py-2 rounded-xl border border-app-border text-app-text-muted text-sm hover:text-app-text transition-colors"
+                        >
+                            Cancelar
+                        </button>
+                    </div>
+                </div>
+            )}
 
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
 
@@ -259,7 +362,10 @@ export default function PurchasesPage() {
                         <div>
                             <label className="block text-xs font-medium text-app-text-muted mb-1.5">Agregar Productos</label>
                             <div className="relative">
-                                <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-app-text-muted" />
+                                {loadingVariants
+                                    ? <Loader2 size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-violet-400 animate-spin" />
+                                    : <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-app-text-muted" />
+                                }
                                 <input
                                     type="text"
                                     placeholder="Buscar por nombre o SKU..."
@@ -278,7 +384,14 @@ export default function PurchasesPage() {
                                             >
                                                 <span className="text-violet-400 font-mono text-xs w-24 shrink-0">{p.sku}</span>
                                                 <span className="text-white text-sm flex-1">{p.name}</span>
-                                                <span className="text-app-text-muted text-xs">{p.unit_type === "WEIGHT" ? "Kg/Lts" : "Unid."}</span>
+                                                <div className="flex items-center gap-1.5 shrink-0">
+                                                    {p.has_variants && (
+                                                        <span className="flex items-center gap-0.5 text-[10px] font-bold text-violet-400 bg-violet-500/10 px-1.5 py-0.5 rounded">
+                                                            <Layers size={9} /> Variantes
+                                                        </span>
+                                                    )}
+                                                    <span className="text-app-text-muted text-xs">{p.unit_type === "WEIGHT" ? "Kg/Lts" : "Unid."}</span>
+                                                </div>
                                             </button>
                                         ))}
                                     </div>
@@ -296,10 +409,13 @@ export default function PurchasesPage() {
                                     <span className="col-span-2 text-center">P. Venta</span>
                                     <span className="col-span-2 text-center">Subtotal</span>
                                 </div>
-                                {items.map(item => (
-                                    <div key={item.productId} className="grid grid-cols-12 gap-2 items-center bg-app-bg rounded-xl px-3 py-2 border border-app-border">
+                                {items.map((item, idx) => (
+                                    <div key={idx} className="grid grid-cols-12 gap-2 items-center bg-app-bg rounded-xl px-3 py-2 border border-app-border">
                                         <div className="col-span-4">
                                             <p className="text-sm font-medium text-app-text truncate">{item.productName}</p>
+                                            {item.variantLabel ? (
+                                                <p className="text-[10px] text-violet-400 font-bold truncate">{item.variantLabel}</p>
+                                            ) : null}
                                             <p className="text-[10px] text-app-text-muted">{item.sku} · {item.unit_type === "WEIGHT" ? "Kg" : "Unid."}</p>
                                         </div>
                                         <div className="col-span-2">
@@ -308,7 +424,7 @@ export default function PurchasesPage() {
                                                 min="0.001"
                                                 step={item.unit_type === "WEIGHT" ? "0.001" : "1"}
                                                 value={item.quantity}
-                                                onChange={e => updateItem(item.productId, "quantity", parseFloat(e.target.value) || 0)}
+                                                onChange={e => updateItem(idx, "quantity", parseFloat(e.target.value) || 0)}
                                                 className="w-full bg-app-bg border border-app-border rounded-lg px-2 py-1.5 text-app-text text-sm text-center focus:outline-none focus:ring-1 focus:ring-violet-500/40"
                                             />
                                         </div>
@@ -318,7 +434,7 @@ export default function PurchasesPage() {
                                                 min="0"
                                                 step="100"
                                                 value={item.cost}
-                                                onChange={e => updateItem(item.productId, "cost", parseFloat(e.target.value) || 0)}
+                                                onChange={e => updateItem(idx, "cost", parseFloat(e.target.value) || 0)}
                                                 className="w-full bg-app-bg border border-app-border rounded-lg px-2 py-1.5 text-app-text text-sm text-center focus:outline-none focus:ring-1 focus:ring-violet-500/40"
                                                 placeholder="$0"
                                             />
@@ -329,7 +445,7 @@ export default function PurchasesPage() {
                                                 min="0"
                                                 step="100"
                                                 value={item.salePrice || ""}
-                                                onChange={e => updateItem(item.productId, "salePrice", parseFloat(e.target.value) || 0)}
+                                                onChange={e => updateItem(idx, "salePrice", parseFloat(e.target.value) || 0)}
                                                 className="w-full bg-emerald-500/5 border border-emerald-500/20 rounded-lg px-2 py-1.5 text-emerald-400 text-sm text-center focus:outline-none focus:ring-1 focus:ring-emerald-500/40"
                                                 placeholder="—"
                                             />
@@ -338,7 +454,7 @@ export default function PurchasesPage() {
                                             <p className="text-app-text-muted font-bold text-xs">{cop(item.quantity * item.cost)}</p>
                                         </div>
                                         <div className="col-span-1 flex justify-end">
-                                            <button onClick={() => removeItem(item.productId)} className="text-app-text-muted hover:text-rose-400 transition-colors p-1">
+                                            <button onClick={() => removeItem(idx)} className="text-app-text-muted hover:text-rose-400 transition-colors p-1">
                                                 <Trash2 size={14} />
                                             </button>
                                         </div>
@@ -348,8 +464,7 @@ export default function PurchasesPage() {
                                 {/* Total + Submit */}
                                 <div className="flex flex-col gap-4 px-3 py-4 bg-app-bg rounded-2xl border border-app-border mt-4">
                                     <h4 className="text-[10px] font-bold text-violet-400 uppercase tracking-widest">Información de Pago</h4>
-                                    
-                                    {/* Fuente del pago */}
+
                                     <div>
                                         <label className="block text-[10px] text-app-text-muted mb-1.5">Fuente del Pago</label>
                                         <div className="flex gap-2 bg-app-bg p-1 rounded-xl border border-app-border">
@@ -397,8 +512,8 @@ export default function PurchasesPage() {
                                     {(paidAmount && parseFloat(paidAmount) < total) && (
                                         <div className="animate-in fade-in slide-in-from-top-2 duration-300">
                                             <label className="block text-[10px] text-app-text-muted mb-1">Fecha Límite de Pago (Opcional)</label>
-                                            <input 
-                                                type="date" 
+                                            <input
+                                                type="date"
                                                 value={dueDate}
                                                 onChange={e => setDueDate(e.target.value)}
                                                 className="w-full bg-violet-500/5 border border-violet-500/30 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:ring-1 focus:ring-violet-500/50"
@@ -527,7 +642,7 @@ export default function PurchasesPage() {
                                                     {p.suppliers?.name || "Sin proveedor"}
                                                 </p>
                                                 {view === "debts" && isOverdue && (
-                                                    <span className="text-[8px] font-bold bg-rose-500 text-white px-1.5 py-0.5 rounded uppercase pulse">Vencido</span>
+                                                    <span className="text-[8px] font-bold bg-rose-500 text-white px-1.5 py-0.5 rounded uppercase">Vencido</span>
                                                 )}
                                             </div>
                                             <p className="text-xs text-app-text-muted">
@@ -598,7 +713,7 @@ export default function PurchasesPage() {
 
                                             {view === "debts" && balance > 0 && (
                                                 <div className="mt-4 flex justify-end">
-                                                    <button 
+                                                    <button
                                                         onClick={() => {
                                                             const payAmount = prompt(`¿Cuánto deseas abonar a esta deuda? (Saldo actual: ${cop(balance)})`);
                                                             if (payAmount) {
