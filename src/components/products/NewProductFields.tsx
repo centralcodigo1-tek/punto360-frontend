@@ -43,6 +43,17 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
   const [newAttrValues, setNewAttrValues] = useState("");
   const [addingAttr, setAddingAttr] = useState(false);
   const [newVariant, setNewVariant] = useState({ sku: "", sale_price: "", cost_price: "", stock: "", valueIds: [] as string[] });
+
+  // Pre-llenar precios del producto cuando el panel de variantes se abre
+  useEffect(() => {
+    if (showVariants && !newVariant.sale_price && !newVariant.cost_price) {
+      setNewVariant(prev => ({
+        ...prev,
+        sale_price: form.sale_price,
+        cost_price: form.cost_price,
+      }));
+    }
+  }, [showVariants]);
   const [addingVariant, setAddingVariant] = useState(false);
 
   const [form, setForm] = useState({
@@ -152,7 +163,7 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
         stock: Number(newVariant.stock) || 0,
         attribute_value_ids: newVariant.valueIds,
       });
-      setNewVariant({ sku: "", sale_price: "", cost_price: "", stock: "", valueIds: [] });
+      setNewVariant({ sku: "", sale_price: form.sale_price, cost_price: form.cost_price, stock: "", valueIds: [] });
       await fetchVariantData(activeProductId);
       toast.success("Variante creada");
     } catch (e: any) {
@@ -171,10 +182,21 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
   };
 
   const toggleValueId = (id: string) => {
-    setNewVariant(prev => ({
-      ...prev,
-      valueIds: prev.valueIds.includes(id) ? prev.valueIds.filter(x => x !== id) : [...prev.valueIds, id],
-    }));
+    setNewVariant(prev => {
+      const valueIds = prev.valueIds.includes(id)
+        ? prev.valueIds.filter(x => x !== id)
+        : [...prev.valueIds, id];
+
+      // Reconstruir SKU: SKU_producto-valor1-valor2...
+      const allValues = attributes.flatMap(a => a.values);
+      const labels = valueIds
+        .map(vid => allValues.find(v => v.id === vid)?.value ?? "")
+        .filter(Boolean)
+        .map(v => v.toUpperCase().replace(/\s+/g, ""));
+      const sku = labels.length > 0 ? `${form.sku}-${labels.join("-")}` : "";
+
+      return { ...prev, valueIds, sku };
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
