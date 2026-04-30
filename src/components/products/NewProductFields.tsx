@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../../api/axios";
-import { PlusCircle, Loader2, Layers, Trash2, Plus, X, ChevronDown, ChevronUp, CheckCircle2 } from "lucide-react";
+import { PlusCircle, Loader2, Layers, Trash2, Plus, X, ChevronDown, ChevronUp, CheckCircle2, Sparkles } from "lucide-react";
 import { toast } from "../../lib/toast";
 import type { ProductRow } from "../../pages/InventoryPage";
 
@@ -15,6 +15,14 @@ interface VariantRow {
   stock: { quantity: number }[];
   values: { attribute_value: { id: string; value: string; attribute: { name: string } } }[];
 }
+interface PendingVariant {
+  label: string;
+  sku: string;
+  sale_price: string;
+  cost_price: string;
+  stock: string;
+  valueIds: string[];
+}
 interface Category { id: string; name: string; }
 
 interface NewProductFieldsProps {
@@ -23,10 +31,16 @@ interface NewProductFieldsProps {
   onCancel?: () => void;
 }
 
+// Producto cartesiano de arrays
+function cartesian<T>(arrays: T[][]): T[][] {
+  return arrays.reduce<T[][]>(
+    (acc, arr) => acc.flatMap(a => arr.map(b => [...a, b])),
+    [[]]
+  );
+}
+
 export default function NewProductFields({ initialData, onSaveSuccess, onCancel }: NewProductFieldsProps) {
   const isEdit = !!initialData;
-
-  // ID del producto activo — viene de initialData (edición) o del producto recién creado
   const [activeProductId, setActiveProductId] = useState<string | null>(initialData?.id ?? null);
   const [productJustCreated, setProductJustCreated] = useState(false);
 
@@ -42,19 +56,10 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
   const [newAttrName, setNewAttrName] = useState("");
   const [newAttrValues, setNewAttrValues] = useState("");
   const [addingAttr, setAddingAttr] = useState(false);
-  const [newVariant, setNewVariant] = useState({ sku: "", sale_price: "", cost_price: "", stock: "", valueIds: [] as string[] });
 
-  // Pre-llenar precios del producto cuando el panel de variantes se abre
-  useEffect(() => {
-    if (showVariants && !newVariant.sale_price && !newVariant.cost_price) {
-      setNewVariant(prev => ({
-        ...prev,
-        sale_price: form.sale_price,
-        cost_price: form.cost_price,
-      }));
-    }
-  }, [showVariants]);
-  const [addingVariant, setAddingVariant] = useState(false);
+  // Variantes pendientes de confirmar (generación automática)
+  const [pendingVariants, setPendingVariants] = useState<PendingVariant[]>([]);
+  const [savingPending, setSavingPending] = useState(false);
 
   const [form, setForm] = useState({
     name: "",
@@ -135,6 +140,7 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
       await api.post(`/products/${activeProductId}/attributes`, { name: newAttrName, values });
       setNewAttrName("");
       setNewAttrValues("");
+      setPendingVariants([]); // resetear pendientes al cambiar atributos
       await fetchVariantData(activeProductId);
       toast.success("Atributo agregado");
     } catch (e: any) {
@@ -147,28 +153,10 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
     if (!window.confirm("¿Eliminar este atributo y todas sus variantes?")) return;
     try {
       await api.delete(`/products/${activeProductId}/attributes/${attrId}`);
+      setPendingVariants([]);
       await fetchVariantData(activeProductId);
       toast.success("Atributo eliminado");
     } catch { toast.error("Error al eliminar atributo"); }
-  };
-
-  const handleAddVariant = async () => {
-    if (!activeProductId || !newVariant.sku || !newVariant.sale_price) return;
-    setAddingVariant(true);
-    try {
-      await api.post(`/products/${activeProductId}/variants`, {
-        sku: newVariant.sku,
-        sale_price: Number(newVariant.sale_price),
-        cost_price: Number(newVariant.cost_price) || 0,
-        stock: Number(newVariant.stock) || 0,
-        attribute_value_ids: newVariant.valueIds,
-      });
-      setNewVariant({ sku: "", sale_price: form.sale_price, cost_price: form.cost_price, stock: "", valueIds: [] });
-      await fetchVariantData(activeProductId);
-      toast.success("Variante creada");
-    } catch (e: any) {
-      toast.error(e.response?.data?.message || "Error al crear variante");
-    } finally { setAddingVariant(false); }
   };
 
   const handleDeleteVariant = async (variantId: string) => {
@@ -181,22 +169,77 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
     } catch { toast.error("Error al eliminar variante"); }
   };
 
-  const toggleValueId = (id: string) => {
-    setNewVariant(prev => {
-      const valueIds = prev.valueIds.includes(id)
-        ? prev.valueIds.filter(x => x !== id)
-        : [...prev.valueIds, id];
+  // Generar producto cartesiano de todos los atributos
+  const handleGenerateVariants = () => {
+    if (attributes.length === 0) return;
 
-      // Reconstruir SKU: SKU_producto-valor1-valor2...
-      const allValues = attributes.flatMap(a => a.values);
-      const labels = valueIds
-        .map(vid => allValues.find(v => v.id === vid)?.value ?? "")
-        .filter(Boolean)
-        .map(v => v.toUpperCase().replace(/\s+/g, ""));
-      const sku = labels.length > 0 ? `${form.sku}-${labels.join("-")}` : "";
+    const perAttr = attributes.map(a => a.values);
+    const combos = cartesian(perAttr);
 
-      return { ...prev, valueIds, sku };
-    });
+    // Filtrar combinaciones que ya existen
+    const existingValueSets = variants.map(v =>
+      v.values.map(x => x.attribute_value.id).sort().join("|")
+    );
+
+    const newPending: PendingVariant[] = combos
+      .map(combo => {
+        const valueIds = combo.map(v => v.id);
+        const key = [...valueIds].sort().join("|");
+        if (existingValueSets.includes(key)) return null;
+
+        const labels = combo.map(v => v.value.toUpperCase().replace(/\s+/g, ""));
+        const label = combo.map(v => v.value).join(" / ");
+        const sku = `${form.sku}-${labels.join("-")}`;
+
+        return {
+          label,
+          sku,
+          sale_price: form.sale_price,
+          cost_price: form.cost_price,
+          stock: "0",
+          valueIds,
+        };
+      })
+      .filter((x): x is PendingVariant => x !== null);
+
+    if (newPending.length === 0) {
+      toast.info("Todas las combinaciones ya existen");
+      return;
+    }
+
+    setPendingVariants(newPending);
+  };
+
+  const updatePending = (idx: number, field: keyof PendingVariant, value: string) => {
+    setPendingVariants(prev => prev.map((p, i) => i === idx ? { ...p, [field]: value } : p));
+  };
+
+  const removePending = (idx: number) => {
+    setPendingVariants(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const handleSavePendingVariants = async () => {
+    if (!activeProductId || pendingVariants.length === 0) return;
+    setSavingPending(true);
+    let created = 0;
+    let errors = 0;
+    for (const v of pendingVariants) {
+      try {
+        await api.post(`/products/${activeProductId}/variants`, {
+          sku: v.sku,
+          sale_price: Number(v.sale_price),
+          cost_price: Number(v.cost_price) || 0,
+          stock: Number(v.stock) || 0,
+          attribute_value_ids: v.valueIds,
+        });
+        created++;
+      } catch { errors++; }
+    }
+    setPendingVariants([]);
+    await fetchVariantData(activeProductId);
+    setSavingPending(false);
+    if (errors === 0) toast.success(`${created} variante${created !== 1 ? "s" : ""} creada${created !== 1 ? "s" : ""}`);
+    else toast.warning(`${created} creadas, ${errors} con error`);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -219,7 +262,6 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
         const newProductId: string = res.data.id;
 
         if (form.has_variants) {
-          // Quedarse en la página y mostrar el panel de variantes
           setActiveProductId(newProductId);
           setProductJustCreated(true);
           setShowVariants(true);
@@ -241,8 +283,6 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
   const sale = parseFloat(form.sale_price) || 0;
   const margin = cost > 0 && sale > 0 ? ((sale - cost) / cost) * 100 : null;
   const marginColor = margin === null ? '' : margin >= 30 ? 'text-emerald-400' : margin >= 10 ? 'text-amber-400' : 'text-rose-400';
-
-  // El panel de variantes se muestra cuando hay un ID activo y has_variants está activado
   const showVariantPanel = !!activeProductId && form.has_variants;
 
   return (
@@ -256,7 +296,7 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
         </div>
       )}
 
-      {/* Campos del producto — bloqueados después de crear */}
+      {/* Campos del producto */}
       {!productJustCreated && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
 
@@ -286,19 +326,17 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
 
             <div>
               <label className="block text-sm font-medium text-app-text-muted mb-1">Categoría</label>
-              <div className="flex gap-2 items-center">
-                <select
-                  required
-                  value={form.category_id}
-                  onChange={(e) => setForm({ ...form, category_id: e.target.value })}
-                  className="flex-1 bg-app-bg border border-app-border rounded-xl px-4 py-3 text-app-text focus:outline-none focus:ring-2 focus:ring-app-accent/50 transition-all"
-                >
-                  <option value="">Seleccione una categoría...</option>
-                  {categories.map((cat) => (
-                    <option key={cat.id} value={cat.id}>{cat.name}</option>
-                  ))}
-                </select>
-              </div>
+              <select
+                required
+                value={form.category_id}
+                onChange={(e) => setForm({ ...form, category_id: e.target.value })}
+                className="w-full bg-app-bg border border-app-border rounded-xl px-4 py-3 text-app-text focus:outline-none focus:ring-2 focus:ring-app-accent/50 transition-all"
+              >
+                <option value="">Seleccione una categoría...</option>
+                {categories.map((cat) => (
+                  <option key={cat.id} value={cat.id}>{cat.name}</option>
+                ))}
+              </select>
               <div className="mt-3 flex gap-2">
                 <input
                   placeholder="O nombra una categoría nueva..."
@@ -307,8 +345,7 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
                   className="flex-1 bg-app-bg border border-app-border rounded-lg px-3 py-2 text-sm text-app-text focus:outline-none focus:border-app-accent/50"
                 />
                 <button
-                  type="button"
-                  onClick={handleCreateCategory}
+                  type="button" onClick={handleCreateCategory}
                   disabled={isCreatingCategory || !newCategoryName.trim()}
                   className="px-3 py-2 bg-app-accent/10 hover:bg-app-accent/20 text-app-accent rounded-lg flex items-center gap-2 focus:outline-none transition-colors border border-app-accent/20"
                 >
@@ -329,8 +366,7 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
                 <input
                   required type="number" step="0.01"
                   className="w-full bg-app-bg border border-app-border rounded-xl px-4 py-3 text-app-text focus:outline-none focus:ring-2 focus:ring-app-accent/50 transition-all"
-                  placeholder="0.00"
-                  value={form.cost_price}
+                  placeholder="0.00" value={form.cost_price}
                   onChange={(e) => setForm({ ...form, cost_price: e.target.value })}
                 />
               </div>
@@ -339,8 +375,7 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
                 <input
                   required type="number" step="0.01"
                   className="w-full bg-app-bg border border-app-border rounded-xl px-4 py-3 text-emerald-400 font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all"
-                  placeholder="0.00"
-                  value={form.sale_price}
+                  placeholder="0.00" value={form.sale_price}
                   onChange={(e) => setForm({ ...form, sale_price: e.target.value })}
                 />
               </div>
@@ -427,13 +462,14 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
               </div>
             </div>
           </div>
-
         </div>
       )}
 
-      {/* Panel de Variantes */}
+      {/* ── Panel de Variantes ── */}
       {showVariantPanel && (
-        <div className={`${productJustCreated ? '' : 'mt-8 border-t border-app-border pt-6'}`}>
+        <div className={productJustCreated ? "" : "mt-8 border-t border-app-border pt-6"}>
+
+          {/* Toggle colapsable (solo en edición normal) */}
           {!productJustCreated && (
             <button
               type="button"
@@ -455,9 +491,9 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
           )}
 
           {(showVariants || productJustCreated) && (
-            <div className={`space-y-6 ${productJustCreated ? '' : 'mt-4'}`}>
+            <div className={`space-y-6 ${productJustCreated ? "" : "mt-4"}`}>
 
-              {/* Atributos existentes */}
+              {/* ── Atributos existentes ── */}
               {attributes.length > 0 && (
                 <div className="space-y-2">
                   {attributes.map(attr => (
@@ -478,7 +514,7 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
                 </div>
               )}
 
-              {/* Agregar atributo */}
+              {/* ── Agregar atributo ── */}
               <div className="bg-app-bg border border-app-border rounded-xl p-4 space-y-3">
                 <p className="text-xs font-black uppercase tracking-widest text-app-text-muted">Agregar atributo</p>
                 <div className="grid grid-cols-2 gap-2">
@@ -490,6 +526,7 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
                   <input
                     type="text" placeholder="Valores: S, M, L, XL"
                     value={newAttrValues} onChange={e => setNewAttrValues(e.target.value)}
+                    onKeyDown={e => e.key === "Enter" && (e.preventDefault(), handleAddAttribute())}
                     className="bg-app-card border border-app-border rounded-lg px-3 py-2 text-sm text-app-text focus:outline-none focus:border-violet-500/50"
                   />
                 </div>
@@ -503,71 +540,104 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
                 </button>
               </div>
 
-              {/* Crear variante */}
+              {/* ── Botón generar variantes ── */}
               {attributes.length > 0 && (
-                <div className="bg-app-bg border border-violet-500/20 rounded-xl p-4 space-y-3">
-                  <p className="text-xs font-black uppercase tracking-widest text-violet-400">Nueva variante</p>
+                <button
+                  type="button"
+                  onClick={handleGenerateVariants}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-violet-600 hover:bg-violet-500 text-white rounded-xl font-black text-sm transition-colors shadow-lg shadow-violet-900/30"
+                >
+                  <Sparkles size={16} />
+                  Generar variantes automáticamente
+                  <span className="text-violet-300 text-xs font-normal">
+                    ({attributes.reduce((acc, a) => acc * a.values.length, 1)} combinaciones)
+                  </span>
+                </button>
+              )}
 
-                  <div className="space-y-2">
-                    {attributes.map(attr => (
-                      <div key={attr.id}>
-                        <p className="text-[10px] font-black uppercase text-app-text-muted mb-1">{attr.name}</p>
-                        <div className="flex flex-wrap gap-1.5">
-                          {attr.values.map(v => (
-                            <button
-                              key={v.id} type="button" onClick={() => toggleValueId(v.id)}
-                              className={`px-2.5 py-1 text-[11px] font-bold rounded-full border transition-all ${newVariant.valueIds.includes(v.id) ? 'bg-violet-500 text-white border-violet-500' : 'bg-app-card text-app-text-muted border-app-border hover:border-violet-500/40'}`}
-                            >
-                              {v.value}
-                            </button>
-                          ))}
-                        </div>
+              {/* ── Lista editable de variantes pendientes ── */}
+              {pendingVariants.length > 0 && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-black uppercase tracking-widest text-violet-400">
+                      Variantes generadas — edita y confirma
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setPendingVariants([])}
+                      className="text-xs text-app-text-muted hover:text-rose-400 transition-colors"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+
+                  {/* Cabecera */}
+                  <div className="grid grid-cols-12 gap-2 px-2 text-[10px] font-bold text-app-text-muted uppercase">
+                    <span className="col-span-3">Combinación</span>
+                    <span className="col-span-3">SKU</span>
+                    <span className="col-span-2 text-center">Costo</span>
+                    <span className="col-span-2 text-center">Venta</span>
+                    <span className="col-span-1 text-center">Stock</span>
+                    <span className="col-span-1" />
+                  </div>
+
+                  {pendingVariants.map((v, idx) => (
+                    <div key={idx} className="grid grid-cols-12 gap-2 items-center bg-app-bg border border-violet-500/20 rounded-xl px-3 py-2">
+                      <div className="col-span-3">
+                        <p className="text-xs font-bold text-violet-300">{v.label}</p>
                       </div>
-                    ))}
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="text-[10px] font-black uppercase text-app-text-muted mb-1 block">SKU variante</label>
-                      <input type="text" placeholder="Ej. NIKE-38-ROJO" value={newVariant.sku}
-                        onChange={e => setNewVariant(p => ({ ...p, sku: e.target.value }))}
-                        className="w-full bg-app-card border border-app-border rounded-lg px-3 py-2 text-sm font-mono text-app-accent focus:outline-none focus:border-violet-500/50" />
+                      <div className="col-span-3">
+                        <input
+                          type="text" value={v.sku}
+                          onChange={e => updatePending(idx, "sku", e.target.value)}
+                          className="w-full bg-app-card border border-app-border rounded-lg px-2 py-1.5 text-xs font-mono text-app-accent focus:outline-none focus:border-violet-500/50"
+                        />
+                      </div>
+                      <div className="col-span-2">
+                        <input
+                          type="number" value={v.cost_price}
+                          onChange={e => updatePending(idx, "cost_price", e.target.value)}
+                          className="w-full bg-app-card border border-app-border rounded-lg px-2 py-1.5 text-xs text-app-text text-center focus:outline-none focus:border-violet-500/50"
+                        />
+                      </div>
+                      <div className="col-span-2">
+                        <input
+                          type="number" value={v.sale_price}
+                          onChange={e => updatePending(idx, "sale_price", e.target.value)}
+                          className="w-full bg-app-card border border-emerald-500/20 rounded-lg px-2 py-1.5 text-xs text-emerald-400 font-bold text-center focus:outline-none focus:border-emerald-500/50"
+                        />
+                      </div>
+                      <div className="col-span-1">
+                        <input
+                          type="number" value={v.stock}
+                          onChange={e => updatePending(idx, "stock", e.target.value)}
+                          className="w-full bg-app-card border border-app-border rounded-lg px-2 py-1.5 text-xs text-app-text text-center focus:outline-none focus:border-violet-500/50"
+                        />
+                      </div>
+                      <div className="col-span-1 flex justify-end">
+                        <button type="button" onClick={() => removePending(idx)} className="text-app-text-muted hover:text-rose-400 transition-colors">
+                          <X size={14} />
+                        </button>
+                      </div>
                     </div>
-                    <div>
-                      <label className="text-[10px] font-black uppercase text-app-text-muted mb-1 block">Stock inicial</label>
-                      <input type="number" placeholder="0" value={newVariant.stock}
-                        onChange={e => setNewVariant(p => ({ ...p, stock: e.target.value }))}
-                        className="w-full bg-app-card border border-app-border rounded-lg px-3 py-2 text-sm text-app-text focus:outline-none focus:border-violet-500/50" />
-                    </div>
-                    <div>
-                      <label className="text-[10px] font-black uppercase text-app-text-muted mb-1 block">Precio costo</label>
-                      <input type="number" placeholder="0" value={newVariant.cost_price}
-                        onChange={e => setNewVariant(p => ({ ...p, cost_price: e.target.value }))}
-                        className="w-full bg-app-card border border-app-border rounded-lg px-3 py-2 text-sm text-app-text focus:outline-none focus:border-violet-500/50" />
-                    </div>
-                    <div>
-                      <label className="text-[10px] font-black uppercase text-app-text-muted mb-1 block">Precio venta</label>
-                      <input type="number" placeholder="0" value={newVariant.sale_price}
-                        onChange={e => setNewVariant(p => ({ ...p, sale_price: e.target.value }))}
-                        className="w-full bg-app-card border border-app-border rounded-lg px-3 py-2 text-sm text-emerald-400 font-bold focus:outline-none focus:border-violet-500/50" />
-                    </div>
-                  </div>
+                  ))}
 
                   <button
-                    type="button" onClick={handleAddVariant}
-                    disabled={addingVariant || !newVariant.sku || !newVariant.sale_price}
-                    className="flex items-center gap-2 px-4 py-2 bg-violet-500 hover:bg-violet-400 text-white rounded-lg text-sm font-black transition-colors disabled:opacity-40 shadow-lg shadow-violet-500/20"
+                    type="button"
+                    onClick={handleSavePendingVariants}
+                    disabled={savingPending || pendingVariants.length === 0}
+                    className="w-full flex items-center justify-center gap-2 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-black text-sm transition-colors shadow-lg shadow-emerald-900/20 disabled:opacity-40"
                   >
-                    {addingVariant ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
-                    Crear variante
+                    {savingPending ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
+                    Confirmar {pendingVariants.length} variante{pendingVariants.length !== 1 ? "s" : ""}
                   </button>
                 </div>
               )}
 
-              {/* Lista de variantes */}
+              {/* ── Variantes ya guardadas ── */}
               {variants.length > 0 && (
                 <div className="space-y-2">
-                  <p className="text-xs font-black uppercase tracking-widest text-app-text-muted">Variantes ({variants.length})</p>
+                  <p className="text-xs font-black uppercase tracking-widest text-app-text-muted">Variantes guardadas ({variants.length})</p>
                   {variants.map(v => (
                     <div key={v.id} className="flex items-center justify-between bg-app-bg border border-app-border rounded-xl px-4 py-3">
                       <div>
@@ -598,6 +668,7 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
         </div>
       )}
 
+      {/* ── Botones ── */}
       <div className="mt-8 pt-6 border-t border-app-border flex justify-end gap-4">
         {onCancel && !productJustCreated && (
           <button
