@@ -248,9 +248,9 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
       setIsLoading(true);
       const payload = {
         ...form,
-        cost_price: Number(form.cost_price),
-        sale_price: Number(form.sale_price),
-        stock: Number(form.stock),
+        cost_price: form.is_consignment ? 0 : Number(form.cost_price),
+        sale_price: form.is_consignment ? 0 : Number(form.sale_price),
+        stock: form.is_consignment ? 0 : Number(form.stock),
       };
 
       if (isEdit && initialData?.id) {
@@ -360,33 +360,45 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
           <div className="space-y-5">
             <h3 className="text-xl font-semibold text-app-text mb-4 border-b border-app-border pb-2">Precios y Stock</h3>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-app-text-muted mb-1">Precio Costo ($)</label>
-                <input
-                  required type="number" step="0.01"
-                  className="w-full bg-app-bg border border-app-border rounded-xl px-4 py-3 text-app-text focus:outline-none focus:ring-2 focus:ring-app-accent/50 transition-all"
-                  placeholder="0.00" value={form.cost_price}
-                  onChange={(e) => setForm({ ...form, cost_price: e.target.value })}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-app-text-muted mb-1">Precio Venta ($)</label>
-                <input
-                  required type="number" step="0.01"
-                  className="w-full bg-app-bg border border-app-border rounded-xl px-4 py-3 text-emerald-400 font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all"
-                  placeholder="0.00" value={form.sale_price}
-                  onChange={(e) => setForm({ ...form, sale_price: e.target.value })}
-                />
-              </div>
-            </div>
+           {form.is_consignment ? (
+             <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-amber-500/30 bg-amber-500/10">
+               <span className="text-amber-400 text-sm">El precio lo ingresa el cajero en cada venta.</span>
+             </div>
+           ) : (
+             <>
+               <div className="grid grid-cols-2 gap-4">
+                 <div>
+                   <label className="block text-sm font-medium text-app-text-muted mb-1">Precio Costo ($)</label>
+                   <input
+                     required
+                     type="number" step="0.01"
+                     className="w-full bg-app-bg border border-app-border rounded-xl px-4 py-3 text-app-text focus:outline-none focus:ring-2 focus:ring-app-accent/50 transition-all"
+                     placeholder="0.00"
+                     value={form.cost_price}
+                     onChange={(e) => setForm({ ...form, cost_price: e.target.value })}
+                   />
+                 </div>
+                 <div>
+                   <label className="block text-sm font-medium text-app-text-muted mb-1">Precio Venta ($)</label>
+                   <input
+                     required
+                     type="number" step="0.01"
+                     className="w-full bg-app-bg border border-app-border rounded-xl px-4 py-3 text-emerald-400 font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all"
+                     placeholder="0.00"
+                     value={form.sale_price}
+                     onChange={(e) => setForm({ ...form, sale_price: e.target.value })}
+                   />
+                 </div>
+               </div>
 
-            {margin !== null && (
-              <div className={`flex items-center justify-between px-4 py-3 rounded-xl border ${margin >= 30 ? 'bg-emerald-500/10 border-emerald-500/20' : margin >= 10 ? 'bg-amber-500/10 border-amber-500/20' : 'bg-rose-500/10 border-rose-500/20'}`}>
-                <span className="text-xs font-bold text-app-text-muted uppercase tracking-widest">Rentabilidad</span>
-                <span className={`text-xl font-black ${marginColor}`}>{margin.toFixed(1)}%</span>
-              </div>
-            )}
+               {margin !== null && (
+                 <div className={`flex items-center justify-between px-4 py-3 rounded-xl border ${margin >= 30 ? 'bg-emerald-500/10 border-emerald-500/20' : margin >= 10 ? 'bg-amber-500/10 border-amber-500/20' : 'bg-rose-500/10 border-rose-500/20'}`}>
+                   <span className="text-xs font-bold text-app-text-muted uppercase tracking-widest">Rentabilidad</span>
+                   <span className={`text-xl font-black ${marginColor}`}>{margin.toFixed(1)}%</span>
+                 </div>
+               )}
+             </>
+           )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="col-span-full">
@@ -402,21 +414,24 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
                 </select>
               </div>
 
-              <div>
-                <label className="block flex justify-between text-sm font-medium text-app-text-muted mb-1">
-                  Stock {form.unit_type === "WEIGHT" ? "(Cantidad ej. 1.5)" : "(Unidades)"}
-                  {isEdit && <span className="text-[10px] text-rose-400 font-normal ml-2">(Protegido)</span>}
-                </label>
-                <input
-                  required type="number"
-                  step={form.unit_type === "WEIGHT" ? "0.001" : "1"}
-                  disabled={isEdit}
-                  className={`w-full border rounded-xl px-4 py-3 focus:outline-none transition-all ${isEdit ? 'bg-app-bg/30 border-rose-500/20 text-app-text-muted cursor-not-allowed' : 'bg-app-bg border-app-border text-app-text focus:ring-2 focus:ring-app-accent/50'}`}
-                  placeholder={form.unit_type === "WEIGHT" ? "Ej. 25.500" : "Ej. 50"}
-                  value={form.stock}
-                  onChange={(e) => setForm({ ...form, stock: e.target.value })}
-                />
-              </div>
+             {!form.is_consignment && (
+               <div>
+                 <label className="block flex justify-between text-sm font-medium text-app-text-muted mb-1">
+                     Stock {form.unit_type === "WEIGHT" ? "(Cantidad ej. 1.5)" : "(Unidades)"}
+                     {isEdit && <span className="text-[10px] text-rose-400 font-normal ml-2" title="Requiere ajuste formal">(Protegido)</span>}
+                 </label>
+                 <input
+                   required
+                   type="number"
+                   step={form.unit_type === "WEIGHT" ? "0.001" : "1"}
+                   disabled={isEdit}
+                   className={`w-full border rounded-xl px-4 py-3 focus:outline-none transition-all ${isEdit ? 'bg-app-bg/30 border-rose-500/20 text-app-text-muted cursor-not-allowed' : 'bg-app-bg border-app-border text-app-text focus:ring-2 focus:ring-app-accent/50'}`}
+                   placeholder={form.unit_type === "WEIGHT" ? "Ej. 25.500" : "Ej. 50"}
+                   value={form.stock}
+                   onChange={(e) => setForm({ ...form, stock: e.target.value })}
+                 />
+               </div>
+             )}
               <div>
                 <label className="block text-sm font-medium text-app-text-muted mb-1">Estado</label>
                 <select
