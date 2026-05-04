@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../../api/axios";
-import { PlusCircle, Loader2, Layers, Trash2, Plus, X, ChevronDown, ChevronUp } from "lucide-react";
+import { PlusCircle, Loader2, Layers, Trash2, Plus, X, ChevronDown, ChevronUp, CheckCircle2, Sparkles } from "lucide-react";
 import { toast } from "../../lib/toast";
 import type { ProductRow } from "../../pages/InventoryPage";
 
@@ -15,11 +15,15 @@ interface VariantRow {
   stock: { quantity: number }[];
   values: { attribute_value: { id: string; value: string; attribute: { name: string } } }[];
 }
-
-interface Category {
-  id: string;
-  name: string;
+interface PendingVariant {
+  label: string;
+  sku: string;
+  sale_price: string;
+  cost_price: string;
+  stock: string;
+  valueIds: string[];
 }
+interface Category { id: string; name: string; }
 
 interface NewProductFieldsProps {
   initialData?: ProductRow;
@@ -27,8 +31,19 @@ interface NewProductFieldsProps {
   onCancel?: () => void;
 }
 
+// Producto cartesiano de arrays
+function cartesian<T>(arrays: T[][]): T[][] {
+  return arrays.reduce<T[][]>(
+    (acc, arr) => acc.flatMap(a => arr.map(b => [...a, b])),
+    [[]]
+  );
+}
+
 export default function NewProductFields({ initialData, onSaveSuccess, onCancel }: NewProductFieldsProps) {
   const isEdit = !!initialData;
+  const [activeProductId, setActiveProductId] = useState<string | null>(initialData?.id ?? null);
+  const [productJustCreated, setProductJustCreated] = useState(false);
+
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isCreatingCategory, setIsCreatingCategory] = useState(false);
@@ -41,8 +56,10 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
   const [newAttrName, setNewAttrName] = useState("");
   const [newAttrValues, setNewAttrValues] = useState("");
   const [addingAttr, setAddingAttr] = useState(false);
-  const [newVariant, setNewVariant] = useState({ sku: "", sale_price: "", cost_price: "", stock: "", valueIds: [] as string[] });
-  const [addingVariant, setAddingVariant] = useState(false);
+
+  // Variantes pendientes de confirmar (generación automática)
+  const [pendingVariants, setPendingVariants] = useState<PendingVariant[]>([]);
+  const [savingPending, setSavingPending] = useState(false);
 
   const [form, setForm] = useState({
     name: "",
@@ -54,16 +71,14 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
     stock: "",
     is_active: true,
     is_consignment: false,
+    has_variants: true,
   });
 
   const fetchCategoriesAndSku = async () => {
     try {
       if (isEdit) {
-        // En modo edición solo necesitamos las categorías
         const catRes = await api.get("/categories");
         setCategories(catRes.data);
-        
-        // Rellenar formulario
         setForm({
           name: initialData.name,
           sku: initialData.sku,
@@ -74,6 +89,7 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
           stock: String(initialData.stockCount),
           is_active: initialData.is_active,
           is_consignment: initialData.is_consignment ?? false,
+          has_variants: initialData.has_variants ?? false,
         });
       } else {
         const [catRes, skuRes] = await Promise.all([
@@ -88,9 +104,7 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
     }
   };
 
-  useEffect(() => {
-    fetchCategoriesAndSku();
-  }, [initialData]);
+  useEffect(() => { fetchCategoriesAndSku(); }, [initialData]);
 
   const handleCreateCategory = async () => {
     if (!newCategoryName.trim()) return;
@@ -100,8 +114,8 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
       setCategories([...categories, res.data]);
       setForm({ ...form, category_id: res.data.id });
       setNewCategoryName("");
-    } catch (error) {
-      console.error("Error creando categoría", error);
+    } catch {
+      console.error("Error creando categoría");
     } finally {
       setIsCreatingCategory(false);
     }
@@ -118,80 +132,120 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
   };
 
   const handleAddAttribute = async () => {
-    if (!initialData?.id || !newAttrName.trim() || !newAttrValues.trim()) return;
+    if (!activeProductId || !newAttrName.trim() || !newAttrValues.trim()) return;
     const values = newAttrValues.split(",").map(v => v.trim()).filter(Boolean);
     if (values.length === 0) return;
     setAddingAttr(true);
     try {
-      await api.post(`/products/${initialData.id}/attributes`, { name: newAttrName, values });
+      await api.post(`/products/${activeProductId}/attributes`, { name: newAttrName, values });
       setNewAttrName("");
       setNewAttrValues("");
-      await fetchVariantData(initialData.id);
+      setPendingVariants([]); // resetear pendientes al cambiar atributos
+      await fetchVariantData(activeProductId);
       toast.success("Atributo agregado");
     } catch (e: any) {
       toast.error(e.response?.data?.message || "Error al agregar atributo");
-    } finally {
-      setAddingAttr(false);
-    }
+    } finally { setAddingAttr(false); }
   };
 
   const handleDeleteAttribute = async (attrId: string) => {
-    if (!initialData?.id) return;
+    if (!activeProductId) return;
     if (!window.confirm("¿Eliminar este atributo y todas sus variantes?")) return;
     try {
-      await api.delete(`/products/${initialData.id}/attributes/${attrId}`);
-      await fetchVariantData(initialData.id);
+      await api.delete(`/products/${activeProductId}/attributes/${attrId}`);
+      setPendingVariants([]);
+      await fetchVariantData(activeProductId);
       toast.success("Atributo eliminado");
-    } catch {
-      toast.error("Error al eliminar atributo");
-    }
-  };
-
-  const handleAddVariant = async () => {
-    if (!initialData?.id || !newVariant.sku || !newVariant.sale_price) return;
-    setAddingVariant(true);
-    try {
-      await api.post(`/products/${initialData.id}/variants`, {
-        sku: newVariant.sku,
-        sale_price: Number(newVariant.sale_price),
-        cost_price: Number(newVariant.cost_price) || 0,
-        stock: Number(newVariant.stock) || 0,
-        attribute_value_ids: newVariant.valueIds,
-      });
-      setNewVariant({ sku: "", sale_price: "", cost_price: "", stock: "", valueIds: [] });
-      await fetchVariantData(initialData.id);
-      toast.success("Variante creada");
-    } catch (e: any) {
-      toast.error(e.response?.data?.message || "Error al crear variante");
-    } finally {
-      setAddingVariant(false);
-    }
+    } catch { toast.error("Error al eliminar atributo"); }
   };
 
   const handleDeleteVariant = async (variantId: string) => {
-    if (!initialData?.id) return;
+    if (!activeProductId) return;
     if (!window.confirm("¿Eliminar esta variante?")) return;
     try {
-      await api.delete(`/products/${initialData.id}/variants/${variantId}`);
-      await fetchVariantData(initialData.id);
+      await api.delete(`/products/${activeProductId}/variants/${variantId}`);
+      await fetchVariantData(activeProductId);
       toast.success("Variante eliminada");
-    } catch {
-      toast.error("Error al eliminar variante");
-    }
+    } catch { toast.error("Error al eliminar variante"); }
   };
 
-  const toggleValueId = (id: string) => {
-    setNewVariant(prev => ({
-      ...prev,
-      valueIds: prev.valueIds.includes(id) ? prev.valueIds.filter(x => x !== id) : [...prev.valueIds, id],
-    }));
+  // Generar producto cartesiano de todos los atributos
+  const handleGenerateVariants = () => {
+    if (attributes.length === 0) return;
+
+    const perAttr = attributes.map(a => a.values);
+    const combos = cartesian(perAttr);
+
+    // Filtrar combinaciones que ya existen
+    const existingValueSets = variants.map(v =>
+      v.values.map(x => x.attribute_value.id).sort().join("|")
+    );
+
+    const newPending: PendingVariant[] = combos
+      .map(combo => {
+        const valueIds = combo.map(v => v.id);
+        const key = [...valueIds].sort().join("|");
+        if (existingValueSets.includes(key)) return null;
+
+        const labels = combo.map(v => v.value.toUpperCase().replace(/\s+/g, ""));
+        const label = combo.map(v => v.value).join(" / ");
+        const sku = `${form.sku}-${labels.join("-")}`;
+
+        return {
+          label,
+          sku,
+          sale_price: form.sale_price,
+          cost_price: form.cost_price,
+          stock: "0",
+          valueIds,
+        };
+      })
+      .filter((x): x is PendingVariant => x !== null);
+
+    if (newPending.length === 0) {
+      toast.info("Todas las combinaciones ya existen");
+      return;
+    }
+
+    setPendingVariants(newPending);
+  };
+
+  const updatePending = (idx: number, field: keyof PendingVariant, value: string) => {
+    setPendingVariants(prev => prev.map((p, i) => i === idx ? { ...p, [field]: value } : p));
+  };
+
+  const removePending = (idx: number) => {
+    setPendingVariants(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const handleSavePendingVariants = async () => {
+    if (!activeProductId || pendingVariants.length === 0) return;
+    setSavingPending(true);
+    let created = 0;
+    let errors = 0;
+    for (const v of pendingVariants) {
+      try {
+        await api.post(`/products/${activeProductId}/variants`, {
+          sku: v.sku,
+          sale_price: Number(v.sale_price),
+          cost_price: Number(v.cost_price) || 0,
+          stock: Number(v.stock) || 0,
+          attribute_value_ids: v.valueIds,
+        });
+        created++;
+      } catch { errors++; }
+    }
+    setPendingVariants([]);
+    await fetchVariantData(activeProductId);
+    setSavingPending(false);
+    if (errors === 0) toast.success(`${created} variante${created !== 1 ? "s" : ""} creada${created !== 1 ? "s" : ""}`);
+    else toast.warning(`${created} creadas, ${errors} con error`);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       setIsLoading(true);
-      
       const payload = {
         ...form,
         cost_price: form.is_consignment ? 0 : Number(form.cost_price),
@@ -200,27 +254,23 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
       };
 
       if (isEdit && initialData?.id) {
-        // ACTUALIZAR MODO
         await api.put(`/products/${initialData.id}`, payload);
         toast.success("Producto actualizado exitosamente");
+        if (onSaveSuccess) onSaveSuccess();
       } else {
-        // CREAR MODO
-        await api.post("/products", payload);
-        
-        const skuRes = await api.get("/products/next-sku");
-        setForm((prev) => ({ 
-          ...prev, 
-          name: "", 
-          cost_price: "", 
-          sale_price: "", 
-          stock: "",
-          sku: skuRes.data.sku 
-        }));
-        toast.success("Producto creado exitosamente");
-      }
+        const res = await api.post("/products", payload);
+        const newProductId: string = res.data.id;
 
-      if (onSaveSuccess) onSaveSuccess();
-      
+        if (form.has_variants) {
+          setActiveProductId(newProductId);
+          setProductJustCreated(true);
+          setShowVariants(true);
+          toast.success("Producto creado. Ahora agrega sus variantes.");
+        } else {
+          toast.success("Producto creado exitosamente");
+          if (onSaveSuccess) onSaveSuccess();
+        }
+      }
     } catch (error) {
       console.error(error);
       toast.error("Error al procesar el producto");
@@ -233,74 +283,82 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
   const sale = parseFloat(form.sale_price) || 0;
   const margin = cost > 0 && sale > 0 ? ((sale - cost) / cost) * 100 : null;
   const marginColor = margin === null ? '' : margin >= 30 ? 'text-emerald-400' : margin >= 10 ? 'text-amber-400' : 'text-rose-400';
+  const showVariantPanel = !!activeProductId && form.has_variants;
 
   return (
     <form onSubmit={handleSubmit} className="bg-app-card border border-app-border rounded-2xl p-6 shadow-2xl">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
 
-        {/* Columna Izquierda */}
-        <div className="space-y-5">
-          <h3 className="text-xl font-semibold text-app-text mb-4 border-b border-app-border pb-2">Datos Principales</h3>
+      {/* Banner post-creación */}
+      {productJustCreated && (
+        <div className="flex items-center gap-3 mb-6 px-4 py-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300">
+          <CheckCircle2 size={18} className="text-emerald-400 shrink-0" />
+          <p className="text-sm font-medium">Producto creado correctamente. Agrega los atributos y variantes, y cuando termines pulsa <strong>Finalizar</strong>.</p>
+        </div>
+      )}
 
-          <div>
-            <label className="block text-sm font-medium text-app-text-muted mb-1">Nombre del Producto</label>
-            <input
-              required
-              className="w-full bg-app-bg border border-app-border rounded-xl px-4 py-3 text-app-text placeholder-app-text-muted/50 focus:outline-none focus:ring-2 focus:ring-app-accent/50 transition-all"
-              placeholder="Ej. Tenis Deportivos Azules"
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-            />
-          </div>
+      {/* Campos del producto */}
+      {!productJustCreated && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
 
-          <div>
-            <label className="block text-sm font-medium text-app-text-muted mb-1">SKU (Código)</label>
-            <input
-              disabled
-              className="w-full bg-app-bg/50 border border-app-border rounded-xl px-4 py-3 text-app-accent font-mono focus:outline-none"
-              value={form.sku || "Cargando..."}
-            />
-          </div>
+          {/* Columna Izquierda */}
+          <div className="space-y-5">
+            <h3 className="text-xl font-semibold text-app-text mb-4 border-b border-app-border pb-2">Datos Principales</h3>
 
-          <div>
-            <label className="block text-sm font-medium text-app-text-muted mb-1">Categoría</label>
-            <div className="flex gap-2 items-center">
+            <div>
+              <label className="block text-sm font-medium text-app-text-muted mb-1">Nombre del Producto</label>
+              <input
+                required
+                className="w-full bg-app-bg border border-app-border rounded-xl px-4 py-3 text-app-text placeholder-app-text-muted/50 focus:outline-none focus:ring-2 focus:ring-app-accent/50 transition-all"
+                placeholder="Ej. Tenis Deportivos Azules"
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-app-text-muted mb-1">SKU (Código)</label>
+              <input
+                disabled
+                className="w-full bg-app-bg/50 border border-app-border rounded-xl px-4 py-3 text-app-accent font-mono focus:outline-none"
+                value={form.sku || "Cargando..."}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-app-text-muted mb-1">Categoría</label>
               <select
                 required
                 value={form.category_id}
                 onChange={(e) => setForm({ ...form, category_id: e.target.value })}
-                className="flex-1 bg-app-bg border border-app-border rounded-xl px-4 py-3 text-app-text focus:outline-none focus:ring-2 focus:ring-app-accent/50 transition-all"
+                className="w-full bg-app-bg border border-app-border rounded-xl px-4 py-3 text-app-text focus:outline-none focus:ring-2 focus:ring-app-accent/50 transition-all"
               >
                 <option value="">Seleccione una categoría...</option>
                 {categories.map((cat) => (
                   <option key={cat.id} value={cat.id}>{cat.name}</option>
                 ))}
               </select>
-            </div>
-
-            <div className="mt-3 flex gap-2">
-              <input
-                placeholder="O nombra una categoría nueva..."
-                value={newCategoryName}
-                onChange={(e) => setNewCategoryName(e.target.value)}
-                className="flex-1 bg-app-bg border border-app-border rounded-lg px-3 py-2 text-sm text-app-text focus:outline-none focus:border-app-accent/50"
-              />
-              <button
-                type="button"
-                onClick={handleCreateCategory}
-                disabled={isCreatingCategory || !newCategoryName.trim()}
-                className="px-3 py-2 bg-app-accent/10 hover:bg-app-accent/20 text-app-accent rounded-lg flex items-center gap-2 focus:outline-none transition-colors border border-app-accent/20"
-              >
-                {isCreatingCategory ? <Loader2 size={16} className="animate-spin" /> : <PlusCircle size={16} />}
-                <span className="text-sm font-medium">Crear</span>
-              </button>
+              <div className="mt-3 flex gap-2">
+                <input
+                  placeholder="O nombra una categoría nueva..."
+                  value={newCategoryName}
+                  onChange={(e) => setNewCategoryName(e.target.value)}
+                  className="flex-1 bg-app-bg border border-app-border rounded-lg px-3 py-2 text-sm text-app-text focus:outline-none focus:border-app-accent/50"
+                />
+                <button
+                  type="button" onClick={handleCreateCategory}
+                  disabled={isCreatingCategory || !newCategoryName.trim()}
+                  className="px-3 py-2 bg-app-accent/10 hover:bg-app-accent/20 text-app-accent rounded-lg flex items-center gap-2 focus:outline-none transition-colors border border-app-accent/20"
+                >
+                  {isCreatingCategory ? <Loader2 size={16} className="animate-spin" /> : <PlusCircle size={16} />}
+                  <span className="text-sm font-medium">Crear</span>
+                </button>
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Columna Derecha */}
-        <div className="space-y-5">
-           <h3 className="text-xl font-semibold text-app-text mb-4 border-b border-app-border pb-2">Precios y Stock</h3>
+          {/* Columna Derecha */}
+          <div className="space-y-5">
+            <h3 className="text-xl font-semibold text-app-text mb-4 border-b border-app-border pb-2">Precios y Stock</h3>
 
            {form.is_consignment ? (
              <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-amber-500/30 bg-amber-500/10">
@@ -342,12 +400,11 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
              </>
            )}
 
-           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="col-span-full">
                 <label className="block text-sm font-medium text-app-accent mb-1">Forma de Venta</label>
                 <select
                   disabled={isEdit}
-                  title={isEdit ? "No se puede cambiar la forma de venta después de creado" : ""}
                   className={`w-full border border-app-border rounded-xl px-4 py-3 focus:outline-none transition-all ${isEdit ? 'bg-app-bg/50 text-app-text-muted cursor-not-allowed' : 'bg-app-bg text-app-text focus:ring-2 focus:ring-app-accent/50'}`}
                   value={form.unit_type}
                   onChange={(e) => setForm({ ...form, unit_type: e.target.value })}
@@ -402,37 +459,56 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
                   </div>
                 </button>
               </div>
-           </div>
 
+              <div className="col-span-full">
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, has_variants: !form.has_variants })}
+                  className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border transition-all ${form.has_variants ? 'bg-violet-500/10 border-violet-500/40 text-violet-400' : 'bg-app-bg border-app-border text-app-text-muted'}`}
+                >
+                  <div className="text-left">
+                    <p className="text-sm font-medium">¿Producto con variantes?</p>
+                    <p className="text-xs opacity-70">Talla, Color u otros atributos</p>
+                  </div>
+                  <div className={`w-10 h-6 rounded-full transition-all flex items-center px-1 ${form.has_variants ? 'bg-violet-500 justify-end' : 'bg-app-border justify-start'}`}>
+                    <div className="w-4 h-4 rounded-full bg-white shadow" />
+                  </div>
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
+      )}
 
-      </div>
+      {/* ── Panel de Variantes ── */}
+      {showVariantPanel && (
+        <div className={productJustCreated ? "" : "mt-8 border-t border-app-border pt-6"}>
 
-      {/* Panel de Variantes (solo en modo edición) */}
-      {isEdit && initialData?.id && (
-        <div className="mt-8 border-t border-app-border pt-6">
-          <button
-            type="button"
-            onClick={() => {
-              if (!showVariants) fetchVariantData(initialData.id!);
-              else setShowVariants(false);
-            }}
-            className="flex items-center gap-3 w-full text-left group"
-          >
-            <div className="p-2 bg-violet-500/10 text-violet-400 rounded-lg group-hover:bg-violet-500/20 transition-colors">
-              <Layers size={18} />
-            </div>
-            <div className="flex-1">
-              <p className="font-bold text-app-text text-sm">Variantes del producto</p>
-              <p className="text-xs text-app-text-muted">Talla, Color u otros atributos</p>
-            </div>
-            {showVariants ? <ChevronUp size={16} className="text-app-text-muted" /> : <ChevronDown size={16} className="text-app-text-muted" />}
-          </button>
+          {/* Toggle colapsable (solo en edición normal) */}
+          {!productJustCreated && (
+            <button
+              type="button"
+              onClick={() => {
+                if (!showVariants) fetchVariantData(activeProductId!);
+                else setShowVariants(false);
+              }}
+              className="flex items-center gap-3 w-full text-left group"
+            >
+              <div className="p-2 bg-violet-500/10 text-violet-400 rounded-lg group-hover:bg-violet-500/20 transition-colors">
+                <Layers size={18} />
+              </div>
+              <div className="flex-1">
+                <p className="font-bold text-app-text text-sm">Variantes del producto</p>
+                <p className="text-xs text-app-text-muted">Talla, Color u otros atributos</p>
+              </div>
+              {showVariants ? <ChevronUp size={16} className="text-app-text-muted" /> : <ChevronDown size={16} className="text-app-text-muted" />}
+            </button>
+          )}
 
-          {showVariants && (
-            <div className="mt-4 space-y-6">
+          {(showVariants || productJustCreated) && (
+            <div className={`space-y-6 ${productJustCreated ? "" : "mt-4"}`}>
 
-              {/* Atributos existentes */}
+              {/* ── Atributos existentes ── */}
               {attributes.length > 0 && (
                 <div className="space-y-2">
                   {attributes.map(attr => (
@@ -453,28 +529,24 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
                 </div>
               )}
 
-              {/* Agregar atributo */}
+              {/* ── Agregar atributo ── */}
               <div className="bg-app-bg border border-app-border rounded-xl p-4 space-y-3">
                 <p className="text-xs font-black uppercase tracking-widest text-app-text-muted">Agregar atributo</p>
                 <div className="grid grid-cols-2 gap-2">
                   <input
-                    type="text"
-                    placeholder="Nombre (ej. Talla)"
-                    value={newAttrName}
-                    onChange={e => setNewAttrName(e.target.value)}
+                    type="text" placeholder="Nombre (ej. Talla)"
+                    value={newAttrName} onChange={e => setNewAttrName(e.target.value)}
                     className="bg-app-card border border-app-border rounded-lg px-3 py-2 text-sm text-app-text focus:outline-none focus:border-violet-500/50"
                   />
                   <input
-                    type="text"
-                    placeholder="Valores: S, M, L, XL"
-                    value={newAttrValues}
-                    onChange={e => setNewAttrValues(e.target.value)}
+                    type="text" placeholder="Valores: S, M, L, XL"
+                    value={newAttrValues} onChange={e => setNewAttrValues(e.target.value)}
+                    onKeyDown={e => e.key === "Enter" && (e.preventDefault(), handleAddAttribute())}
                     className="bg-app-card border border-app-border rounded-lg px-3 py-2 text-sm text-app-text focus:outline-none focus:border-violet-500/50"
                   />
                 </div>
                 <button
-                  type="button"
-                  onClick={handleAddAttribute}
+                  type="button" onClick={handleAddAttribute}
                   disabled={addingAttr || !newAttrName.trim() || !newAttrValues.trim()}
                   className="flex items-center gap-2 px-4 py-2 bg-violet-500/10 hover:bg-violet-500/20 text-violet-400 rounded-lg text-sm font-bold transition-colors border border-violet-500/20 disabled:opacity-40"
                 >
@@ -483,75 +555,104 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
                 </button>
               </div>
 
-              {/* Crear variante */}
+              {/* ── Botón generar variantes ── */}
               {attributes.length > 0 && (
-                <div className="bg-app-bg border border-violet-500/20 rounded-xl p-4 space-y-3">
-                  <p className="text-xs font-black uppercase tracking-widest text-violet-400">Nueva variante</p>
+                <button
+                  type="button"
+                  onClick={handleGenerateVariants}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-violet-600 hover:bg-violet-500 text-white rounded-xl font-black text-sm transition-colors shadow-lg shadow-violet-900/30"
+                >
+                  <Sparkles size={16} />
+                  Generar variantes automáticamente
+                  <span className="text-violet-300 text-xs font-normal">
+                    ({attributes.reduce((acc, a) => acc * a.values.length, 1)} combinaciones)
+                  </span>
+                </button>
+              )}
 
-                  {/* Selección de valores por atributo */}
-                  <div className="space-y-2">
-                    {attributes.map(attr => (
-                      <div key={attr.id}>
-                        <p className="text-[10px] font-black uppercase text-app-text-muted mb-1">{attr.name}</p>
-                        <div className="flex flex-wrap gap-1.5">
-                          {attr.values.map(v => (
-                            <button
-                              key={v.id}
-                              type="button"
-                              onClick={() => toggleValueId(v.id)}
-                              className={`px-2.5 py-1 text-[11px] font-bold rounded-full border transition-all ${newVariant.valueIds.includes(v.id) ? 'bg-violet-500 text-white border-violet-500' : 'bg-app-card text-app-text-muted border-app-border hover:border-violet-500/40'}`}
-                            >
-                              {v.value}
-                            </button>
-                          ))}
-                        </div>
+              {/* ── Lista editable de variantes pendientes ── */}
+              {pendingVariants.length > 0 && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-black uppercase tracking-widest text-violet-400">
+                      Variantes generadas — edita y confirma
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setPendingVariants([])}
+                      className="text-xs text-app-text-muted hover:text-rose-400 transition-colors"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+
+                  {/* Cabecera */}
+                  <div className="grid grid-cols-12 gap-2 px-2 text-[10px] font-bold text-app-text-muted uppercase">
+                    <span className="col-span-3">Combinación</span>
+                    <span className="col-span-3">SKU</span>
+                    <span className="col-span-2 text-center">Costo</span>
+                    <span className="col-span-2 text-center">Venta</span>
+                    <span className="col-span-1 text-center">Stock</span>
+                    <span className="col-span-1" />
+                  </div>
+
+                  {pendingVariants.map((v, idx) => (
+                    <div key={idx} className="grid grid-cols-12 gap-2 items-center bg-app-bg border border-violet-500/20 rounded-xl px-3 py-2">
+                      <div className="col-span-3">
+                        <p className="text-xs font-bold text-violet-300">{v.label}</p>
                       </div>
-                    ))}
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="text-[10px] font-black uppercase text-app-text-muted mb-1 block">SKU variante</label>
-                      <input type="text" placeholder="Ej. NIKE-38-ROJO" value={newVariant.sku}
-                        onChange={e => setNewVariant(p => ({ ...p, sku: e.target.value }))}
-                        className="w-full bg-app-card border border-app-border rounded-lg px-3 py-2 text-sm font-mono text-app-accent focus:outline-none focus:border-violet-500/50" />
+                      <div className="col-span-3">
+                        <input
+                          type="text" value={v.sku}
+                          onChange={e => updatePending(idx, "sku", e.target.value)}
+                          className="w-full bg-app-card border border-app-border rounded-lg px-2 py-1.5 text-xs font-mono text-app-accent focus:outline-none focus:border-violet-500/50"
+                        />
+                      </div>
+                      <div className="col-span-2">
+                        <input
+                          type="number" value={v.cost_price}
+                          onChange={e => updatePending(idx, "cost_price", e.target.value)}
+                          className="w-full bg-app-card border border-app-border rounded-lg px-2 py-1.5 text-xs text-app-text text-center focus:outline-none focus:border-violet-500/50"
+                        />
+                      </div>
+                      <div className="col-span-2">
+                        <input
+                          type="number" value={v.sale_price}
+                          onChange={e => updatePending(idx, "sale_price", e.target.value)}
+                          className="w-full bg-app-card border border-emerald-500/20 rounded-lg px-2 py-1.5 text-xs text-emerald-400 font-bold text-center focus:outline-none focus:border-emerald-500/50"
+                        />
+                      </div>
+                      <div className="col-span-1">
+                        <input
+                          type="number" value={v.stock}
+                          onChange={e => updatePending(idx, "stock", e.target.value)}
+                          className="w-full bg-app-card border border-app-border rounded-lg px-2 py-1.5 text-xs text-app-text text-center focus:outline-none focus:border-violet-500/50"
+                        />
+                      </div>
+                      <div className="col-span-1 flex justify-end">
+                        <button type="button" onClick={() => removePending(idx)} className="text-app-text-muted hover:text-rose-400 transition-colors">
+                          <X size={14} />
+                        </button>
+                      </div>
                     </div>
-                    <div>
-                      <label className="text-[10px] font-black uppercase text-app-text-muted mb-1 block">Stock inicial</label>
-                      <input type="number" placeholder="0" value={newVariant.stock}
-                        onChange={e => setNewVariant(p => ({ ...p, stock: e.target.value }))}
-                        className="w-full bg-app-card border border-app-border rounded-lg px-3 py-2 text-sm text-app-text focus:outline-none focus:border-violet-500/50" />
-                    </div>
-                    <div>
-                      <label className="text-[10px] font-black uppercase text-app-text-muted mb-1 block">Precio costo</label>
-                      <input type="number" placeholder="0" value={newVariant.cost_price}
-                        onChange={e => setNewVariant(p => ({ ...p, cost_price: e.target.value }))}
-                        className="w-full bg-app-card border border-app-border rounded-lg px-3 py-2 text-sm text-app-text focus:outline-none focus:border-violet-500/50" />
-                    </div>
-                    <div>
-                      <label className="text-[10px] font-black uppercase text-app-text-muted mb-1 block">Precio venta</label>
-                      <input type="number" placeholder="0" value={newVariant.sale_price}
-                        onChange={e => setNewVariant(p => ({ ...p, sale_price: e.target.value }))}
-                        className="w-full bg-app-card border border-app-border rounded-lg px-3 py-2 text-sm text-emerald-400 font-bold focus:outline-none focus:border-violet-500/50" />
-                    </div>
-                  </div>
+                  ))}
 
                   <button
                     type="button"
-                    onClick={handleAddVariant}
-                    disabled={addingVariant || !newVariant.sku || !newVariant.sale_price}
-                    className="flex items-center gap-2 px-4 py-2 bg-violet-500 hover:bg-violet-400 text-white rounded-lg text-sm font-black transition-colors disabled:opacity-40 shadow-lg shadow-violet-500/20"
+                    onClick={handleSavePendingVariants}
+                    disabled={savingPending || pendingVariants.length === 0}
+                    className="w-full flex items-center justify-center gap-2 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-black text-sm transition-colors shadow-lg shadow-emerald-900/20 disabled:opacity-40"
                   >
-                    {addingVariant ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
-                    Crear variante
+                    {savingPending ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
+                    Confirmar {pendingVariants.length} variante{pendingVariants.length !== 1 ? "s" : ""}
                   </button>
                 </div>
               )}
 
-              {/* Lista de variantes existentes */}
+              {/* ── Variantes ya guardadas ── */}
               {variants.length > 0 && (
                 <div className="space-y-2">
-                  <p className="text-xs font-black uppercase tracking-widest text-app-text-muted">Variantes ({variants.length})</p>
+                  <p className="text-xs font-black uppercase tracking-widest text-app-text-muted">Variantes guardadas ({variants.length})</p>
                   {variants.map(v => (
                     <div key={v.id} className="flex items-center justify-between bg-app-bg border border-app-border rounded-xl px-4 py-3">
                       <div>
@@ -582,24 +683,35 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
         </div>
       )}
 
+      {/* ── Botones ── */}
       <div className="mt-8 pt-6 border-t border-app-border flex justify-end gap-4">
-        {onCancel && (
-            <button
-              type="button"
-              onClick={onCancel}
-              className="px-6 py-3 rounded-xl border border-app-border text-app-text-muted hover:bg-app-accent/5 hover:text-app-text transition-all font-medium"
-            >
-              Cancelar
-            </button>
+        {onCancel && !productJustCreated && (
+          <button
+            type="button" onClick={onCancel}
+            className="px-6 py-3 rounded-xl border border-app-border text-app-text-muted hover:bg-app-accent/5 hover:text-app-text transition-all font-medium"
+          >
+            Cancelar
+          </button>
         )}
-        <button
-          type="submit"
-          disabled={isLoading}
-          className="px-6 py-3 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white shadow-lg shadow-cyan-500/20 transition-all font-semibold flex items-center gap-2"
-        >
-          {isLoading && <Loader2 size={18} className="animate-spin" />}
-          {isEdit ? "Guardar Cambios" : "Guardar Producto"}
-        </button>
+
+        {productJustCreated ? (
+          <button
+            type="button"
+            onClick={() => { if (onSaveSuccess) onSaveSuccess(); }}
+            className="px-6 py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-lg shadow-emerald-500/20 transition-all font-semibold flex items-center gap-2"
+          >
+            <CheckCircle2 size={18} />
+            Finalizar e ir al Inventario
+          </button>
+        ) : (
+          <button
+            type="submit" disabled={isLoading}
+            className="px-6 py-3 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white shadow-lg shadow-cyan-500/20 transition-all font-semibold flex items-center gap-2"
+          >
+            {isLoading && <Loader2 size={18} className="animate-spin" />}
+            {isEdit ? "Guardar Cambios" : form.has_variants ? "Guardar y agregar variantes" : "Guardar Producto"}
+          </button>
+        )}
       </div>
 
     </form>
