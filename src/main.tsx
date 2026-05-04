@@ -4,6 +4,12 @@ import App from './App';
 import { AuthProvider } from './auth/AuthContext';
 import './index.css';
 
+document.addEventListener('wheel', () => {
+  if (document.activeElement instanceof HTMLInputElement && document.activeElement.type === 'number') {
+    document.activeElement.blur();
+  }
+}, { passive: true });
+
 ReactDOM.createRoot(
   document.getElementById('root')!,
 ).render(
