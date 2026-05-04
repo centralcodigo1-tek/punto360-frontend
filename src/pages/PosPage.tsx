@@ -183,8 +183,8 @@ export default function PosPage() {
 
   // Auto-add by exact SKU scan (product or variant)
   useEffect(() => {
-    if (!searchQuery.trim()) return;
     const q = searchQuery.trim();
+    if (!q || q.length < 6) return;
 
     // Check if exact product SKU match (non-variant)
     const exactProduct = products.find(p => p.sku.toLowerCase() === q.toLowerCase() && p.is_active && !p.has_variants);
@@ -194,7 +194,13 @@ export default function PosPage() {
       return;
     }
 
-    // Check if it could be a variant SKU — try the API
+    // Only call variant API if no product matches at all (not partial match either)
+    const hasProductMatch = products.some(p => p.is_active && (
+      p.name.toLowerCase().includes(q.toLowerCase()) || p.sku.toLowerCase().includes(q.toLowerCase())
+    ));
+    if (hasProductMatch) return;
+
+    // No product match — could be a variant SKU
     const timeout = setTimeout(async () => {
       try {
         const res = await api.get(`/products/variant-by-sku/${encodeURIComponent(q)}`);
@@ -214,7 +220,7 @@ export default function PosPage() {
         });
         setSearchQuery("");
       } catch { /* not a variant SKU, do nothing */ }
-    }, 300);
+    }, 400);
     return () => clearTimeout(timeout);
   }, [searchQuery, products]);
 
