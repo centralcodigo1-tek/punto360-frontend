@@ -194,7 +194,7 @@ export default function PosPage() {
       return;
     }
 
-    // Only call variant API if no products match this query at all
+    // Only call variant API if no product matches at all (not partial match either)
     const hasProductMatch = products.some(p => p.is_active && (
       p.name.toLowerCase().includes(q.toLowerCase()) || p.sku.toLowerCase().includes(q.toLowerCase())
     ));
