@@ -292,7 +292,7 @@ export default function PosPage() {
   };
 
   const addVariantToCart = (product: ProductRow, variant: VariantOption) => {
-    const stock = variant.stock[0]?.quantity ?? 0;
+    const stock = Number(variant.stock[0]?.quantity ?? 0);
     if (stock === 0) { toast.error("Esta variante no tiene stock disponible"); return; }
     const label = variantLabel(variant);
     setCart((prev) => {
@@ -301,7 +301,7 @@ export default function PosPage() {
         if (existing.quantity >= stock) return prev;
         return prev.map((item) => item.variantId === variant.id ? { ...item, quantity: item.quantity + 1 } : item);
       }
-      return [...prev, { product, quantity: 1, customPrice: variant.sale_price, variantId: variant.id, variantLabel: label }];
+      return [...prev, { product, quantity: 1, customPrice: Number(variant.sale_price), variantId: variant.id, variantLabel: label }];
     });
     setVariantPrompt(null);
     setSearchQuery("");
