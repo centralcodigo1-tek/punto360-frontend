@@ -6,7 +6,7 @@ import { api } from "../api/axios";
 import {
     Archive, ChevronDown, ChevronUp, Wallet, CreditCard,
     Building2, TrendingDown, CheckCircle2, AlertTriangle,
-    Loader2, User, Clock, Lock
+    Loader2, User, Clock, Lock, Printer
 } from "lucide-react";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -61,6 +61,73 @@ function sessionDuration(opened: string, closed: string | null) {
     const h = Math.floor(ms / 3_600_000);
     const m = Math.floor((ms % 3_600_000) / 60_000);
     return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+
+// ── Print ─────────────────────────────────────────────────────────────────────
+
+function printArqueo(a: Arqueo) {
+    const s = a.summary;
+    const expenses = a.cash_movements.filter(m => m.type === 'EXPENSE');
+    const isOver = s.difference >= 0;
+
+    const row = (label: string, value: string, bold = false) =>
+        `<tr><td style="padding:3px 0;color:#555">${label}</td><td style="padding:3px 0;text-align:right;font-weight:${bold ? '700' : '400'}">${value}</td></tr>`;
+
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Cierre de Caja</title>
+    <style>
+        *{box-sizing:border-box;margin:0;padding:0}
+        body{font-family:'Courier New',monospace;font-size:12px;color:#111;width:72mm;margin:0 auto;padding:8px}
+        h1{font-size:15px;text-align:center;font-weight:900;letter-spacing:1px;margin-bottom:2px}
+        .center{text-align:center}
+        .divider{border:none;border-top:1px dashed #999;margin:8px 0}
+        table{width:100%;border-collapse:collapse}
+        .section-title{font-size:9px;font-weight:900;letter-spacing:2px;text-transform:uppercase;color:#777;margin:8px 0 4px}
+        .total-row td{font-weight:900;font-size:13px;border-top:1px solid #ccc;padding-top:4px}
+        .diff{padding:4px 8px;text-align:center;font-weight:900;font-size:13px;border:1px solid;border-radius:4px;margin-top:6px}
+        .over{color:#166534;border-color:#166534;background:#f0fdf4}
+        .under{color:#991b1b;border-color:#991b1b;background:#fef2f2}
+        @media print{body{width:auto}}
+    </style></head><body>
+    <h1>CIERRE DE CAJA</h1>
+    <p class="center" style="font-size:10px;color:#555;margin-bottom:2px">${a.name}</p>
+    <hr class="divider">
+    <table>
+        ${row('Cajero', a.cashier?.name ?? '—')}
+        ${row('Apertura', `${fDate(a.opened_at)} ${fTime(a.opened_at)}`)}
+        ${a.closed_at ? row('Cierre', `${fDate(a.closed_at)} ${fTime(a.closed_at)}`) : ''}
+        ${row('Duración', sessionDuration(a.opened_at, a.closed_at))}
+        ${row('Tickets', String(s.ticketsCount))}
+    </table>
+    <hr class="divider">
+    <p class="section-title">Desglose de Ventas</p>
+    <table>
+        ${row('Efectivo', cop(s.cashSales))}
+        ${row('Tarjeta', cop(s.cardSales))}
+        ${row('Transferencia', cop(s.transferSales))}
+        <tr class="total-row">${row('TOTAL VENTAS', cop(s.totalSales), true)}</tr>
+    </table>
+    <hr class="divider">
+    <p class="section-title">Arqueo de Efectivo</p>
+    <table>
+        ${row('Fondo inicial', cop(s.openingAmount))}
+        ${row('+ Ventas efectivo', cop(s.cashSales))}
+        ${s.totalExpenses > 0 ? row('- Gastos', cop(s.totalExpenses)) : ''}
+        ${row('Efectivo esperado', cop(s.expectedCash), true)}
+        ${row('Efectivo contado', cop(s.closingAmount), true)}
+    </table>
+    <div class="diff ${isOver ? 'over' : 'under'}">${isOver ? 'SOBRANTE' : 'FALTANTE'}: ${isOver ? '+' : ''}${cop(s.difference)}</div>
+    ${expenses.length > 0 ? `
+    <hr class="divider">
+    <p class="section-title">Gastos del Turno</p>
+    <table>${expenses.map(m => row(m.reason, `-${cop(Number(m.amount))}`)).join('')}</table>` : ''}
+    ${a.notes ? `<hr class="divider"><p class="section-title">Observaciones</p><p style="font-size:11px;color:#555">${a.notes}</p>` : ''}
+    <hr class="divider">
+    <p class="center" style="font-size:9px;color:#aaa;margin-top:4px">Impreso el ${new Date().toLocaleString('es-CO')}</p>
+    <script>window.onload=()=>{window.print();window.onafterprint=()=>window.close()}<\/script>
+    </body></html>`;
+
+    const w = window.open('', '_blank', 'width=400,height=600');
+    if (w) { w.document.write(html); w.document.close(); }
 }
 
 // ── Main Component ────────────────────────────────────────────────────────────
@@ -211,6 +278,16 @@ export default function ArqueosPage() {
                                                 </div>
                                             )}
                                         </div>
+
+                                        {!isOpen && (
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); printArqueo(a); }}
+                                                className="shrink-0 p-2 text-app-text-muted hover:text-amber-400 hover:bg-amber-500/10 rounded-lg transition-colors"
+                                                title="Imprimir cierre"
+                                            >
+                                                <Printer size={16} />
+                                            </button>
+                                        )}
 
                                         {isExpanded
                                             ? <ChevronUp size={16} className="text-app-text-muted shrink-0" />
