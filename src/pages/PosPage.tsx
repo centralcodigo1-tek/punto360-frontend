@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import DashboardLayout from "../layouts/DashboardLayout";
 import { ShoppingCart, Search, CreditCard, Banknote, Building2, Plus, Minus, Trash2, CheckCircle2, Loader2, AlertTriangle, TrendingUp, Receipt, Wallet, UserCheck, X, Pause, Clock, Layers } from "lucide-react";
 import { api } from "../api/axios";
+import { useAuth } from "../auth/AuthContext";
 import type { ProductRow } from "./InventoryPage";
 
 interface VariantOption {
@@ -55,6 +56,7 @@ interface CartItem {
 
 export default function PosPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [products, setProducts] = useState<ProductRow[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -80,6 +82,7 @@ export default function PosPage() {
   const [variantPrompt, setVariantPrompt] = useState<{ product: ProductRow; variants: VariantOption[] } | null>(null);
   const [printData, setPrintData] = useState<{ items: CartItem[]; total: number; change: number; paymentMethod: string; customerName?: string } | null>(null);
   const [paperWidth, setPaperWidth] = useState<number>(() => Number(localStorage.getItem('receipt_paper_width') || 80));
+  const [branchName, setBranchName] = useState<string>("");
 
   const fetchShiftStats = async () => {
     try {
@@ -157,7 +160,11 @@ export default function PosPage() {
     api.get("/cash-registers/current")
       .then(res => {
         setHasCashSession(!!res.data);
-        if (res.data) { fetchShiftStats(); fetchPendingSales(); }
+        if (res.data) {
+          fetchShiftStats();
+          fetchPendingSales();
+          if (res.data.branches?.name) setBranchName(res.data.branches.name);
+        }
       })
       .catch(() => setHasCashSession(false));
   }, []);
@@ -1081,31 +1088,36 @@ export default function PosPage() {
                   setPrintData(null);
                   toast.success("¡Venta registrada con éxito!");
                   const payLabel: Record<string, string> = { CASH: 'Efectivo', CARD: 'Tarjeta', TRANSFER: 'Transferencia', CREDIT: 'Crédito' };
-                  const w = `${paperWidth}mm`;
+                  const pw = `${paperWidth}mm`;
                   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Ticket</title><style>
                     *{margin:0;padding:0;box-sizing:border-box;}
-                    body{font-family:monospace;font-size:12px;width:${w};padding:3mm;}
-                    h1{font-size:15px;text-align:center;margin-bottom:4px;}
+                    body{font-family:monospace;font-size:12px;width:${pw};padding:3mm;}
                     .center{text-align:center;}
+                    .bold{font-weight:bold;}
                     .line{border-top:1px dashed #000;margin:5px 0;}
                     .row{display:flex;justify-content:space-between;gap:4px;}
                     .total{font-size:14px;font-weight:bold;}
-                    @media print{@page{margin:0;size:${w} auto;}}
+                    .small{font-size:10px;}
+                    .logo{font-size:10px;text-align:center;margin-top:6px;opacity:0.6;}
+                    @media print{@page{margin:0;size:${pw} auto;}}
                   </style></head><body>
-                    <h1>PUNTO360</h1>
-                    <p class="center">${new Date().toLocaleString('es-CO')}</p>
+                    <p class="center bold" style="font-size:15px;">${user?.companyName ?? 'Mi Tienda'}</p>
+                    ${branchName ? `<p class="center small">${branchName}</p>` : ''}
+                    <p class="center small">${new Date().toLocaleString('es-CO')}</p>
+                    ${user?.userName ? `<p class="center small">Atendido por: ${user.userName}</p>` : ''}
                     <div class="line"></div>
                     ${d.items.map(i => `
-                      <div><span>${i.product.name}${i.variantLabel ? ' ('+i.variantLabel+')' : ''}</span></div>
-                      <div class="row"><span>${i.quantity} x $${i.customPrice.toLocaleString()}</span><span>$${(i.quantity * i.customPrice).toLocaleString()}</span></div>
+                      <div class="bold">${i.product.name}${i.variantLabel ? ' <span style="font-weight:normal;font-size:10px;">('+i.variantLabel+')</span>' : ''}</div>
+                      <div class="row small"><span>${i.quantity} x $${i.customPrice.toLocaleString()}</span><span>$${(i.quantity * i.customPrice).toLocaleString()}</span></div>
                     `).join('')}
                     <div class="line"></div>
                     <div class="row total"><span>TOTAL</span><span>$${d.total.toLocaleString()}</span></div>
-                    <div class="row"><span>Método</span><span>${payLabel[d.paymentMethod] ?? d.paymentMethod}</span></div>
-                    ${d.paymentMethod === 'CASH' && d.change > 0 ? `<div class="row"><span>Cambio</span><span>$${d.change.toLocaleString()}</span></div>` : ''}
-                    ${d.customerName ? `<div class="row"><span>Cliente</span><span>${d.customerName}</span></div>` : ''}
+                    <div class="row small"><span>Método de pago</span><span>${payLabel[d.paymentMethod] ?? d.paymentMethod}</span></div>
+                    ${d.paymentMethod === 'CASH' && d.change > 0 ? `<div class="row small"><span>Cambio</span><span>$${d.change.toLocaleString()}</span></div>` : ''}
+                    ${d.customerName ? `<div class="row small"><span>Cliente</span><span>${d.customerName}</span></div>` : ''}
                     <div class="line"></div>
-                    <p class="center">¡Gracias por su compra!</p>
+                    <p class="center small">¡Gracias por su compra!</p>
+                    <p class="logo">— PUNTO360 —</p>
                   </body></html>`;
                   const win = window.open('', '_blank', 'width=350,height=600');
                   if (win) { win.document.write(html); win.document.close(); win.focus(); win.print(); win.onafterprint = () => win.close(); }
