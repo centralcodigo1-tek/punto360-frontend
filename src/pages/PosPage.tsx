@@ -78,6 +78,7 @@ export default function PosPage() {
   const [pendingSales, setPendingSales] = useState<any[]>([]);
   const [showPending, setShowPending] = useState(false);
   const [variantPrompt, setVariantPrompt] = useState<{ product: ProductRow; variants: VariantOption[] } | null>(null);
+  const [printData, setPrintData] = useState<{ items: CartItem[]; total: number; change: number; paymentMethod: string; customerName?: string } | null>(null);
 
   const fetchShiftStats = async () => {
     try {
@@ -409,11 +410,17 @@ export default function PosPage() {
         payload.customerId = selectedCustomer.id;
       }
       await api.post("/sales", payload);
+      setPrintData({
+        items: [...cart],
+        total: cartTotal,
+        change,
+        paymentMethod,
+        customerName: selectedCustomer?.name,
+      });
       setCart([]);
       setCashReceived("");
       setSelectedCustomer(null);
       setCustomerSearch("");
-      toast.success("¡Venta registrada con éxito!");
       fetchProducts();
       fetchShiftStats();
     } catch (error: any) {
@@ -1026,6 +1033,68 @@ export default function PosPage() {
             <div className="flex gap-3 w-full">
               <button onClick={() => setConsignmentPrompt(null)} className="flex-1 py-4 rounded-xl border border-app-border text-app-text-muted font-black uppercase text-[10px] tracking-widest hover:text-white transition-colors">Cerrar</button>
               <button onClick={commitConsignmentSale} className="flex-1 py-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-white font-black uppercase text-[10px] tracking-widest transition-all shadow-lg shadow-amber-500/20">Agregar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Impresión */}
+      {printData && (
+        <div className="fixed inset-0 z-[110] flex justify-center items-center p-4">
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-md" />
+          <div className="relative w-full max-w-sm bg-app-bg rounded-3xl shadow-2xl border border-app-border p-6 flex flex-col items-center gap-5 animate-in zoom-in duration-200">
+            <div className="w-16 h-16 rounded-2xl bg-app-accent/10 text-app-accent flex items-center justify-center">
+              <Receipt size={32} />
+            </div>
+            <div className="text-center">
+              <h2 className="text-xl font-black text-app-text">¿Imprimir ticket?</h2>
+              <p className="text-app-text-muted text-sm mt-1">Total: <span className="text-app-accent font-black">{cop(printData.total)}</span></p>
+            </div>
+            <div className="flex gap-3 w-full">
+              <button
+                onClick={() => { setPrintData(null); toast.success("¡Venta registrada con éxito!"); }}
+                className="flex-1 py-3 rounded-xl border border-app-border text-app-text-muted font-black text-[11px] uppercase tracking-widest hover:text-white transition-colors"
+              >
+                Omitir
+              </button>
+              <button
+                onClick={() => {
+                  const d = printData;
+                  setPrintData(null);
+                  toast.success("¡Venta registrada con éxito!");
+                  const payLabel: Record<string, string> = { CASH: 'Efectivo', CARD: 'Tarjeta', TRANSFER: 'Transferencia', CREDIT: 'Crédito' };
+                  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Ticket</title><style>
+                    *{margin:0;padding:0;box-sizing:border-box;}
+                    body{font-family:monospace;font-size:12px;width:80mm;padding:4mm;}
+                    h1{font-size:16px;text-align:center;margin-bottom:4px;}
+                    .center{text-align:center;}
+                    .line{border-top:1px dashed #000;margin:6px 0;}
+                    .row{display:flex;justify-content:space-between;}
+                    .total{font-size:15px;font-weight:bold;}
+                    @media print{@page{margin:0;size:80mm auto;}}
+                  </style></head><body>
+                    <h1>PUNTO360</h1>
+                    <p class="center">${new Date().toLocaleString('es-CO')}</p>
+                    <div class="line"></div>
+                    ${d.items.map(i => `
+                      <div class="row"><span>${i.product.name}${i.variantLabel ? ' ('+i.variantLabel+')' : ''}</span></div>
+                      <div class="row"><span>${i.quantity} x $${i.customPrice.toLocaleString()}</span><span>$${(i.quantity * i.customPrice).toLocaleString()}</span></div>
+                    `).join('')}
+                    <div class="line"></div>
+                    <div class="row total"><span>TOTAL</span><span>$${d.total.toLocaleString()}</span></div>
+                    <div class="row"><span>Método</span><span>${payLabel[d.paymentMethod] ?? d.paymentMethod}</span></div>
+                    ${d.paymentMethod === 'CASH' && d.change > 0 ? `<div class="row"><span>Cambio</span><span>$${d.change.toLocaleString()}</span></div>` : ''}
+                    ${d.customerName ? `<div class="row"><span>Cliente</span><span>${d.customerName}</span></div>` : ''}
+                    <div class="line"></div>
+                    <p class="center">¡Gracias por su compra!</p>
+                  </body></html>`;
+                  const w = window.open('', '_blank', 'width=350,height=600');
+                  if (w) { w.document.write(html); w.document.close(); w.focus(); w.print(); w.onafterprint = () => w.close(); }
+                }}
+                className="flex-1 py-3 rounded-xl bg-app-accent hover:bg-app-accent-hover text-white font-black text-[11px] uppercase tracking-widest transition-all shadow-lg shadow-app-accent/20"
+              >
+                Imprimir
+              </button>
             </div>
           </div>
         </div>
