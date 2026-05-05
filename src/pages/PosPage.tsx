@@ -79,6 +79,7 @@ export default function PosPage() {
   const [showPending, setShowPending] = useState(false);
   const [variantPrompt, setVariantPrompt] = useState<{ product: ProductRow; variants: VariantOption[] } | null>(null);
   const [printData, setPrintData] = useState<{ items: CartItem[]; total: number; change: number; paymentMethod: string; customerName?: string } | null>(null);
+  const [paperWidth, setPaperWidth] = useState<number>(() => Number(localStorage.getItem('receipt_paper_width') || 80));
 
   const fetchShiftStats = async () => {
     try {
@@ -1050,6 +1051,23 @@ export default function PosPage() {
               <h2 className="text-xl font-black text-app-text">¿Imprimir ticket?</h2>
               <p className="text-app-text-muted text-sm mt-1">Total: <span className="text-app-accent font-black">{cop(printData.total)}</span></p>
             </div>
+            <div className="flex items-center gap-2 w-full px-1">
+              <label className="text-[10px] font-black text-app-text-muted uppercase tracking-widest whitespace-nowrap">Ancho papel</label>
+              <div className="flex items-center gap-1 ml-auto">
+                <input
+                  type="number"
+                  min={48} max={120}
+                  value={paperWidth}
+                  onChange={(e) => {
+                    const v = Number(e.target.value);
+                    setPaperWidth(v);
+                    localStorage.setItem('receipt_paper_width', String(v));
+                  }}
+                  className="w-16 bg-app-bg border border-app-border rounded-lg px-2 py-1 text-xs text-app-accent font-black text-center focus:outline-none focus:border-app-accent/50"
+                />
+                <span className="text-[10px] text-app-text-muted font-black">mm</span>
+              </div>
+            </div>
             <div className="flex gap-3 w-full">
               <button
                 onClick={() => { setPrintData(null); toast.success("¡Venta registrada con éxito!"); }}
@@ -1063,21 +1081,22 @@ export default function PosPage() {
                   setPrintData(null);
                   toast.success("¡Venta registrada con éxito!");
                   const payLabel: Record<string, string> = { CASH: 'Efectivo', CARD: 'Tarjeta', TRANSFER: 'Transferencia', CREDIT: 'Crédito' };
+                  const w = `${paperWidth}mm`;
                   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Ticket</title><style>
                     *{margin:0;padding:0;box-sizing:border-box;}
-                    body{font-family:monospace;font-size:12px;width:80mm;padding:4mm;}
-                    h1{font-size:16px;text-align:center;margin-bottom:4px;}
+                    body{font-family:monospace;font-size:12px;width:${w};padding:3mm;}
+                    h1{font-size:15px;text-align:center;margin-bottom:4px;}
                     .center{text-align:center;}
-                    .line{border-top:1px dashed #000;margin:6px 0;}
-                    .row{display:flex;justify-content:space-between;}
-                    .total{font-size:15px;font-weight:bold;}
-                    @media print{@page{margin:0;size:80mm auto;}}
+                    .line{border-top:1px dashed #000;margin:5px 0;}
+                    .row{display:flex;justify-content:space-between;gap:4px;}
+                    .total{font-size:14px;font-weight:bold;}
+                    @media print{@page{margin:0;size:${w} auto;}}
                   </style></head><body>
                     <h1>PUNTO360</h1>
                     <p class="center">${new Date().toLocaleString('es-CO')}</p>
                     <div class="line"></div>
                     ${d.items.map(i => `
-                      <div class="row"><span>${i.product.name}${i.variantLabel ? ' ('+i.variantLabel+')' : ''}</span></div>
+                      <div><span>${i.product.name}${i.variantLabel ? ' ('+i.variantLabel+')' : ''}</span></div>
                       <div class="row"><span>${i.quantity} x $${i.customPrice.toLocaleString()}</span><span>$${(i.quantity * i.customPrice).toLocaleString()}</span></div>
                     `).join('')}
                     <div class="line"></div>
@@ -1088,8 +1107,8 @@ export default function PosPage() {
                     <div class="line"></div>
                     <p class="center">¡Gracias por su compra!</p>
                   </body></html>`;
-                  const w = window.open('', '_blank', 'width=350,height=600');
-                  if (w) { w.document.write(html); w.document.close(); w.focus(); w.print(); w.onafterprint = () => w.close(); }
+                  const win = window.open('', '_blank', 'width=350,height=600');
+                  if (win) { win.document.write(html); win.document.close(); win.focus(); win.print(); win.onafterprint = () => win.close(); }
                 }}
                 className="flex-1 py-3 rounded-xl bg-app-accent hover:bg-app-accent-hover text-white font-black text-[11px] uppercase tracking-widest transition-all shadow-lg shadow-app-accent/20"
               >
