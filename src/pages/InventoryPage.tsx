@@ -23,6 +23,7 @@ export interface ProductRow {
   category_name?: string;
   is_consignment?: boolean;
   has_variants?: boolean;
+  barcode?: string | null;
 }
 
 export default function InventoryPage() {
@@ -81,6 +82,7 @@ export default function InventoryPage() {
                   category_name: p.categories?.name ?? "",
                   is_consignment: p.is_consignment ?? false,
                   has_variants: p.has_variants ?? false,
+                  barcode: p.barcode ?? null,
                 };
             });
             setAllProducts(mapped);
