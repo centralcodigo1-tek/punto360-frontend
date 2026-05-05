@@ -200,8 +200,9 @@ export default function PosPage() {
     ));
     if (hasProductMatch) return;
 
-    // No product match — could be a variant SKU
+    // No product match — try variant SKU, then barcode scan
     const timeout = setTimeout(async () => {
+      // 1. Try variant SKU
       try {
         const res = await api.get(`/products/variant-by-sku/${encodeURIComponent(q)}`);
         const variant = res.data as VariantOption & { products: { id: string; name: string; unit_type: string } };
@@ -219,7 +220,34 @@ export default function PosPage() {
           return [...prev, { product: parentProduct, quantity: 1, customPrice: Number(variant.sale_price), variantId: variant.id, variantLabel: label }];
         });
         setSearchQuery("");
-      } catch { /* not a variant SKU, do nothing */ }
+        return;
+      } catch { /* not a variant SKU */ }
+
+      // 2. Try barcode scan (product or variant)
+      try {
+        const res = await api.get(`/products/scan/${encodeURIComponent(q)}`);
+        const { type, data } = res.data as { type: 'product' | 'variant'; data: any };
+        if (type === 'product') {
+          const p = products.find(prod => prod.id === data.id);
+          if (p) { addToCart(p); setSearchQuery(""); }
+        } else {
+          const variant = data as VariantOption & { products: { id: string; name: string; unit_type: string } };
+          const parentProduct = products.find(p => p.id === variant.products.id);
+          if (!parentProduct) return;
+          const stock = Number(variant.stock[0]?.quantity ?? 0);
+          if (stock === 0) { toast.error("Variante sin stock disponible"); setSearchQuery(""); return; }
+          const label = variantLabel(variant);
+          setCart(prev => {
+            const existing = prev.find(i => i.variantId === variant.id);
+            if (existing) {
+              if (existing.quantity >= stock) return prev;
+              return prev.map(i => i.variantId === variant.id ? { ...i, quantity: i.quantity + 1 } : i);
+            }
+            return [...prev, { product: parentProduct, quantity: 1, customPrice: Number(variant.sale_price), variantId: variant.id, variantLabel: label }];
+          });
+          setSearchQuery("");
+        }
+      } catch { /* barcode not found */ }
     }, 400);
     return () => clearTimeout(timeout);
   }, [searchQuery, products]);

@@ -9,6 +9,7 @@ interface Attribute { id: string; name: string; values: AttributeValue[]; }
 interface VariantRow {
   id: string;
   sku: string;
+  barcode?: string | null;
   sale_price: number;
   cost_price: number;
   is_active: boolean;
@@ -18,6 +19,7 @@ interface VariantRow {
 interface PendingVariant {
   label: string;
   sku: string;
+  barcode: string;
   sale_price: string;
   cost_price: string;
   stock: string;
@@ -64,6 +66,7 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
   const [form, setForm] = useState({
     name: "",
     sku: "",
+    barcode: "",
     category_id: "",
     cost_price: "",
     sale_price: "",
@@ -82,6 +85,7 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
         setForm({
           name: initialData.name,
           sku: initialData.sku,
+          barcode: (initialData as any).barcode || "",
           category_id: initialData.category_id || "",
           cost_price: String(initialData.cost_price),
           sale_price: String(initialData.sale_price),
@@ -194,6 +198,7 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
         return {
           label,
           sku,
+          barcode: "",
           sale_price: form.sale_price,
           cost_price: form.cost_price,
           stock: "0",
@@ -227,6 +232,7 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
       try {
         await api.post(`/products/${activeProductId}/variants`, {
           sku: v.sku,
+          barcode: v.barcode || undefined,
           sale_price: Number(v.sale_price),
           cost_price: Number(v.cost_price) || 0,
           stock: Number(v.stock) || 0,
@@ -321,6 +327,17 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
                 disabled
                 className="w-full bg-app-bg/50 border border-app-border rounded-xl px-4 py-3 text-app-accent font-mono focus:outline-none"
                 value={form.sku || "Cargando..."}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-app-text-muted mb-1">Código de Barras <span className="opacity-50 font-normal">(opcional)</span></label>
+              <input
+                type="text"
+                className="w-full bg-app-bg border border-app-border rounded-xl px-4 py-3 text-app-text font-mono placeholder-app-text-muted/40 focus:outline-none focus:ring-2 focus:ring-app-accent/50 transition-all"
+                placeholder="Ej. 7702009040393"
+                value={form.barcode}
+                onChange={(e) => setForm({ ...form, barcode: e.target.value })}
               />
             </div>
 
@@ -665,11 +682,25 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
                         </div>
                         <span className="font-mono text-app-accent text-xs">{v.sku}</span>
                       </div>
-                      <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-3">
                         <div className="text-right">
                           <p className="text-emerald-400 font-black text-sm">${Number(v.sale_price).toLocaleString()}</p>
                           <p className="text-app-text-muted text-[10px]">{v.stock[0]?.quantity ?? 0} un. stock</p>
                         </div>
+                        <input
+                          type="text"
+                          defaultValue={v.barcode ?? ""}
+                          placeholder="Cód. barras"
+                          onBlur={async (e) => {
+                            const val = e.target.value.trim();
+                            if (val === (v.barcode ?? "")) return;
+                            try {
+                              await api.put(`/products/${activeProductId}/variants/${v.id}`, { barcode: val || null });
+                              toast.success("Código de barras guardado");
+                            } catch { toast.error("Error al guardar código de barras"); }
+                          }}
+                          className="w-32 bg-app-bg border border-app-border rounded-lg px-2 py-1 text-xs font-mono text-app-text placeholder-app-text-muted/40 focus:outline-none focus:border-app-accent/50"
+                        />
                         <button type="button" onClick={() => handleDeleteVariant(v.id)} className="text-app-text-muted hover:text-rose-400 transition-colors">
                           <X size={16} />
                         </button>
