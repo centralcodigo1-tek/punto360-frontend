@@ -516,7 +516,7 @@ export default function PosPage() {
               </div>
             ) : (
               /* ── Resultados de búsqueda ── */
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
+              <div className="flex flex-col gap-1.5">
                 {visibleProducts.map(p => {
                   const agotado = !p.is_consignment && !p.has_variants && p.stockCount === 0;
                   return (
@@ -524,31 +524,29 @@ export default function PosPage() {
                       key={p.id}
                       onClick={() => addToCart(p)}
                       disabled={agotado}
-                      className={`relative bg-app-card backdrop-blur-md border ${agotado ? 'border-rose-500/20' : 'border-app-border hover:border-app-accent/50'} rounded-2xl p-4 flex flex-col text-left transition-all ${agotado ? 'opacity-50 cursor-not-allowed grayscale' : 'hover:-translate-y-1 hover:shadow-xl active:scale-95'}`}
+                      className={`relative bg-app-card backdrop-blur-md border ${agotado ? 'border-rose-500/20 opacity-50 cursor-not-allowed grayscale' : 'border-app-border hover:border-app-accent/50 hover:bg-app-accent/5 active:scale-[0.99]'} rounded-xl px-4 py-3 flex items-center gap-4 text-left transition-all`}
                     >
-                      {agotado && !p.has_variants && (
-                        <div className="absolute top-2 right-2 px-2 py-0.5 bg-rose-500/20 text-rose-500 text-[10px] font-black rounded uppercase">Agotado</div>
-                      )}
-                      {p.is_consignment && (
-                        <div className="absolute top-2 right-2 px-2 py-0.5 bg-amber-500/20 text-amber-400 text-[10px] font-black rounded uppercase">Consig.</div>
-                      )}
-                      {p.has_variants && (
-                        <div className="absolute top-2 right-2 px-2 py-0.5 bg-violet-500/20 text-violet-400 text-[10px] font-black rounded uppercase flex items-center gap-1"><Layers size={9}/>Variantes</div>
-                      )}
-                      <div className="flex items-center gap-3 mb-3">
-                        <div className="w-10 h-10 rounded-full bg-app-bg border border-app-border flex items-center justify-center font-black text-app-accent text-lg overflow-hidden shadow-inner shrink-0 leading-none">
-                          {p.name.charAt(0).toUpperCase()}
-                        </div>
-                        <div className="flex flex-col min-w-0">
-                          <span className="text-app-accent font-mono text-[10px] font-black leading-none">{p.sku}</span>
-                          <h4 className="text-app-text font-bold text-xs leading-none mt-1 truncate">{p.name}</h4>
-                        </div>
+                      <div className="w-9 h-9 rounded-full bg-app-bg border border-app-border flex items-center justify-center font-black text-app-accent text-base shadow-inner shrink-0">
+                        {p.name.charAt(0).toUpperCase()}
                       </div>
-                      <div className="flex items-end justify-between w-full mt-auto">
-                        <span className="text-emerald-500 font-bold text-lg leading-none">${p.sale_price.toLocaleString()}</span>
-                        {!p.is_consignment && (
-                          <span className="text-app-text-muted text-[10px] font-black uppercase">{p.unit_type === 'WEIGHT' ? `${p.stockCount} Kg` : `${p.stockCount} Un.`}</span>
+                      <div className="flex flex-col min-w-0 flex-1">
+                        <span className="text-app-text font-bold text-sm leading-tight truncate">{p.name}</span>
+                        <span className="text-app-accent font-mono text-[10px] font-black leading-none mt-0.5">{p.sku}</span>
+                      </div>
+                      <div className="flex items-center gap-3 shrink-0">
+                        {p.has_variants && (
+                          <span className="px-2 py-0.5 bg-violet-500/20 text-violet-400 text-[9px] font-black rounded uppercase flex items-center gap-1"><Layers size={9}/>Vars</span>
                         )}
+                        {p.is_consignment && (
+                          <span className="px-2 py-0.5 bg-amber-500/20 text-amber-400 text-[9px] font-black rounded uppercase">Consig.</span>
+                        )}
+                        {agotado && (
+                          <span className="px-2 py-0.5 bg-rose-500/20 text-rose-500 text-[9px] font-black rounded uppercase">Agotado</span>
+                        )}
+                        {!p.is_consignment && !agotado && (
+                          <span className="text-app-text-muted text-[10px] font-black uppercase w-14 text-right">{p.unit_type === 'WEIGHT' ? `${p.stockCount} Kg` : `${p.stockCount} Un.`}</span>
+                        )}
+                        <span className="text-emerald-500 font-black text-base w-24 text-right">${p.sale_price.toLocaleString()}</span>
                       </div>
                     </button>
                   );
