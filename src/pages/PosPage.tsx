@@ -227,7 +227,6 @@ export default function PosPage() {
       try {
         const res = await api.get(`/products/scan/${encodeURIComponent(q)}`);
         const { type, data } = res.data as { type: 'product' | 'variant'; data: any };
-
         if (type === 'product') {
           const p = products.find(prod => prod.id === data.id);
           if (p) { addToCart(p); setSearchQuery(""); }

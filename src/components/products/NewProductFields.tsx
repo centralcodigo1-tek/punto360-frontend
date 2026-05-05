@@ -605,32 +605,24 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
 
                   {/* Cabecera */}
                   <div className="grid grid-cols-12 gap-2 px-2 text-[10px] font-bold text-app-text-muted uppercase">
-                    <span className="col-span-2">Combinación</span>
-                    <span className="col-span-2">SKU</span>
-                    <span className="col-span-3">Código Barras</span>
+                    <span className="col-span-3">Combinación</span>
+                    <span className="col-span-3">SKU</span>
                     <span className="col-span-2 text-center">Costo</span>
-                    <span className="col-span-1 text-center">Venta</span>
+                    <span className="col-span-2 text-center">Venta</span>
                     <span className="col-span-1 text-center">Stock</span>
                     <span className="col-span-1" />
                   </div>
 
                   {pendingVariants.map((v, idx) => (
                     <div key={idx} className="grid grid-cols-12 gap-2 items-center bg-app-bg border border-violet-500/20 rounded-xl px-3 py-2">
-                      <div className="col-span-2">
+                      <div className="col-span-3">
                         <p className="text-xs font-bold text-violet-300">{v.label}</p>
                       </div>
-                      <div className="col-span-2">
+                      <div className="col-span-3">
                         <input
                           type="text" value={v.sku}
                           onChange={e => updatePending(idx, "sku", e.target.value)}
                           className="w-full bg-app-card border border-app-border rounded-lg px-2 py-1.5 text-xs font-mono text-app-accent focus:outline-none focus:border-violet-500/50"
-                        />
-                      </div>
-                      <div className="col-span-3">
-                        <input
-                          type="text" value={v.barcode} placeholder="Ej. 77020090..."
-                          onChange={e => updatePending(idx, "barcode", e.target.value)}
-                          className="w-full bg-app-card border border-app-border rounded-lg px-2 py-1.5 text-xs font-mono text-app-text focus:outline-none focus:border-violet-500/50"
                         />
                       </div>
                       <div className="col-span-2">
@@ -640,7 +632,7 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
                           className="w-full bg-app-card border border-app-border rounded-lg px-2 py-1.5 text-xs text-app-text text-center focus:outline-none focus:border-violet-500/50"
                         />
                       </div>
-                      <div className="col-span-1">
+                      <div className="col-span-2">
                         <input
                           type="number" value={v.sale_price}
                           onChange={e => updatePending(idx, "sale_price", e.target.value)}
@@ -690,7 +682,7 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
                         </div>
                         <span className="font-mono text-app-accent text-xs">{v.sku}</span>
                       </div>
-                      <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-3">
                         <div className="text-right">
                           <p className="text-emerald-400 font-black text-sm">${Number(v.sale_price).toLocaleString()}</p>
                           <p className="text-app-text-muted text-[10px]">{v.stock[0]?.quantity ?? 0} un. stock</p>
@@ -698,16 +690,16 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
                         <input
                           type="text"
                           defaultValue={v.barcode ?? ""}
-                          placeholder="Código barras"
+                          placeholder="Cód. barras"
                           onBlur={async (e) => {
                             const val = e.target.value.trim();
                             if (val === (v.barcode ?? "")) return;
                             try {
                               await api.put(`/products/${activeProductId}/variants/${v.id}`, { barcode: val || null });
-                              toast.success("Barcode actualizado");
-                            } catch { toast.error("Error al guardar barcode"); }
+                              toast.success("Código de barras guardado");
+                            } catch { toast.error("Error al guardar código de barras"); }
                           }}
-                          className="w-32 bg-app-bg border border-app-border rounded-lg px-2 py-1 text-xs font-mono text-app-text focus:outline-none focus:border-app-accent/50"
+                          className="w-32 bg-app-bg border border-app-border rounded-lg px-2 py-1 text-xs font-mono text-app-text placeholder-app-text-muted/40 focus:outline-none focus:border-app-accent/50"
                         />
                         <button type="button" onClick={() => handleDeleteVariant(v.id)} className="text-app-text-muted hover:text-rose-400 transition-colors">
                           <X size={16} />
