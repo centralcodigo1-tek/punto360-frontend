@@ -85,7 +85,7 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
         setForm({
           name: initialData.name,
           sku: initialData.sku,
-          barcode: (initialData as any).barcode || "",
+          barcode: initialData.barcode || "",
           category_id: initialData.category_id || "",
           cost_price: String(initialData.cost_price),
           sale_price: String(initialData.sale_price),
