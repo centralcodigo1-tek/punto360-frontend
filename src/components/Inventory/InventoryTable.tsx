@@ -1,8 +1,8 @@
 import { Edit2, PackageSearch, Power, PowerOff, Printer, ChevronLeft, ChevronRight } from "lucide-react";
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { toast } from "../../lib/toast";
 import { useAuth } from "../../auth/AuthContext";
-import LabelPrintModal from "./LabelPrintModal";
 import { api } from "../../api/axios";
 import type { ProductRow } from "../../pages/InventoryPage";
 
@@ -17,10 +17,14 @@ const PAGE_SIZE = 20;
 
 export default function InventoryTable({ products, isLoading, onRefresh, onEdit }: InventoryTableProps) {
   const { hasPermission, user } = useAuth();
+  const navigate = useNavigate();
   const canViewFinancials = hasPermission("reports.view");
   const canManageInventory = hasPermission("inventory.manage") || user?.role === "ADMIN";
-  const [printingProduct, setPrintingProduct] = useState<ProductRow | null>(null);
   const [page, setPage] = useState(1);
+
+  const goToLabels = (p: ProductRow) => {
+    navigate("/etiquetas", { state: { product: { id: p.id, name: p.name, sku: p.sku, sale_price: p.sale_price, barcode: p.barcode } } });
+  };
 
   const totalPages = Math.ceil(products.length / PAGE_SIZE);
   const paginated = products.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -97,7 +101,7 @@ export default function InventoryTable({ products, isLoading, onRefresh, onEdit 
                   </td>
                   <td className="px-6 py-4 text-right space-x-2 opacity-50 group-hover:opacity-100 transition-opacity">
                     <button 
-                       onClick={() => setPrintingProduct(p)}
+                       onClick={() => goToLabels(p)}
                        className="p-2 bg-app-accent/10 text-app-accent hover:bg-app-accent/20 rounded-lg transition-all" 
                        title="Etiquetar"
                     >
@@ -161,7 +165,7 @@ export default function InventoryTable({ products, isLoading, onRefresh, onEdit 
                             </button>
                           )}
                           <button
-                              onClick={() => setPrintingProduct(p)}
+                              onClick={() => goToLabels(p)}
                               className="p-3 bg-app-accent/10 text-app-accent rounded-xl"
                           >
                               <Printer size={18} />
@@ -222,14 +226,6 @@ export default function InventoryTable({ products, isLoading, onRefresh, onEdit 
         </div>
       )}
 
-      {/* Modal de Impresión de Etiqueta */}
-      {printingProduct && (
-        <LabelPrintModal
-          product={{ name: printingProduct.name, price: Number(printingProduct.sale_price), sku: printingProduct.sku }}
-          defaultCount={Math.max(1, printingProduct.stockCount)}
-          onClose={() => setPrintingProduct(null)}
-        />
-      )}
     </>
   );
 }
