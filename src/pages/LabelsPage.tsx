@@ -44,7 +44,7 @@ interface LabelProduct {
 }
 interface Product {
     id: string; name: string; sku: string;
-    sale_price: number; barcode?: string | null;
+    sale_price: number; barcode?: string | null; stockCount: number;
 }
 
 const COP = (v: number) =>
@@ -135,10 +135,12 @@ export default function LabelsPage() {
     const [labelProducts, setLabelProducts] = useState<LabelProduct[]>([]);
 
     useEffect(() => {
-        api.get("/products").then(res => setAllProducts(res.data.map((p: any) => ({
-            id: p.id, name: p.name, sku: p.sku,
-            sale_price: Number(p.sale_price), barcode: p.barcode ?? null,
-        }))));
+        api.get("/products").then(res => setAllProducts(res.data.map((p: any) => {
+            const stock = p.has_variants
+                ? (p.product_variants ?? []).flatMap((v: any) => v.stock ?? []).reduce((s: number, x: any) => s + Number(x.quantity), 0)
+                : p.stock?.[0] ? Number(p.stock[0].quantity) : 0;
+            return { id: p.id, name: p.name, sku: p.sku, sale_price: Number(p.sale_price), barcode: p.barcode ?? null, stockCount: stock };
+        })));
     }, []);
 
     // Precarga producto desde inventario
@@ -157,10 +159,12 @@ export default function LabelsPage() {
     const addProduct = (p: Product) => {
         setSearch(""); setShowDropdown(false);
         if (labelProducts.find(lp => lp.id === p.id)) return;
-        setLabelProducts(prev => [...prev, { ...p, quantity: 1 }]);
+        setLabelProducts(prev => [...prev, { ...p, quantity: Math.max(1, p.stockCount) }]);
     };
-    const updateQty = (id: string, qty: number) =>
-        setLabelProducts(prev => prev.map(p => p.id === id ? { ...p, quantity: Math.max(1, qty) } : p));
+    const updateQty = (id: string, raw: string) => {
+        const qty = parseInt(raw, 10);
+        setLabelProducts(prev => prev.map(p => p.id === id ? { ...p, quantity: isNaN(qty) || qty < 1 ? 1 : qty } : p));
+    };
     const removeProduct = (id: string) =>
         setLabelProducts(prev => prev.filter(p => p.id !== id));
     const totalLabels = labelProducts.reduce((s, p) => s + p.quantity, 0);
@@ -252,11 +256,13 @@ export default function LabelsPage() {
                                                     <p className="text-sm font-medium text-app-text truncate">{p.name}</p>
                                                     <p className="text-[10px] text-app-text-muted font-mono">{p.sku}</p>
                                                 </div>
-                                                <div className="flex items-center gap-1 shrink-0">
-                                                    <button onClick={() => updateQty(p.id, p.quantity - 1)} className="w-7 h-7 rounded-lg bg-app-card border border-app-border text-app-text-muted hover:text-app-text flex items-center justify-center font-bold">−</button>
-                                                    <span className="w-8 text-center text-sm font-bold text-app-text">{p.quantity}</span>
-                                                    <button onClick={() => updateQty(p.id, p.quantity + 1)} className="w-7 h-7 rounded-lg bg-app-card border border-app-border text-app-text-muted hover:text-app-text flex items-center justify-center font-bold">+</button>
-                                                </div>
+                                                <input
+                                                    type="number" min={1}
+                                                    defaultValue={p.quantity}
+                                                    key={p.id + "-" + p.quantity}
+                                                    onChange={e => updateQty(p.id, e.target.value)}
+                                                    className="w-16 shrink-0 bg-app-card border border-app-border rounded-lg px-2 py-1.5 text-app-text text-sm font-bold text-center focus:outline-none focus:ring-2 focus:ring-violet-500/40"
+                                                />
                                                 <button onClick={() => removeProduct(p.id)} className="text-app-text-muted hover:text-rose-400 p-1"><Trash2 size={14} /></button>
                                             </div>
                                         ))}
