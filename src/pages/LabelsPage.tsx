@@ -93,20 +93,17 @@ function LabelCard({ product, config, scale = 100 }: { product: LabelProduct; co
 }
 
 // ── Config field input — completamente no controlado ──────────────────────────
-function CfgInput({ defaultVal, onCommit, step = "0.001" }: {
+function CfgInput({ defaultVal, onCommit }: {
     defaultVal: number;
     onCommit: (v: number) => void;
-    step?: string;
 }) {
     return (
         <input
-            type="number"
-            step={step}
-            defaultValue={defaultVal}
+            type="text"
+            defaultValue={String(defaultVal)}
             onBlur={e => {
                 const v = parseFloat(e.target.value);
-                if (!isNaN(v) && v >= 0) onCommit(v);
-                else e.target.value = String(defaultVal);
+                if (!isNaN(v)) onCommit(v);
             }}
             className="w-full bg-app-bg border border-app-border rounded-xl px-3 py-2.5 text-app-text text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/40"
         />
@@ -418,7 +415,7 @@ window.onload=function(){
                                 </div>
                                 <div>
                                     <label className="block text-xs text-app-text-muted mb-1.5">Columnas por fila</label>
-                                    <CfgInput defaultVal={config.columns} onCommit={v => setCfg("columns", Math.round(v))} step="1" />
+                                    <CfgInput defaultVal={config.columns} onCommit={v => setCfg("columns", Math.round(v))} />
                                 </div>
                                 <div className="col-span-2">
                                     <label className="block text-xs text-app-text-muted mb-1.5">Margen interior (pulg.)</label>
