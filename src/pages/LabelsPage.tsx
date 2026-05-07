@@ -131,10 +131,13 @@ export default function LabelsPage() {
         pageWidthIn: String(config.pageWidthIn),
     });
 
-    const setNum = (field: keyof typeof raw, val: string, cfgKey: keyof LabelConfig, round = false) => {
-        setRaw(prev => ({ ...prev, [field]: val }));
-        const parsed = parseFloat(val);
-        if (!isNaN(parsed) && parsed >= 0) setCfg(cfgKey, round ? Math.round(parsed) : parsed);
+    const commitNum = (field: keyof typeof raw, cfgKey: keyof LabelConfig, round = false) => {
+        const parsed = parseFloat(raw[field]);
+        if (!isNaN(parsed) && parsed > 0) {
+            setCfg(cfgKey, round ? Math.round(parsed) : parsed);
+        } else {
+            setRaw(prev => ({ ...prev, [field]: String(config[cfgKey]) }));
+        }
     };
 
     // Products
@@ -491,35 +494,35 @@ window.onload = function() {
                             <h2 className="text-sm font-bold text-app-text-muted uppercase tracking-widest">Tamaño de la Etiqueta</h2>
 
                             <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-xs text-app-text-muted mb-1.5">Ancho etiqueta (pulg.)</label>
-                                    <input type="number" step="0.001" value={raw.labelWidthIn}
-                                        onChange={e => setNum("labelWidthIn", e.target.value, "labelWidthIn")}
-                                        className="w-full bg-app-bg border border-app-border rounded-xl px-3 py-2.5 text-app-text text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/40" />
-                                </div>
-                                <div>
-                                    <label className="block text-xs text-app-text-muted mb-1.5">Alto etiqueta (pulg.)</label>
-                                    <input type="number" step="0.001" value={raw.labelHeightIn}
-                                        onChange={e => setNum("labelHeightIn", e.target.value, "labelHeightIn")}
-                                        className="w-full bg-app-bg border border-app-border rounded-xl px-3 py-2.5 text-app-text text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/40" />
-                                </div>
-                                <div>
-                                    <label className="block text-xs text-app-text-muted mb-1.5">Ancho del rollo / página (pulg.)</label>
-                                    <input type="number" step="0.001" value={raw.pageWidthIn}
-                                        onChange={e => setNum("pageWidthIn", e.target.value, "pageWidthIn")}
-                                        className="w-full bg-app-bg border border-app-border rounded-xl px-3 py-2.5 text-app-text text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/40" />
-                                </div>
-                                <div>
-                                    <label className="block text-xs text-app-text-muted mb-1.5">Columnas por fila</label>
-                                    <input type="number" step="1" min="1" value={raw.columns}
-                                        onChange={e => setNum("columns", e.target.value, "columns", true)}
-                                        className="w-full bg-app-bg border border-app-border rounded-xl px-3 py-2.5 text-app-text text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/40" />
-                                </div>
+                                {([
+                                    { label: "Ancho etiqueta (pulg.)", field: "labelWidthIn" as const, cfgKey: "labelWidthIn" as const },
+                                    { label: "Alto etiqueta (pulg.)",   field: "labelHeightIn" as const, cfgKey: "labelHeightIn" as const },
+                                    { label: "Ancho del rollo (pulg.)", field: "pageWidthIn" as const,   cfgKey: "pageWidthIn" as const },
+                                    { label: "Columnas por fila",       field: "columns" as const,       cfgKey: "columns" as const, round: true },
+                                ] as const).map(({ label, field, cfgKey, ...rest }) => { const round = 'round' in rest ? (rest as any).round : false; return (
+                                    <div key={field}>
+                                        <label className="block text-xs text-app-text-muted mb-1.5">{label}</label>
+                                        <input
+                                            type="number"
+                                            step={round ? "1" : "0.001"}
+                                            value={raw[field]}
+                                            onChange={e => setRaw(prev => ({ ...prev, [field]: e.target.value }))}
+                                            onBlur={() => commitNum(field, cfgKey, round)}
+                                            className="w-full bg-app-bg border border-app-border rounded-xl px-3 py-2.5 text-app-text text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/40"
+                                        />
+                                    </div>
+                                );})}
                                 <div className="col-span-2">
-                                    <label className="block text-xs text-app-text-muted mb-1.5">Margen interior (pulg.) — aplica a todos los lados</label>
-                                    <input type="number" step="0.001" min="0" value={raw.marginIn}
-                                        onChange={e => setNum("marginIn", e.target.value, "marginIn")}
-                                        className="w-full bg-app-bg border border-app-border rounded-xl px-3 py-2.5 text-app-text text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/40" />
+                                    <label className="block text-xs text-app-text-muted mb-1.5">Margen interior (pulg.)</label>
+                                    <input
+                                        type="number"
+                                        step="0.001"
+                                        min="0"
+                                        value={raw.marginIn}
+                                        onChange={e => setRaw(prev => ({ ...prev, marginIn: e.target.value }))}
+                                        onBlur={() => commitNum("marginIn", "marginIn")}
+                                        className="w-full bg-app-bg border border-app-border rounded-xl px-3 py-2.5 text-app-text text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/40"
+                                    />
                                 </div>
                             </div>
 
