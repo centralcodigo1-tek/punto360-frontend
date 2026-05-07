@@ -104,27 +104,20 @@ function LabelCard({ product, config, scale = 100 }: { product: LabelProduct; co
     );
 }
 
-// ── Numeric input that allows free typing ────────────────────────────────────
-function NumInput({ value, onChange }: {
-    value: number; onChange: (v: number) => void;
+// ── Numeric input — uncontrolled para evitar interferencia del re-render ──────
+function NumInput({ value, onChange, inputKey }: {
+    value: number; onChange: (v: number) => void; inputKey?: number;
 }) {
-    const [raw, setRaw] = useState(String(value));
-
     return (
         <input
+            key={inputKey}
             type="text"
             inputMode="decimal"
-            value={raw}
-            onChange={e => {
-                const v = e.target.value;
-                setRaw(v);
-                const parsed = parseFloat(v);
+            defaultValue={String(value)}
+            onBlur={e => {
+                const parsed = parseFloat(e.target.value);
                 if (!isNaN(parsed) && parsed > 0) onChange(parsed);
-            }}
-            onBlur={() => {
-                const parsed = parseFloat(raw);
-                if (isNaN(parsed) || parsed <= 0) setRaw(String(value));
-                else setRaw(String(parsed));
+                else e.target.value = String(value);
             }}
             className="w-full bg-app-bg border border-app-border rounded-xl px-3 py-2.5 text-app-text text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/40"
         />
@@ -504,26 +497,26 @@ window.onload = function() {
                         <div className="bg-app-card border border-app-border rounded-2xl p-6 flex flex-col gap-6">
                             <h2 className="text-sm font-bold text-app-text-muted uppercase tracking-widest">Tamaño de la Etiqueta</h2>
 
-                            <div key={resetKey} className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-xs text-app-text-muted mb-1.5">Ancho etiqueta (pulg.)</label>
-                                    <NumInput value={config.labelWidthIn} onChange={v => setCfg("labelWidthIn", v)} />
+                                    <NumInput value={config.labelWidthIn} onChange={v => setCfg("labelWidthIn", v)} inputKey={resetKey} />
                                 </div>
                                 <div>
                                     <label className="block text-xs text-app-text-muted mb-1.5">Alto etiqueta (pulg.)</label>
-                                    <NumInput value={config.labelHeightIn} onChange={v => setCfg("labelHeightIn", v)} />
+                                    <NumInput value={config.labelHeightIn} onChange={v => setCfg("labelHeightIn", v)} inputKey={resetKey} />
                                 </div>
                                 <div>
                                     <label className="block text-xs text-app-text-muted mb-1.5">Ancho del rollo / página (pulg.)</label>
-                                    <NumInput value={config.pageWidthIn} onChange={v => setCfg("pageWidthIn", v)} />
+                                    <NumInput value={config.pageWidthIn} onChange={v => setCfg("pageWidthIn", v)} inputKey={resetKey} />
                                 </div>
                                 <div>
                                     <label className="block text-xs text-app-text-muted mb-1.5">Columnas por fila</label>
-                                    <NumInput value={config.columns} onChange={v => setCfg("columns", Math.round(v))} />
+                                    <NumInput value={config.columns} onChange={v => setCfg("columns", Math.round(v))} inputKey={resetKey} />
                                 </div>
                                 <div className="col-span-2">
                                     <label className="block text-xs text-app-text-muted mb-1.5">Margen interior (pulg.) — aplica a todos los lados</label>
-                                    <NumInput value={config.marginIn} onChange={v => setCfg("marginIn", v)} />
+                                    <NumInput value={config.marginIn} onChange={v => setCfg("marginIn", v)} inputKey={resetKey} />
                                 </div>
                             </div>
 
