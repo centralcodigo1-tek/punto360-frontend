@@ -105,25 +105,6 @@ function LabelCard({ product, config, scale = 100 }: { product: LabelProduct; co
 }
 
 // ── Numeric input — uncontrolled para evitar interferencia del re-render ──────
-function NumInput({ value, onChange, inputKey }: {
-    value: number; onChange: (v: number) => void; inputKey?: number;
-}) {
-    return (
-        <input
-            key={inputKey}
-            type="text"
-            inputMode="decimal"
-            defaultValue={String(value)}
-            onBlur={e => {
-                const parsed = parseFloat(e.target.value);
-                if (!isNaN(parsed) && parsed > 0) onChange(parsed);
-                else e.target.value = String(value);
-            }}
-            className="w-full bg-app-bg border border-app-border rounded-xl px-3 py-2.5 text-app-text text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/40"
-        />
-    );
-}
-
 // ── Main page ─────────────────────────────────────────────────────────────────
 export default function LabelsPage() {
     const [tab, setTab] = useState<"print" | "config">("print");
@@ -141,8 +122,20 @@ export default function LabelsPage() {
         localStorage.setItem("labelConfig", JSON.stringify(config));
     }, [config]);
 
-    // Key para forzar remount de inputs al restaurar defaults
-    const [resetKey, setResetKey] = useState(0);
+    // Strings para los inputs numéricos — no se resetean con re-renders del padre
+    const [raw, setRaw] = useState({
+        labelWidthIn: String(config.labelWidthIn),
+        labelHeightIn: String(config.labelHeightIn),
+        columns: String(config.columns),
+        marginIn: String(config.marginIn),
+        pageWidthIn: String(config.pageWidthIn),
+    });
+
+    const setNum = (field: keyof typeof raw, val: string, cfgKey: keyof LabelConfig, round = false) => {
+        setRaw(prev => ({ ...prev, [field]: val }));
+        const parsed = parseFloat(val);
+        if (!isNaN(parsed) && parsed >= 0) setCfg(cfgKey, round ? Math.round(parsed) : parsed);
+    };
 
     // Products
     const [allProducts, setAllProducts] = useState<Product[]>([]);
@@ -500,23 +493,33 @@ window.onload = function() {
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-xs text-app-text-muted mb-1.5">Ancho etiqueta (pulg.)</label>
-                                    <NumInput value={config.labelWidthIn} onChange={v => setCfg("labelWidthIn", v)} inputKey={resetKey} />
+                                    <input type="number" step="0.001" value={raw.labelWidthIn}
+                                        onChange={e => setNum("labelWidthIn", e.target.value, "labelWidthIn")}
+                                        className="w-full bg-app-bg border border-app-border rounded-xl px-3 py-2.5 text-app-text text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/40" />
                                 </div>
                                 <div>
                                     <label className="block text-xs text-app-text-muted mb-1.5">Alto etiqueta (pulg.)</label>
-                                    <NumInput value={config.labelHeightIn} onChange={v => setCfg("labelHeightIn", v)} inputKey={resetKey} />
+                                    <input type="number" step="0.001" value={raw.labelHeightIn}
+                                        onChange={e => setNum("labelHeightIn", e.target.value, "labelHeightIn")}
+                                        className="w-full bg-app-bg border border-app-border rounded-xl px-3 py-2.5 text-app-text text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/40" />
                                 </div>
                                 <div>
                                     <label className="block text-xs text-app-text-muted mb-1.5">Ancho del rollo / página (pulg.)</label>
-                                    <NumInput value={config.pageWidthIn} onChange={v => setCfg("pageWidthIn", v)} inputKey={resetKey} />
+                                    <input type="number" step="0.001" value={raw.pageWidthIn}
+                                        onChange={e => setNum("pageWidthIn", e.target.value, "pageWidthIn")}
+                                        className="w-full bg-app-bg border border-app-border rounded-xl px-3 py-2.5 text-app-text text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/40" />
                                 </div>
                                 <div>
                                     <label className="block text-xs text-app-text-muted mb-1.5">Columnas por fila</label>
-                                    <NumInput value={config.columns} onChange={v => setCfg("columns", Math.round(v))} inputKey={resetKey} />
+                                    <input type="number" step="1" min="1" value={raw.columns}
+                                        onChange={e => setNum("columns", e.target.value, "columns", true)}
+                                        className="w-full bg-app-bg border border-app-border rounded-xl px-3 py-2.5 text-app-text text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/40" />
                                 </div>
                                 <div className="col-span-2">
                                     <label className="block text-xs text-app-text-muted mb-1.5">Margen interior (pulg.) — aplica a todos los lados</label>
-                                    <NumInput value={config.marginIn} onChange={v => setCfg("marginIn", v)} inputKey={resetKey} />
+                                    <input type="number" step="0.001" min="0" value={raw.marginIn}
+                                        onChange={e => setNum("marginIn", e.target.value, "marginIn")}
+                                        className="w-full bg-app-bg border border-app-border rounded-xl px-3 py-2.5 text-app-text text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/40" />
                                 </div>
                             </div>
 
@@ -550,7 +553,16 @@ window.onload = function() {
                                 <p className="font-bold text-violet-400 mb-1">Valores de la configuración de Bartender</p>
                                 <p>Etiqueta: 1.42" × 0.75" · Columnas: 3 · Rollo: 4.36" · Margen: 0.051"</p>
                                 <button
-                                    onClick={() => { setConfig(DEFAULT_CONFIG); setResetKey(k => k + 1); }}
+                                    onClick={() => {
+                                        setConfig(DEFAULT_CONFIG);
+                                        setRaw({
+                                            labelWidthIn: String(DEFAULT_CONFIG.labelWidthIn),
+                                            labelHeightIn: String(DEFAULT_CONFIG.labelHeightIn),
+                                            columns: String(DEFAULT_CONFIG.columns),
+                                            marginIn: String(DEFAULT_CONFIG.marginIn),
+                                            pageWidthIn: String(DEFAULT_CONFIG.pageWidthIn),
+                                        });
+                                    }}
                                     className="mt-2 text-violet-400 hover:text-violet-300 transition-colors underline"
                                 >
                                     Restaurar valores predeterminados
