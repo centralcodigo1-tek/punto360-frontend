@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { api } from "../../api/axios";
-import { PlusCircle, Loader2, Layers, Trash2, Plus, X, ChevronDown, ChevronUp, CheckCircle2, Sparkles } from "lucide-react";
+import { PlusCircle, Loader2, Layers, Trash2, Plus, X, ChevronDown, ChevronUp, CheckCircle2, Sparkles, ScanLine } from "lucide-react";
 import { toast } from "../../lib/toast";
+import BarcodeScannerModal from "../ui/BarcodeScannerModal";
 import type { ProductRow } from "../../pages/InventoryPage";
 
 interface AttributeValue { id: string; value: string; position: number; }
@@ -47,6 +48,7 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
   const [productJustCreated, setProductJustCreated] = useState(false);
 
   const [categories, setCategories] = useState<Category[]>([]);
+  const [showScanner, setShowScanner] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isCreatingCategory, setIsCreatingCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
@@ -292,6 +294,7 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
   const showVariantPanel = !!activeProductId && form.has_variants;
 
   return (
+    <>
     <form onSubmit={handleSubmit} className="bg-app-card border border-app-border rounded-2xl p-6 shadow-2xl">
 
       {/* Banner post-creación */}
@@ -332,13 +335,19 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
 
             <div>
               <label className="block text-sm font-medium text-app-text-muted mb-1">Código de Barras <span className="opacity-50 font-normal">(opcional)</span></label>
-              <input
-                type="text"
-                className="w-full bg-app-bg border border-app-border rounded-xl px-4 py-3 text-app-text font-mono placeholder-app-text-muted/40 focus:outline-none focus:ring-2 focus:ring-app-accent/50 transition-all"
-                placeholder="Ej. 7702009040393"
-                value={form.barcode}
-                onChange={(e) => setForm({ ...form, barcode: e.target.value })}
-              />
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  className="flex-1 bg-app-bg border border-app-border rounded-xl px-4 py-3 text-app-text font-mono placeholder-app-text-muted/40 focus:outline-none focus:ring-2 focus:ring-app-accent/50 transition-all"
+                  placeholder="Ej. 7702009040393"
+                  value={form.barcode}
+                  onChange={(e) => setForm({ ...form, barcode: e.target.value })}
+                />
+                <button type="button" onClick={() => setShowScanner(true)} title="Escanear con cámara"
+                  className="px-3 bg-app-bg border border-app-border rounded-xl text-app-text-muted hover:text-app-accent hover:border-app-accent/50 transition-colors">
+                  <ScanLine size={20} />
+                </button>
+              </div>
             </div>
 
             <div>
@@ -746,5 +755,13 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
       </div>
 
     </form>
+
+    {showScanner && (
+      <BarcodeScannerModal
+        onScan={(code) => { setForm(f => ({ ...f, barcode: code })); setShowScanner(false); }}
+        onClose={() => setShowScanner(false)}
+      />
+    )}
+    </>
   );
 }

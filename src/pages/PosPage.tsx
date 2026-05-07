@@ -2,9 +2,10 @@ import { toast } from "../lib/toast";
 import { useEffect, useState, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import DashboardLayout from "../layouts/DashboardLayout";
-import { ShoppingCart, Search, CreditCard, Banknote, Building2, Plus, Minus, Trash2, CheckCircle2, Loader2, AlertTriangle, TrendingUp, Receipt, Wallet, UserCheck, X, Pause, Clock, Layers } from "lucide-react";
+import { ShoppingCart, Search, CreditCard, Banknote, Building2, Plus, Minus, Trash2, CheckCircle2, Loader2, AlertTriangle, TrendingUp, Receipt, Wallet, UserCheck, X, Pause, Clock, Layers, ScanLine } from "lucide-react";
 import { api } from "../api/axios";
 import { useAuth } from "../auth/AuthContext";
+import BarcodeScannerModal from "../components/ui/BarcodeScannerModal";
 import type { ProductRow } from "./InventoryPage";
 
 interface VariantOption {
@@ -72,6 +73,7 @@ export default function PosPage() {
   const [consignmentPrompt, setConsignmentPrompt] = useState<ProductRow | null>(null);
   const [consignmentPrice, setConsignmentPrice] = useState("");
   const [hasCashSession, setHasCashSession] = useState<boolean | null>(null);
+  const [showScanner, setShowScanner] = useState(false);
   
   const [cashReceived, setCashReceived] = useState<string>("");
   const [isPriceEditing, setIsPriceEditing] = useState<string | null>(null);
@@ -479,6 +481,7 @@ export default function PosPage() {
   // ── POS Activo ─────────────────────────────────────────────────────────────
 
   return (
+    <>
     <DashboardLayout>
       <div className="flex flex-col lg:flex-row gap-6 lg:h-[calc(100vh-120px)] relative">
 
@@ -488,16 +491,22 @@ export default function PosPage() {
             <div className="p-2 bg-app-accent/10 text-app-accent rounded-lg hidden md:block">
               <ShoppingCart size={24} />
             </div>
-            <div className="flex-1 relative">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-app-text-muted" size={18} />
-              <input
-                type="text"
-                placeholder="Escanear o buscar..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-app-bg border border-app-border rounded-xl pl-12 pr-4 py-2.5 md:py-3 text-app-text placeholder-app-text-muted focus:outline-none focus:border-app-accent/50 shadow-inner font-medium text-sm md:text-lg"
-                autoFocus
-              />
+            <div className="flex-1 relative flex items-center gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-app-text-muted" size={18} />
+                <input
+                  type="text"
+                  placeholder="Escanear o buscar..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full bg-app-bg border border-app-border rounded-xl pl-12 pr-4 py-2.5 md:py-3 text-app-text placeholder-app-text-muted focus:outline-none focus:border-app-accent/50 shadow-inner font-medium text-sm md:text-lg"
+                  autoFocus
+                />
+              </div>
+              <button onClick={() => setShowScanner(true)} title="Escanear con cámara"
+                className="p-2.5 md:p-3 bg-app-bg border border-app-border rounded-xl text-app-text-muted hover:text-app-accent hover:border-app-accent/50 transition-colors shrink-0">
+                <ScanLine size={20} />
+              </button>
             </div>
           </div>
 
@@ -1131,5 +1140,13 @@ export default function PosPage() {
         </div>
       )}
     </DashboardLayout>
+
+    {showScanner && (
+      <BarcodeScannerModal
+        onScan={(code) => { setSearchQuery(code); setShowScanner(false); }}
+        onClose={() => setShowScanner(false)}
+      />
+    )}
+    </>
   );
 }
