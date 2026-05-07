@@ -23,7 +23,7 @@ export default function InventoryTable({ products, isLoading, onRefresh, onEdit 
   const [page, setPage] = useState(1);
 
   const goToLabels = (p: ProductRow) => {
-    navigate("/etiquetas", { state: { product: { id: p.id, name: p.name, sku: p.sku, sale_price: p.sale_price, barcode: p.barcode } } });
+    navigate("/etiquetas", { state: { product: { id: p.id, name: p.name, sku: p.sku, sale_price: p.sale_price, barcode: p.barcode, quantity: p.stockCount } } });
   };
 
   const totalPages = Math.ceil(products.length / PAGE_SIZE);

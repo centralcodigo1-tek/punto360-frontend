@@ -145,7 +145,7 @@ export default function LabelsPage() {
     useEffect(() => {
         const p = location.state?.product;
         if (p) {
-            setLabelProducts([{ ...p, sale_price: Number(p.sale_price), quantity: 1 }]);
+            setLabelProducts([{ ...p, sale_price: Number(p.sale_price), quantity: Math.max(1, Number(p.quantity) || 1) }]);
             setTab("print");
         }
     }, []);
