@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useLocation } from "react-router-dom";
 import DashboardLayout from "../layouts/DashboardLayout";
 import { api } from "../api/axios";
 import JsBarcode from "jsbarcode";
@@ -78,6 +79,7 @@ function LabelCard({ product, config, scale = 3 }: { product: LabelProduct; conf
 }
 
 export default function LabelsPage() {
+    const location = useLocation();
     const [tab, setTab] = useState<"print" | "config">("print");
 
     const [config, setConfig] = useState<LabelConfig>(() => {
@@ -137,6 +139,15 @@ export default function LabelsPage() {
             id: p.id, name: p.name, sku: p.sku,
             sale_price: Number(p.sale_price), barcode: p.barcode ?? null,
         }))));
+    }, []);
+
+    // Precarga producto desde inventario
+    useEffect(() => {
+        const p = location.state?.product;
+        if (p) {
+            setLabelProducts([{ ...p, sale_price: Number(p.sale_price), quantity: 1 }]);
+            setTab("print");
+        }
     }, []);
 
     const filteredProducts = search
