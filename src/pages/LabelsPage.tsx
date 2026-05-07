@@ -5,7 +5,6 @@ import JsBarcode from "jsbarcode";
 import { Tag, Settings, Printer, Search, Plus, Trash2, Save } from "lucide-react";
 import { toast } from "../lib/toast";
 
-// ── Types ─────────────────────────────────────────────────────────────────────
 interface LabelConfig {
     labelWidthIn: number;
     labelHeightIn: number;
@@ -50,36 +49,25 @@ interface Product {
 const COP = (v: number) =>
     new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", minimumFractionDigits: 0 }).format(v);
 
-// ── Barcode preview component ─────────────────────────────────────────────────
 function BarcodePreview({ value, height = 18 }: { value: string; height?: number }) {
     const ref = useRef<SVGSVGElement>(null);
     useEffect(() => {
         if (!ref.current || !value) return;
         try {
-            JsBarcode(ref.current, value, {
-                format: "CODE128",
-                width: 1,
-                height,
-                displayValue: false,
-                margin: 0,
-            });
-        } catch { /* invalid barcode value */ }
+            JsBarcode(ref.current, value, { format: "CODE128", width: 1, height, displayValue: false, margin: 0 });
+        } catch { /* invalid value */ }
     }, [value, height]);
     return <svg ref={ref} style={{ maxWidth: "100%", height: "auto" }} />;
 }
 
-// ── Label card preview ────────────────────────────────────────────────────────
 function LabelCard({ product, config, scale = 100 }: { product: LabelProduct; config: LabelConfig; scale?: number }) {
     const w = config.labelWidthIn * scale;
     const h = config.labelHeightIn * scale;
     const pad = config.marginIn * scale;
     const barcodeValue = product.barcode || product.sku;
-
     return (
-        <div
-            style={{ width: w, height: h, padding: pad, boxSizing: "border-box" }}
-            className="bg-white border border-gray-300 flex flex-col items-center justify-center overflow-hidden shrink-0"
-        >
+        <div style={{ width: w, height: h, padding: pad, boxSizing: "border-box" }}
+            className="bg-white border border-gray-300 flex flex-col items-center justify-center overflow-hidden shrink-0">
             {config.showBarcode && (
                 <div style={{ maxWidth: "100%", lineHeight: 0 }}>
                     <BarcodePreview value={barcodeValue} height={Math.floor(h * 0.38)} />
@@ -104,12 +92,30 @@ function LabelCard({ product, config, scale = 100 }: { product: LabelProduct; co
     );
 }
 
-// ── Numeric input — uncontrolled para evitar interferencia del re-render ──────
-// ── Main page ─────────────────────────────────────────────────────────────────
+// ── Config field input — completamente no controlado ──────────────────────────
+function CfgInput({ defaultVal, onCommit, step = "0.001" }: {
+    defaultVal: number;
+    onCommit: (v: number) => void;
+    step?: string;
+}) {
+    return (
+        <input
+            type="number"
+            step={step}
+            defaultValue={defaultVal}
+            onBlur={e => {
+                const v = parseFloat(e.target.value);
+                if (!isNaN(v) && v >= 0) onCommit(v);
+                else e.target.value = String(defaultVal);
+            }}
+            className="w-full bg-app-bg border border-app-border rounded-xl px-3 py-2.5 text-app-text text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/40"
+        />
+    );
+}
+
 export default function LabelsPage() {
     const [tab, setTab] = useState<"print" | "config">("print");
 
-    // Config state — auto-persisted en localStorage
     const [config, setConfig] = useState<LabelConfig>(() => {
         try {
             const saved = localStorage.getItem("labelConfig");
@@ -117,27 +123,21 @@ export default function LabelsPage() {
         } catch { return DEFAULT_CONFIG; }
     });
 
-    // Auto-save cada vez que cambia la config
+    // Guardar en localStorage cada vez que config cambia
     useEffect(() => {
         localStorage.setItem("labelConfig", JSON.stringify(config));
     }, [config]);
 
-    // Strings para los inputs numéricos — no se resetean con re-renders del padre
-    const [raw, setRaw] = useState({
-        labelWidthIn: String(config.labelWidthIn),
-        labelHeightIn: String(config.labelHeightIn),
-        columns: String(config.columns),
-        marginIn: String(config.marginIn),
-        pageWidthIn: String(config.pageWidthIn),
-    });
+    // Key que cambia al restaurar defaults para forzar remount de los CfgInput
+    const [cfgKey, setCfgKey] = useState(0);
 
-    const commitNum = (field: keyof typeof raw, cfgKey: keyof LabelConfig, round = false) => {
-        const parsed = parseFloat(raw[field]);
-        if (!isNaN(parsed) && parsed > 0) {
-            setCfg(cfgKey, round ? Math.round(parsed) : parsed);
-        } else {
-            setRaw(prev => ({ ...prev, [field]: String(config[cfgKey]) }));
-        }
+    const setCfg = useCallback(<K extends keyof LabelConfig>(key: K, value: LabelConfig[K]) => {
+        setConfig(prev => ({ ...prev, [key]: value }));
+    }, []);
+
+    const restoreDefaults = () => {
+        setConfig(DEFAULT_CONFIG);
+        setCfgKey(k => k + 1);
     };
 
     // Products
@@ -149,9 +149,7 @@ export default function LabelsPage() {
     useEffect(() => {
         api.get("/products").then(res => {
             setAllProducts(res.data.map((p: any) => ({
-                id: p.id,
-                name: p.name,
-                sku: p.sku,
+                id: p.id, name: p.name, sku: p.sku,
                 sale_price: Number(p.sale_price),
                 barcode: p.barcode ?? null,
             })));
@@ -166,125 +164,82 @@ export default function LabelsPage() {
         : [];
 
     const addProduct = (p: Product) => {
-        setSearch("");
-        setShowDropdown(false);
+        setSearch(""); setShowDropdown(false);
         if (labelProducts.find(lp => lp.id === p.id)) return;
         setLabelProducts(prev => [...prev, { ...p, quantity: 1 }]);
     };
 
-    const updateQty = (id: string, qty: number) => {
+    const updateQty = (id: string, qty: number) =>
         setLabelProducts(prev => prev.map(p => p.id === id ? { ...p, quantity: Math.max(1, qty) } : p));
-    };
 
-    const removeProduct = (id: string) => {
+    const removeProduct = (id: string) =>
         setLabelProducts(prev => prev.filter(p => p.id !== id));
-    };
 
     const totalLabels = labelProducts.reduce((s, p) => s + p.quantity, 0);
 
-    const setCfg = useCallback(<K extends keyof LabelConfig>(key: K, value: LabelConfig[K]) => {
-        setConfig(prev => ({ ...prev, [key]: value }));
-    }, []);
-
-    // ── Print ─────────────────────────────────────────────────────────────────
     const handlePrint = () => {
-        if (labelProducts.length === 0) {
-            toast.error("Agrega al menos un producto");
-            return;
-        }
+        if (labelProducts.length === 0) { toast.error("Agrega al menos un producto"); return; }
 
-        // Expand products by quantity
         const allLabels: LabelProduct[] = [];
-        for (const p of labelProducts) {
+        for (const p of labelProducts)
             for (let i = 0; i < p.quantity; i++) allLabels.push(p);
-        }
 
-        // Group into rows
         const rows: LabelProduct[][] = [];
-        for (let i = 0; i < allLabels.length; i += config.columns) {
+        for (let i = 0; i < allLabels.length; i += config.columns)
             rows.push(allLabels.slice(i, i + config.columns));
-        }
 
         const pageH = config.labelHeightIn + config.marginIn * 2;
 
         const labelHtml = rows.map(row => `
             <div class="row">
                 ${row.map(p => {
-                    const barcodeValue = p.barcode || p.sku;
-                    return `
-                        <div class="label">
-                            ${config.showBarcode ? `<svg class="barcode" data-value="${barcodeValue.replace(/"/g, '&quot;')}"></svg>` : ""}
-                            ${config.showName ? `<p class="name">${p.name}</p>` : ""}
-                            ${config.showSku ? `<p class="sku">${p.sku}</p>` : ""}
-                            ${config.showPrice ? `<p class="price">${COP(p.sale_price)}</p>` : ""}
-                        </div>`;
+                    const bv = (p.barcode || p.sku).replace(/"/g, "&quot;");
+                    return `<div class="label">
+                        ${config.showBarcode ? `<svg class="bc" data-v="${bv}"></svg>` : ""}
+                        ${config.showName ? `<p class="name">${p.name}</p>` : ""}
+                        ${config.showSku ? `<p class="sku">${p.sku}</p>` : ""}
+                        ${config.showPrice ? `<p class="price">${COP(p.sale_price)}</p>` : ""}
+                    </div>`;
                 }).join("")}
             </div>`).join("");
 
         const win = window.open("", "_blank", "width=900,height=600");
         if (!win) { toast.error("Permite ventanas emergentes para imprimir"); return; }
 
-        win.document.write(`<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8"/>
+        win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"/>
 <title>Etiquetas — PUNTO360</title>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 <style>
-  * { margin:0; padding:0; box-sizing:border-box; }
-  @page { size:${config.pageWidthIn}in ${pageH}in; margin:0; }
-  body { margin:0; font-family:Arial,sans-serif; background:#fff; }
-  .row {
-    display:flex;
-    width:${config.pageWidthIn}in;
-    height:${pageH}in;
-    page-break-after:always;
-  }
-  .row:last-child { page-break-after:avoid; }
-  .label {
-    width:${config.labelWidthIn}in;
-    height:${config.labelHeightIn}in;
-    padding:${config.marginIn}in;
-    display:flex;
-    flex-direction:column;
-    align-items:center;
-    justify-content:center;
-    overflow:hidden;
-  }
-  .barcode { max-width:100%; height:auto; }
-  .name  { font-size:6pt; font-weight:bold; text-align:center; line-height:1.1; max-width:100%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .sku   { font-size:5pt; color:#555; text-align:center; }
-  .price { font-size:7pt; font-weight:bold; text-align:center; margin-top:1pt; }
-</style>
-</head>
-<body>
+*{margin:0;padding:0;box-sizing:border-box;}
+@page{size:${config.pageWidthIn}in ${pageH}in;margin:0;}
+body{margin:0;font-family:Arial,sans-serif;}
+.row{display:flex;width:${config.pageWidthIn}in;height:${pageH}in;page-break-after:always;}
+.row:last-child{page-break-after:avoid;}
+.label{width:${config.labelWidthIn}in;height:${config.labelHeightIn}in;padding:${config.marginIn}in;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;}
+.bc{max-width:100%;height:auto;}
+.name{font-size:6pt;font-weight:bold;text-align:center;line-height:1.1;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.sku{font-size:5pt;color:#555;text-align:center;}
+.price{font-size:7pt;font-weight:bold;text-align:center;margin-top:1pt;}
+</style></head><body>
 ${labelHtml}
 <script>
-window.onload = function() {
-  document.querySelectorAll('.barcode').forEach(function(el) {
-    var val = el.getAttribute('data-value');
-    try {
-      JsBarcode(el, val, { format:'CODE128', width:1.2, height:20, displayValue:false, margin:0 });
-    } catch(e) {}
+window.onload=function(){
+  document.querySelectorAll('.bc').forEach(function(el){
+    try{JsBarcode(el,el.getAttribute('data-v'),{format:'CODE128',width:1.2,height:20,displayValue:false,margin:0});}catch(e){}
   });
-  setTimeout(function() { window.print(); }, 400);
+  setTimeout(function(){window.print();},400);
 };
-</script>
-</body>
-</html>`);
+</script></body></html>`);
         win.document.close();
     };
 
-    // ── Render ────────────────────────────────────────────────────────────────
     return (
         <DashboardLayout>
             <div className="space-y-6">
 
                 {/* Header */}
                 <div className="flex items-center gap-3">
-                    <div className="p-2 bg-violet-500/20 text-violet-400 rounded-lg">
-                        <Tag size={28} />
-                    </div>
+                    <div className="p-2 bg-violet-500/20 text-violet-400 rounded-lg"><Tag size={28} /></div>
                     <div>
                         <h1 className="text-3xl font-bold text-app-text drop-shadow-md">Etiquetas</h1>
                         <p className="text-app-text-muted text-sm font-medium">Imprime etiquetas de productos con código de barras</p>
@@ -293,16 +248,12 @@ window.onload = function() {
 
                 {/* Tabs */}
                 <div className="flex gap-1 bg-app-card border border-app-border rounded-xl p-1 w-fit">
-                    <button
-                        onClick={() => setTab("print")}
-                        className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-bold transition-all ${tab === "print" ? "bg-violet-600 text-white shadow-lg" : "text-app-text-muted hover:text-app-text"}`}
-                    >
+                    <button onClick={() => setTab("print")}
+                        className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-bold transition-all ${tab === "print" ? "bg-violet-600 text-white shadow-lg" : "text-app-text-muted hover:text-app-text"}`}>
                         <Printer size={15} /> Imprimir
                     </button>
-                    <button
-                        onClick={() => setTab("config")}
-                        className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-bold transition-all ${tab === "config" ? "bg-violet-600 text-white shadow-lg" : "text-app-text-muted hover:text-app-text"}`}
-                    >
+                    <button onClick={() => setTab("config")}
+                        className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-bold transition-all ${tab === "config" ? "bg-violet-600 text-white shadow-lg" : "text-app-text-muted hover:text-app-text"}`}>
                         <Settings size={15} /> Configuración
                     </button>
                 </div>
@@ -310,32 +261,22 @@ window.onload = function() {
                 {/* ── TAB IMPRIMIR ── */}
                 {tab === "print" && (
                     <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-
-                        {/* Left — Selector de productos */}
                         <div className="xl:col-span-1 flex flex-col gap-4">
                             <div className="bg-app-card border border-app-border rounded-2xl p-5 flex flex-col gap-4">
                                 <h2 className="text-sm font-bold text-app-text-muted uppercase tracking-widest">Agregar Productos</h2>
-
-                                {/* Search */}
                                 <div className="relative">
                                     <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-app-text-muted" />
-                                    <input
-                                        type="text"
-                                        placeholder="Buscar por nombre o SKU..."
+                                    <input type="text" placeholder="Buscar por nombre o SKU..."
                                         value={search}
                                         onChange={e => { setSearch(e.target.value); setShowDropdown(true); }}
                                         onFocus={() => setShowDropdown(true)}
                                         onBlur={() => setTimeout(() => setShowDropdown(false), 150)}
-                                        className="w-full bg-app-bg border border-app-border rounded-xl pl-9 pr-4 py-2.5 text-app-text text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/40"
-                                    />
+                                        className="w-full bg-app-bg border border-app-border rounded-xl pl-9 pr-4 py-2.5 text-app-text text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/40" />
                                     {showDropdown && filteredProducts.length > 0 && (
                                         <div className="absolute top-full left-0 right-0 mt-1 bg-app-bg border border-app-border rounded-xl shadow-2xl z-20 overflow-hidden">
                                             {filteredProducts.map(p => (
-                                                <button
-                                                    key={p.id}
-                                                    onMouseDown={() => addProduct(p)}
-                                                    className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-app-card text-left transition-colors"
-                                                >
+                                                <button key={p.id} onMouseDown={() => addProduct(p)}
+                                                    className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-app-card text-left transition-colors">
                                                     <span className="text-violet-400 font-mono text-xs w-20 shrink-0 truncate">{p.sku}</span>
                                                     <span className="text-white text-sm flex-1 truncate">{p.name}</span>
                                                     <Plus size={14} className="text-app-text-muted shrink-0" />
@@ -345,7 +286,6 @@ window.onload = function() {
                                     )}
                                 </div>
 
-                                {/* Products list */}
                                 {labelProducts.length === 0 ? (
                                     <div className="text-center py-8 text-app-text-muted text-sm">
                                         <Tag size={32} className="mx-auto mb-2 opacity-20" />
@@ -360,26 +300,16 @@ window.onload = function() {
                                                     <p className="text-[10px] text-app-text-muted font-mono">{p.sku}</p>
                                                 </div>
                                                 <div className="flex items-center gap-1 shrink-0">
-                                                    <button
-                                                        onClick={() => updateQty(p.id, p.quantity - 1)}
-                                                        className="w-6 h-6 rounded-md bg-app-card border border-app-border text-app-text-muted hover:text-app-text flex items-center justify-center text-sm font-bold transition-colors"
-                                                    >−</button>
-                                                    <input
-                                                        type="number"
-                                                        min="1"
-                                                        value={p.quantity}
+                                                    <button onClick={() => updateQty(p.id, p.quantity - 1)}
+                                                        className="w-6 h-6 rounded-md bg-app-card border border-app-border text-app-text-muted hover:text-app-text flex items-center justify-center text-sm font-bold">−</button>
+                                                    <input type="number" min="1" value={p.quantity}
                                                         onChange={e => updateQty(p.id, parseInt(e.target.value) || 1)}
-                                                        className="w-10 bg-app-bg border border-app-border rounded-md text-center text-sm text-app-text py-0.5 focus:outline-none focus:ring-1 focus:ring-violet-500/40"
-                                                    />
-                                                    <button
-                                                        onClick={() => updateQty(p.id, p.quantity + 1)}
-                                                        className="w-6 h-6 rounded-md bg-app-card border border-app-border text-app-text-muted hover:text-app-text flex items-center justify-center text-sm font-bold transition-colors"
-                                                    >+</button>
+                                                        className="w-10 bg-app-bg border border-app-border rounded-md text-center text-sm text-app-text py-0.5 focus:outline-none focus:ring-1 focus:ring-violet-500/40" />
+                                                    <button onClick={() => updateQty(p.id, p.quantity + 1)}
+                                                        className="w-6 h-6 rounded-md bg-app-card border border-app-border text-app-text-muted hover:text-app-text flex items-center justify-center text-sm font-bold">+</button>
                                                 </div>
-                                                <button
-                                                    onClick={() => removeProduct(p.id)}
-                                                    className="text-app-text-muted hover:text-rose-400 transition-colors p-1"
-                                                >
+                                                <button onClick={() => removeProduct(p.id)}
+                                                    className="text-app-text-muted hover:text-rose-400 transition-colors p-1">
                                                     <Trash2 size={14} />
                                                 </button>
                                             </div>
@@ -387,17 +317,14 @@ window.onload = function() {
                                     </div>
                                 )}
 
-                                {/* Total + Print button */}
                                 {labelProducts.length > 0 && (
                                     <>
                                         <div className="flex items-center justify-between border-t border-app-border pt-3">
                                             <span className="text-xs text-app-text-muted">Total de etiquetas</span>
                                             <span className="text-lg font-black text-violet-400">{totalLabels}</span>
                                         </div>
-                                        <button
-                                            onClick={handlePrint}
-                                            className="w-full py-3 rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 text-white font-bold text-sm hover:opacity-90 transition-opacity flex items-center justify-center gap-2 shadow-lg shadow-violet-900/30"
-                                        >
+                                        <button onClick={handlePrint}
+                                            className="w-full py-3 rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 text-white font-bold text-sm hover:opacity-90 transition-opacity flex items-center justify-center gap-2 shadow-lg shadow-violet-900/30">
                                             <Printer size={16} />
                                             Imprimir {totalLabels} etiqueta{totalLabels !== 1 ? "s" : ""}
                                         </button>
@@ -405,7 +332,6 @@ window.onload = function() {
                                 )}
                             </div>
 
-                            {/* Config summary */}
                             <div className="bg-app-card border border-app-border rounded-2xl p-4">
                                 <p className="text-[10px] font-bold text-app-text-muted uppercase tracking-widest mb-3">Plantilla activa</p>
                                 <div className="grid grid-cols-2 gap-2 text-xs">
@@ -417,29 +343,18 @@ window.onload = function() {
                                         <p className="text-app-text-muted">Columnas</p>
                                         <p className="font-bold text-app-text">{config.columns} por fila</p>
                                     </div>
-                                    <div className="bg-app-bg rounded-lg px-3 py-2">
-                                        <p className="text-app-text-muted">Ancho rollo</p>
-                                        <p className="font-bold text-app-text">{config.pageWidthIn}"</p>
-                                    </div>
-                                    <div className="bg-app-bg rounded-lg px-3 py-2">
-                                        <p className="text-app-text-muted">Margen</p>
-                                        <p className="font-bold text-app-text">{config.marginIn}"</p>
-                                    </div>
                                 </div>
-                                <button
-                                    onClick={() => setTab("config")}
-                                    className="mt-3 w-full text-xs text-violet-400 hover:text-violet-300 flex items-center justify-center gap-1 transition-colors"
-                                >
+                                <button onClick={() => setTab("config")}
+                                    className="mt-3 w-full text-xs text-violet-400 hover:text-violet-300 flex items-center justify-center gap-1 transition-colors">
                                     <Settings size={12} /> Cambiar configuración
                                 </button>
                             </div>
                         </div>
 
-                        {/* Right — Preview */}
+                        {/* Preview */}
                         <div className="xl:col-span-2">
                             <div className="bg-app-card border border-app-border rounded-2xl p-5">
                                 <h2 className="text-sm font-bold text-app-text-muted uppercase tracking-widest mb-4">Vista previa</h2>
-
                                 {labelProducts.length === 0 ? (
                                     <div className="flex items-center justify-center h-64 text-app-text-muted text-sm">
                                         <div className="text-center">
@@ -451,16 +366,12 @@ window.onload = function() {
                                     <div className="overflow-x-auto">
                                         <div className="inline-flex flex-col gap-0 border border-gray-600 bg-gray-100">
                                             {(() => {
-                                                // Expand by quantity for preview (max 12 to avoid overload)
                                                 const expanded: LabelProduct[] = [];
-                                                for (const p of labelProducts) {
+                                                for (const p of labelProducts)
                                                     for (let i = 0; i < Math.min(p.quantity, 6); i++) expanded.push(p);
-                                                }
                                                 const rows: LabelProduct[][] = [];
-                                                for (let i = 0; i < expanded.slice(0, 12).length; i += config.columns) {
+                                                for (let i = 0; i < expanded.slice(0, 12).length; i += config.columns)
                                                     rows.push(expanded.slice(i, i + config.columns));
-                                                }
-                                                // Scale: 1in = 96px in browser, we'll use ~80px per inch for preview
                                                 const scale = 80;
                                                 return rows.map((row, ri) => (
                                                     <div key={ri} className="flex">
@@ -475,7 +386,7 @@ window.onload = function() {
                                         </div>
                                         {totalLabels > 12 && (
                                             <p className="text-xs text-app-text-muted mt-3">
-                                                Mostrando previa parcial — se imprimirán las {totalLabels} etiquetas completas.
+                                                Previa parcial — se imprimirán las {totalLabels} etiquetas completas.
                                             </p>
                                         )}
                                     </div>
@@ -488,41 +399,30 @@ window.onload = function() {
                 {/* ── TAB CONFIGURACIÓN ── */}
                 {tab === "config" && (
                     <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-
-                        {/* Settings */}
                         <div className="bg-app-card border border-app-border rounded-2xl p-6 flex flex-col gap-6">
                             <h2 className="text-sm font-bold text-app-text-muted uppercase tracking-widest">Tamaño de la Etiqueta</h2>
 
-                            <div className="grid grid-cols-2 gap-4">
-                                {([
-                                    { label: "Ancho etiqueta (pulg.)", field: "labelWidthIn" as const, cfgKey: "labelWidthIn" as const },
-                                    { label: "Alto etiqueta (pulg.)",   field: "labelHeightIn" as const, cfgKey: "labelHeightIn" as const },
-                                    { label: "Ancho del rollo (pulg.)", field: "pageWidthIn" as const,   cfgKey: "pageWidthIn" as const },
-                                    { label: "Columnas por fila",       field: "columns" as const,       cfgKey: "columns" as const, round: true },
-                                ] as const).map(({ label, field, cfgKey, ...rest }) => { const round = 'round' in rest ? (rest as any).round : false; return (
-                                    <div key={field}>
-                                        <label className="block text-xs text-app-text-muted mb-1.5">{label}</label>
-                                        <input
-                                            type="number"
-                                            step={round ? "1" : "0.001"}
-                                            value={raw[field]}
-                                            onChange={e => setRaw(prev => ({ ...prev, [field]: e.target.value }))}
-                                            onBlur={() => commitNum(field, cfgKey, round)}
-                                            className="w-full bg-app-bg border border-app-border rounded-xl px-3 py-2.5 text-app-text text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/40"
-                                        />
-                                    </div>
-                                );})}
+                            {/* Inputs no controlados — cfgKey fuerza remount al restaurar defaults */}
+                            <div className="grid grid-cols-2 gap-4" key={cfgKey}>
+                                <div>
+                                    <label className="block text-xs text-app-text-muted mb-1.5">Ancho etiqueta (pulg.)</label>
+                                    <CfgInput defaultVal={config.labelWidthIn} onCommit={v => setCfg("labelWidthIn", v)} />
+                                </div>
+                                <div>
+                                    <label className="block text-xs text-app-text-muted mb-1.5">Alto etiqueta (pulg.)</label>
+                                    <CfgInput defaultVal={config.labelHeightIn} onCommit={v => setCfg("labelHeightIn", v)} />
+                                </div>
+                                <div>
+                                    <label className="block text-xs text-app-text-muted mb-1.5">Ancho del rollo (pulg.)</label>
+                                    <CfgInput defaultVal={config.pageWidthIn} onCommit={v => setCfg("pageWidthIn", v)} />
+                                </div>
+                                <div>
+                                    <label className="block text-xs text-app-text-muted mb-1.5">Columnas por fila</label>
+                                    <CfgInput defaultVal={config.columns} onCommit={v => setCfg("columns", Math.round(v))} step="1" />
+                                </div>
                                 <div className="col-span-2">
                                     <label className="block text-xs text-app-text-muted mb-1.5">Margen interior (pulg.)</label>
-                                    <input
-                                        type="number"
-                                        step="0.001"
-                                        min="0"
-                                        value={raw.marginIn}
-                                        onChange={e => setRaw(prev => ({ ...prev, marginIn: e.target.value }))}
-                                        onBlur={() => commitNum("marginIn", "marginIn")}
-                                        className="w-full bg-app-bg border border-app-border rounded-xl px-3 py-2.5 text-app-text text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/40"
-                                    />
+                                    <CfgInput defaultVal={config.marginIn} onCommit={v => setCfg("marginIn", v)} />
                                 </div>
                             </div>
 
@@ -530,18 +430,15 @@ window.onload = function() {
                                 <h2 className="text-sm font-bold text-app-text-muted uppercase tracking-widest mb-4">Contenido de la Etiqueta</h2>
                                 <div className="grid grid-cols-2 gap-3">
                                     {([
-                                        { key: "showBarcode", label: "Código de barras" },
-                                        { key: "showName",    label: "Nombre del producto" },
-                                        { key: "showSku",     label: "SKU" },
-                                        { key: "showPrice",   label: "Precio de venta" },
-                                    ] as { key: keyof LabelConfig; label: string }[]).map(({ key, label }) => (
+                                        { key: "showBarcode" as const, label: "Código de barras" },
+                                        { key: "showName" as const,    label: "Nombre del producto" },
+                                        { key: "showSku" as const,     label: "SKU" },
+                                        { key: "showPrice" as const,   label: "Precio de venta" },
+                                    ]).map(({ key, label }) => (
                                         <label key={key} className="flex items-center gap-3 bg-app-bg border border-app-border rounded-xl px-4 py-3 cursor-pointer hover:border-violet-500/40 transition-colors">
-                                            <input
-                                                type="checkbox"
-                                                checked={config[key] as boolean}
+                                            <input type="checkbox" checked={config[key]}
                                                 onChange={e => setCfg(key, e.target.checked)}
-                                                className="w-4 h-4 accent-violet-500"
-                                            />
+                                                className="w-4 h-4 accent-violet-500" />
                                             <span className="text-sm text-app-text">{label}</span>
                                         </label>
                                     ))}
@@ -549,81 +446,40 @@ window.onload = function() {
                             </div>
 
                             <div className="flex items-center gap-2 px-3 py-2 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-xs text-emerald-400">
-                                <Save size={12} /> La configuración se guarda automáticamente al cambiar cualquier valor
+                                <Save size={12} /> Se guarda automáticamente al salir de cada campo
                             </div>
 
                             <div className="bg-violet-500/5 border border-violet-500/20 rounded-xl p-4 text-xs text-app-text-muted">
-                                <p className="font-bold text-violet-400 mb-1">Valores de la configuración de Bartender</p>
+                                <p className="font-bold text-violet-400 mb-1">Valores Bartender del cliente</p>
                                 <p>Etiqueta: 1.42" × 0.75" · Columnas: 3 · Rollo: 4.36" · Margen: 0.051"</p>
-                                <button
-                                    onClick={() => {
-                                        setConfig(DEFAULT_CONFIG);
-                                        setRaw({
-                                            labelWidthIn: String(DEFAULT_CONFIG.labelWidthIn),
-                                            labelHeightIn: String(DEFAULT_CONFIG.labelHeightIn),
-                                            columns: String(DEFAULT_CONFIG.columns),
-                                            marginIn: String(DEFAULT_CONFIG.marginIn),
-                                            pageWidthIn: String(DEFAULT_CONFIG.pageWidthIn),
-                                        });
-                                    }}
-                                    className="mt-2 text-violet-400 hover:text-violet-300 transition-colors underline"
-                                >
+                                <button onClick={restoreDefaults}
+                                    className="mt-2 text-violet-400 hover:text-violet-300 transition-colors underline">
                                     Restaurar valores predeterminados
                                 </button>
                             </div>
                         </div>
 
-                        {/* Live preview of one label */}
+                        {/* Preview */}
                         <div className="bg-app-card border border-app-border rounded-2xl p-6 flex flex-col gap-4">
                             <h2 className="text-sm font-bold text-app-text-muted uppercase tracking-widest">Previa de una etiqueta</h2>
                             <div className="flex items-center justify-center flex-1 min-h-48 bg-app-bg rounded-xl border border-app-border">
                                 <LabelCard
-                                    product={{
-                                        id: "preview",
-                                        name: "Nombre del Producto",
-                                        sku: "SKU-001",
-                                        sale_price: 15000,
-                                        barcode: "7702116001022",
-                                        quantity: 1,
-                                    }}
-                                    config={config}
-                                    scale={96}
-                                />
+                                    product={{ id: "p", name: "Nombre del Producto", sku: "SKU-001", sale_price: 15000, barcode: "7702116001022", quantity: 1 }}
+                                    config={config} scale={96} />
                             </div>
                             <div className="text-xs text-app-text-muted space-y-1">
-                                <div className="flex justify-between">
-                                    <span>Tamaño de la etiqueta</span>
-                                    <span className="font-bold text-app-text">{config.labelWidthIn}" × {config.labelHeightIn}"</span>
-                                </div>
-                                <div className="flex justify-between">
-                                    <span>Alto total por fila (con márgenes)</span>
-                                    <span className="font-bold text-app-text">{(config.labelHeightIn + config.marginIn * 2).toFixed(3)}"</span>
-                                </div>
-                                <div className="flex justify-between">
-                                    <span>Ancho del rollo</span>
-                                    <span className="font-bold text-app-text">{config.pageWidthIn}"</span>
-                                </div>
-                                <div className="flex justify-between">
-                                    <span>Etiquetas por fila</span>
-                                    <span className="font-bold text-app-text">{config.columns}</span>
-                                </div>
-                            </div>
-
-                            <div className="mt-4 border-t border-app-border pt-4">
-                                <p className="text-[10px] font-bold text-app-text-muted uppercase tracking-widest mb-2">Equivalencia en mm</p>
-                                <div className="grid grid-cols-2 gap-2 text-xs">
-                                    {[
-                                        ["Ancho etiqueta", (config.labelWidthIn * 25.4).toFixed(1) + " mm"],
-                                        ["Alto etiqueta", (config.labelHeightIn * 25.4).toFixed(1) + " mm"],
-                                        ["Ancho rollo", (config.pageWidthIn * 25.4).toFixed(1) + " mm"],
-                                        ["Margen", (config.marginIn * 25.4).toFixed(2) + " mm"],
-                                    ].map(([label, value]) => (
-                                        <div key={label} className="bg-app-bg rounded-lg px-3 py-2">
-                                            <p className="text-app-text-muted">{label}</p>
-                                            <p className="font-bold text-app-text">{value}</p>
-                                        </div>
-                                    ))}
-                                </div>
+                                {[
+                                    ["Tamaño etiqueta", `${config.labelWidthIn}" × ${config.labelHeightIn}"`],
+                                    ["Ancho rollo", `${config.pageWidthIn}"`],
+                                    ["Etiquetas por fila", String(config.columns)],
+                                    ["Ancho etiqueta en mm", `${(config.labelWidthIn * 25.4).toFixed(1)} mm`],
+                                    ["Alto etiqueta en mm",  `${(config.labelHeightIn * 25.4).toFixed(1)} mm`],
+                                ].map(([l, v]) => (
+                                    <div key={l} className="flex justify-between">
+                                        <span>{l}</span>
+                                        <span className="font-bold text-app-text">{v}</span>
+                                    </div>
+                                ))}
                             </div>
                         </div>
                     </div>
