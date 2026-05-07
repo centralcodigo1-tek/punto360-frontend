@@ -104,17 +104,50 @@ function LabelCard({ product, config, scale = 100 }: { product: LabelProduct; co
     );
 }
 
+// ── Numeric input that allows clearing while typing ───────────────────────────
+function NumInput({ value, onChange, step = "0.001", min = "0" }: {
+    value: number; onChange: (v: number) => void; step?: string; min?: string;
+}) {
+    const [raw, setRaw] = useState(String(value));
+
+    useEffect(() => { setRaw(String(value)); }, [value]);
+
+    return (
+        <input
+            type="number"
+            step={step}
+            min={min}
+            value={raw}
+            onChange={e => {
+                setRaw(e.target.value);
+                const parsed = parseFloat(e.target.value);
+                if (!isNaN(parsed) && parsed > 0) onChange(parsed);
+            }}
+            onBlur={() => {
+                const parsed = parseFloat(raw);
+                if (isNaN(parsed) || parsed <= 0) setRaw(String(value));
+            }}
+            className="w-full bg-app-bg border border-app-border rounded-xl px-3 py-2.5 text-app-text text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/40"
+        />
+    );
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 export default function LabelsPage() {
     const [tab, setTab] = useState<"print" | "config">("print");
 
-    // Config state (persisted in localStorage)
+    // Config state — auto-persisted en localStorage
     const [config, setConfig] = useState<LabelConfig>(() => {
         try {
             const saved = localStorage.getItem("labelConfig");
             return saved ? { ...DEFAULT_CONFIG, ...JSON.parse(saved) } : DEFAULT_CONFIG;
         } catch { return DEFAULT_CONFIG; }
     });
+
+    // Auto-save cada vez que cambia la config
+    useEffect(() => {
+        localStorage.setItem("labelConfig", JSON.stringify(config));
+    }, [config]);
 
     // Products
     const [allProducts, setAllProducts] = useState<Product[]>([]);
@@ -157,11 +190,6 @@ export default function LabelsPage() {
     };
 
     const totalLabels = labelProducts.reduce((s, p) => s + p.quantity, 0);
-
-    const saveConfig = () => {
-        localStorage.setItem("labelConfig", JSON.stringify(config));
-        toast.success("Configuración guardada");
-    };
 
     const setCfg = useCallback(<K extends keyof LabelConfig>(key: K, value: LabelConfig[K]) => {
         setConfig(prev => ({ ...prev, [key]: value }));
@@ -477,48 +505,23 @@ window.onload = function() {
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-xs text-app-text-muted mb-1.5">Ancho etiqueta (pulg.)</label>
-                                    <input
-                                        type="number" step="0.001" min="0.1"
-                                        value={config.labelWidthIn}
-                                        onChange={e => setCfg("labelWidthIn", parseFloat(e.target.value) || DEFAULT_CONFIG.labelWidthIn)}
-                                        className="w-full bg-app-bg border border-app-border rounded-xl px-3 py-2.5 text-app-text text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/40"
-                                    />
+                                    <NumInput value={config.labelWidthIn} onChange={v => setCfg("labelWidthIn", v)} step="0.001" />
                                 </div>
                                 <div>
                                     <label className="block text-xs text-app-text-muted mb-1.5">Alto etiqueta (pulg.)</label>
-                                    <input
-                                        type="number" step="0.001" min="0.1"
-                                        value={config.labelHeightIn}
-                                        onChange={e => setCfg("labelHeightIn", parseFloat(e.target.value) || DEFAULT_CONFIG.labelHeightIn)}
-                                        className="w-full bg-app-bg border border-app-border rounded-xl px-3 py-2.5 text-app-text text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/40"
-                                    />
+                                    <NumInput value={config.labelHeightIn} onChange={v => setCfg("labelHeightIn", v)} step="0.001" />
                                 </div>
                                 <div>
                                     <label className="block text-xs text-app-text-muted mb-1.5">Ancho del rollo / página (pulg.)</label>
-                                    <input
-                                        type="number" step="0.001" min="0.5"
-                                        value={config.pageWidthIn}
-                                        onChange={e => setCfg("pageWidthIn", parseFloat(e.target.value) || DEFAULT_CONFIG.pageWidthIn)}
-                                        className="w-full bg-app-bg border border-app-border rounded-xl px-3 py-2.5 text-app-text text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/40"
-                                    />
+                                    <NumInput value={config.pageWidthIn} onChange={v => setCfg("pageWidthIn", v)} step="0.001" />
                                 </div>
                                 <div>
                                     <label className="block text-xs text-app-text-muted mb-1.5">Columnas por fila</label>
-                                    <input
-                                        type="number" step="1" min="1" max="10"
-                                        value={config.columns}
-                                        onChange={e => setCfg("columns", parseInt(e.target.value) || DEFAULT_CONFIG.columns)}
-                                        className="w-full bg-app-bg border border-app-border rounded-xl px-3 py-2.5 text-app-text text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/40"
-                                    />
+                                    <NumInput value={config.columns} onChange={v => setCfg("columns", Math.round(v))} step="1" />
                                 </div>
                                 <div className="col-span-2">
                                     <label className="block text-xs text-app-text-muted mb-1.5">Margen interior (pulg.) — aplica a todos los lados</label>
-                                    <input
-                                        type="number" step="0.001" min="0"
-                                        value={config.marginIn}
-                                        onChange={e => setCfg("marginIn", parseFloat(e.target.value) || 0)}
-                                        className="w-full bg-app-bg border border-app-border rounded-xl px-3 py-2.5 text-app-text text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/40"
-                                    />
+                                    <NumInput value={config.marginIn} onChange={v => setCfg("marginIn", v)} step="0.001" min="0" />
                                 </div>
                             </div>
 
@@ -544,12 +547,9 @@ window.onload = function() {
                                 </div>
                             </div>
 
-                            <button
-                                onClick={saveConfig}
-                                className="w-full py-3 rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 text-white font-bold text-sm hover:opacity-90 transition-opacity flex items-center justify-center gap-2 shadow-lg shadow-violet-900/30"
-                            >
-                                <Save size={16} /> Guardar configuración
-                            </button>
+                            <div className="flex items-center gap-2 px-3 py-2 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-xs text-emerald-400">
+                                <Save size={12} /> La configuración se guarda automáticamente al cambiar cualquier valor
+                            </div>
 
                             <div className="bg-violet-500/5 border border-violet-500/20 rounded-xl p-4 text-xs text-app-text-muted">
                                 <p className="font-bold text-violet-400 mb-1">Valores de la configuración de Bartender</p>
