@@ -69,7 +69,7 @@ export default function SalesHistoryPage() {
     };
 
     const totalCalculated = sales
-        .filter(s => s.status !== 'CANCELLED')
+        .filter(s => s.status === 'PAID')
         .reduce((sum, s) => sum + Number(s.total), 0);
 
 
@@ -157,7 +157,7 @@ export default function SalesHistoryPage() {
                             <p className="text-app-accent font-black text-[9px] uppercase tracking-[0.3em] mb-1">VENTAS DEL PERIODO</p>
                             <h3 className="text-2xl md:text-3xl font-black text-app-text tracking-tight">{cop(totalCalculated)}</h3>
                             <p className="text-[9px] text-app-text-muted mt-2 flex items-center gap-1 font-bold italic opacity-60">
-                                 {sales.filter(s => s.status !== 'CANCELLED').length} Tickets efectivos
+                                 {sales.filter(s => s.status === 'PAID').length} Tickets cobrados
                             </p>
                         </div>
                         <div className="absolute -right-4 -bottom-4 text-app-accent/5 rotate-12 transition-transform group-hover:scale-110 duration-500">
