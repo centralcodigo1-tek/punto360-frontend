@@ -3,7 +3,7 @@ import DashboardLayout from "../layouts/DashboardLayout";
 import { useAuth } from "../auth/AuthContext";
 import { api } from "../api/axios";
 import {
-  TrendingUp, Wallet, ShoppingBag, DollarSign,
+  Wallet, ShoppingBag, DollarSign,
   AlertTriangle, Package, Loader2, CheckCircle2, CreditCard, Building2,
   ChevronRight, ArrowUpRight, ShoppingCart
 } from "lucide-react";
@@ -11,9 +11,7 @@ import { useNavigate } from "react-router-dom";
 
 interface Stats {
   totalHoy: number;
-  efectivoHoy: number;
   ticketsHoy: number;
-  totalMes: number;
   lowStock: number;
   totalProducts: number;
   recentSales: {
@@ -71,8 +69,6 @@ export default function DashboardPage() {
     }
   };
 
-  const canViewFinancials = hasPermission("reports.view");
-
   const statCards = stats
     ? [
         {
@@ -82,36 +78,8 @@ export default function DashboardPage() {
           icon: <DollarSign size={22} />,
           from: "from-blue-600",
           to: "to-cyan-500",
-          show: true,
         },
-        {
-          title: "Efectivo en Caja",
-          value: formatCurrency(stats.efectivoHoy),
-          subtitle: "Solo cobros en cash",
-          icon: <Wallet size={22} />,
-          from: "from-emerald-600",
-          to: "to-teal-500",
-          show: canViewFinancials,
-        },
-        {
-          title: "Ventas del Mes",
-          value: formatCurrency(stats.totalMes),
-          subtitle: "Acumulado mes actual",
-          icon: <TrendingUp size={22} />,
-          from: "from-violet-600",
-          to: "to-purple-500",
-          show: canViewFinancials,
-        },
-        {
-          title: "Inventario Activo",
-          value: String(stats.totalProducts),
-          subtitle: "Productos en catálogo",
-          icon: <Package size={22} />,
-          from: "from-orange-500",
-          to: "to-amber-400",
-          show: true,
-        },
-      ].filter(c => c.show)
+      ]
     : [];
 
   return (
@@ -160,7 +128,7 @@ export default function DashboardPage() {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5 mb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-5 mb-8">
             {statCards.map((card) => (
               <div
                 key={card.title}
