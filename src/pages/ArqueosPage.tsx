@@ -24,6 +24,7 @@ interface ArqueoSummary {
     cashSales: number;
     cardSales: number;
     transferSales: number;
+    consignmentItems?: { name: string; total: number }[];
     totalSales: number;
     totalExpenses: number;
     expectedCash: number;
@@ -106,6 +107,10 @@ function printArqueo(a: Arqueo) {
         ${row('Transferencia', cop(s.transferSales))}
         <tr class="total-row">${row('TOTAL VENTAS', cop(s.totalSales), true)}</tr>
     </table>
+    ${(s.consignmentItems ?? []).length > 0 ? `
+    <hr class="divider">
+    <p class="section-title">Consignación</p>
+    <table>${(s.consignmentItems ?? []).map(ci => row(ci.name, cop(ci.total))).join('')}</table>` : ''}
     <hr class="divider">
     <p class="section-title">Arqueo de Efectivo</p>
     <table>
@@ -316,6 +321,19 @@ export default function ArqueosPage() {
                                                                 <span className="font-bold text-app-text">{cop(row.value)}</span>
                                                             </div>
                                                         ))}
+                                                        {(s.consignmentItems ?? []).length > 0 && (
+                                                            <>
+                                                                <div className="border-t border-app-border/50 pt-2 mt-1">
+                                                                    <p className="text-[9px] font-black text-amber-400 uppercase tracking-widest mb-1.5">Consignación</p>
+                                                                    {(s.consignmentItems ?? []).map(ci => (
+                                                                        <div key={ci.name} className="flex items-center justify-between text-sm">
+                                                                            <span className="text-amber-400/80 truncate max-w-[60%]">{ci.name}</span>
+                                                                            <span className="font-bold text-amber-400">{cop(ci.total)}</span>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            </>
+                                                        )}
                                                         <div className="flex items-center justify-between text-sm font-black border-t border-app-border pt-2 mt-1">
                                                             <span className="text-app-text-muted">Total Ventas</span>
                                                             <span className="text-emerald-400">{cop(s.totalSales)}</span>
