@@ -322,17 +322,15 @@ export default function ArqueosPage() {
                                                             </div>
                                                         ))}
                                                         {(s.consignmentItems ?? []).length > 0 && (
-                                                            <>
-                                                                <div className="border-t border-app-border/50 pt-2 mt-1">
-                                                                    <p className="text-[9px] font-black text-amber-400 uppercase tracking-widest mb-1.5">Consignación</p>
-                                                                    {(s.consignmentItems ?? []).map(ci => (
-                                                                        <div key={ci.name} className="flex items-center justify-between text-sm">
-                                                                            <span className="text-amber-400/80 truncate max-w-[60%]">{ci.name}</span>
-                                                                            <span className="font-bold text-amber-400">{cop(ci.total)}</span>
-                                                                        </div>
-                                                                    ))}
-                                                                </div>
-                                                            </>
+                                                            <div className="border-t border-app-border/50 pt-2 mt-1">
+                                                                <p className="text-[9px] font-black text-amber-400 uppercase tracking-widest mb-1.5">Consignación</p>
+                                                                {(s.consignmentItems ?? []).map(ci => (
+                                                                    <div key={ci.name} className="flex items-center justify-between text-sm">
+                                                                        <span className="text-amber-400/80 truncate max-w-[60%]">{ci.name}</span>
+                                                                        <span className="font-bold text-amber-400">{cop(ci.total)}</span>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
                                                         )}
                                                         <div className="flex items-center justify-between text-sm font-black border-t border-app-border pt-2 mt-1">
                                                             <span className="text-app-text-muted">Total Ventas</span>
