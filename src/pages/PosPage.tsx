@@ -1113,16 +1113,16 @@ export default function PosPage() {
                   const payLabel: Record<string, string> = { CASH: 'Efectivo', CARD: 'Tarjeta', TRANSFER: 'Transferencia', CREDIT: 'Crédito' };
                   const pw = `${paperWidth}mm`;
                   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Ticket</title><style>
+                    @page{size:${pw} auto;margin:0;}
                     *{margin:0;padding:0;box-sizing:border-box;}
-                    body{font-family:monospace;font-size:12px;width:${pw};padding:3mm;}
+                    body{font-family:'Courier New',monospace;font-size:12px;width:${pw};padding:4mm;}
                     .center{text-align:center;}
                     .bold{font-weight:bold;}
                     .line{border-top:1px dashed #000;margin:5px 0;}
                     .row{display:flex;justify-content:space-between;gap:4px;}
                     .total{font-size:14px;font-weight:bold;}
                     .small{font-size:10px;}
-                    .logo{font-size:10px;text-align:center;margin-top:6px;opacity:0.6;}
-                    @media print{@page{margin:0;size:${pw} auto;}}
+                    .logo{font-size:9px;text-align:center;margin-top:6px;opacity:0.5;}
                   </style></head><body>
                     <p class="center bold" style="font-size:15px;">${user?.companyName ?? 'Mi Tienda'}</p>
                     ${branchName ? `<p class="center small">${branchName}</p>` : ''}
@@ -1130,19 +1130,19 @@ export default function PosPage() {
                     ${user?.userName ? `<p class="center small">Atendido por: ${user.userName}</p>` : ''}
                     <div class="line"></div>
                     ${d.items.map(i => `
-                      <div class="bold">${i.product.name}${i.variantLabel ? ' <span style="font-weight:normal;font-size:10px;">('+i.variantLabel+')</span>' : ''}</div>
-                      <div class="row small"><span>${i.quantity} x $${i.customPrice.toLocaleString()}</span><span>$${(i.quantity * i.customPrice).toLocaleString()}</span></div>
+                      <div class="bold" style="font-size:11px;">${i.product.name}${i.variantLabel ? ' <span style="font-weight:normal;font-size:10px;">('+i.variantLabel+')</span>' : ''}</div>
+                      <div class="row small"><span>${i.quantity} x $${i.customPrice.toLocaleString('es-CO')}</span><span>$${(i.quantity * i.customPrice).toLocaleString('es-CO')}</span></div>
                     `).join('')}
                     <div class="line"></div>
-                    <div class="row total"><span>TOTAL</span><span>$${d.total.toLocaleString()}</span></div>
-                    <div class="row small"><span>Método de pago</span><span>${payLabel[d.paymentMethod] ?? d.paymentMethod}</span></div>
-                    ${d.paymentMethod === 'CASH' && d.change > 0 ? `<div class="row small"><span>Cambio</span><span>$${d.change.toLocaleString()}</span></div>` : ''}
+                    <div class="row total"><span>TOTAL</span><span>$${d.total.toLocaleString('es-CO')}</span></div>
+                    <div class="row small"><span>Pago</span><span>${payLabel[d.paymentMethod] ?? d.paymentMethod}</span></div>
+                    ${d.paymentMethod === 'CASH' && d.change > 0 ? `<div class="row small"><span>Cambio</span><span>$${d.change.toLocaleString('es-CO')}</span></div>` : ''}
                     ${d.customerName ? `<div class="row small"><span>Cliente</span><span>${d.customerName}</span></div>` : ''}
                     <div class="line"></div>
                     <p class="center small">¡Gracias por su compra!</p>
                     <p class="logo">— PUNTO360 —</p>
                   </body></html>`;
-                  const win = window.open('', '_blank', 'width=350,height=600');
+                  const win = window.open('', '_blank', `width=${paperWidth * 4},height=700`);
                   if (win) { win.document.write(html); win.document.close(); win.focus(); win.print(); win.onafterprint = () => win.close(); }
                 }}
                 className="flex-1 py-3 rounded-xl bg-app-accent hover:bg-app-accent-hover text-white font-black text-[11px] uppercase tracking-widest transition-all shadow-lg shadow-app-accent/20"
