@@ -35,6 +35,8 @@ interface CloseSummary {
         cardSales: number;
         transferSales: number;
         consignmentItems: { name: string; total: number }[];
+        totalConsignment?: number;
+        totalNegocio?: number;
         totalSales: number;
         totalExpenses: number;
         totalIncomes: number;
@@ -200,21 +202,59 @@ export default function CashRegisterPage() {
                     <div className="bg-app-card border border-app-border rounded-2xl p-6 backdrop-blur-md shadow-xl mb-4">
                         <h2 className="font-bold text-app-text text-lg mb-4 pb-3 border-b border-app-border">Resumen del Turno</h2>
                         <div className="flex flex-col gap-3">
+                            {/* Por método de pago */}
                             {[
-                                { label: "Fondo inicial", value: summary.openingAmount, icon: <Wallet size={16}/>, color: "text-app-text-muted", show: true },
                                 { label: "Ventas Efectivo", value: summary.cashSales, icon: <Wallet size={16}/>, color: "text-emerald-400", show: true },
                                 { label: "Ventas Tarjeta", value: summary.cardSales, icon: <CreditCard size={16}/>, color: "text-blue-400", show: canViewFinancials },
                                 { label: "Ventas Transferencia", value: summary.transferSales, icon: <Building2 size={16}/>, color: "text-violet-400", show: canViewFinancials },
-                                ...(summary.consignmentItems ?? []).map(ci => ({ label: `Consig. ${ci.name}`, value: ci.total, icon: <DollarSign size={16}/>, color: "text-amber-400", show: true })),
-                                { label: "Otros Ingresos (Abonos)", value: summary.totalIncomes ?? 0, icon: <DollarSign size={16}/>, color: "text-teal-400", show: (summary.totalIncomes ?? 0) > 0 },
-                                { label: "Gastos de Caja", value: -summary.totalExpenses, icon: <TrendingDown size={16}/>, color: "text-rose-400", show: true },
                             ].filter(r => r.show).map(row => (
                                 <div key={row.label} className="flex items-center justify-between text-sm">
                                     <span className="flex items-center gap-2 text-app-text-muted">{row.icon}{row.label}</span>
                                     <span className={`font-bold ${row.color}`}>{formatCOP(row.value)}</span>
                                 </div>
                             ))}
-                            <div className="flex items-center justify-between text-sm font-bold border-t border-app-border pt-3 mt-1">
+
+                            {/* Total negocio */}
+                            <div className="flex items-center justify-between text-sm font-black border-t border-app-border pt-2">
+                                <span className="text-emerald-400">Total Negocio</span>
+                                <span className="text-emerald-400">{formatCOP(summary.totalNegocio ?? summary.totalSales)}</span>
+                            </div>
+
+                            {/* Consignación */}
+                            {(summary.consignmentItems ?? []).length > 0 && (
+                                <div className="border-t border-amber-500/20 pt-2 space-y-1">
+                                    <p className="text-[9px] font-black text-amber-400 uppercase tracking-widest">Consignación</p>
+                                    {(summary.consignmentItems ?? []).map(ci => (
+                                        <div key={ci.name} className="flex items-center justify-between text-sm">
+                                            <span className="flex items-center gap-2 text-amber-400/80"><DollarSign size={14}/>{ci.name}</span>
+                                            <span className="font-bold text-amber-400">{formatCOP(ci.total)}</span>
+                                        </div>
+                                    ))}
+                                    <div className="flex items-center justify-between text-sm font-black">
+                                        <span className="text-amber-400/70">Subtotal consignación</span>
+                                        <span className="text-amber-400">{formatCOP(summary.totalConsignment ?? 0)}</span>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Total general */}
+                            <div className="flex items-center justify-between text-base font-black border-t-2 border-app-border pt-2">
+                                <span className="text-app-text">Total General</span>
+                                <span className="text-app-text">{formatCOP(summary.totalSales)}</span>
+                            </div>
+
+                            {/* Arqueo */}
+                            {[
+                                { label: "Fondo inicial", value: summary.openingAmount, color: "text-app-text-muted", show: true },
+                                { label: "Otros Ingresos (Abonos)", value: summary.totalIncomes ?? 0, color: "text-teal-400", show: (summary.totalIncomes ?? 0) > 0 },
+                                { label: "Gastos de Caja", value: -summary.totalExpenses, color: "text-rose-400", show: true },
+                            ].filter(r => r.show).map(row => (
+                                <div key={row.label} className="flex items-center justify-between text-sm">
+                                    <span className="text-app-text-muted">{row.label}</span>
+                                    <span className={`font-bold ${row.color}`}>{formatCOP(row.value)}</span>
+                                </div>
+                            ))}
+                            <div className="flex items-center justify-between text-sm font-bold border-t border-app-border pt-2">
                                 <span className="text-app-text">Efectivo Esperado en Caja</span>
                                 <span className="text-app-text font-bold">{formatCOP(summary.expectedCash)}</span>
                             </div>
