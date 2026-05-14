@@ -10,7 +10,7 @@ interface Props {
 const COP = (v: number) =>
     new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", minimumFractionDigits: 0 }).format(v);
 
-const BILLS = [200_000, 100_000, 50_000, 20_000, 10_000, 5_000, 2_000, 1_000];
+const BILLS = [100_000, 50_000, 20_000, 10_000, 5_000, 2_000, 1_000];
 const COINS = [500, 200, 100, 50];
 
 export default function CashPadModal({ total, onConfirm, onClose }: Props) {
