@@ -78,18 +78,19 @@ function printArqueo(a: Arqueo) {
 
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Cierre de Caja</title>
     <style>
+        @page{size:80mm auto;margin:0}
         *{box-sizing:border-box;margin:0;padding:0}
-        body{font-family:'Courier New',monospace;font-size:12px;color:#111;width:72mm;margin:0 auto;padding:8px}
+        body{font-family:'Courier New',monospace;font-size:12px;color:#111;width:80mm;margin:0 auto;padding:4mm}
         h1{font-size:15px;text-align:center;font-weight:900;letter-spacing:1px;margin-bottom:2px}
         .center{text-align:center}
-        .divider{border:none;border-top:1px dashed #999;margin:8px 0}
+        .divider{border:none;border-top:1px dashed #999;margin:6px 0}
         table{width:100%;border-collapse:collapse}
-        .section-title{font-size:9px;font-weight:900;letter-spacing:2px;text-transform:uppercase;color:#777;margin:8px 0 4px}
+        .section-title{font-size:9px;font-weight:900;letter-spacing:2px;text-transform:uppercase;color:#777;margin:6px 0 3px}
         .total-row td{font-weight:900;font-size:13px;border-top:1px solid #ccc;padding-top:4px}
         .diff{padding:4px 8px;text-align:center;font-weight:900;font-size:13px;border:1px solid;border-radius:4px;margin-top:6px}
         .over{color:#166534;border-color:#166534;background:#f0fdf4}
         .under{color:#991b1b;border-color:#991b1b;background:#fef2f2}
-        @media print{body{width:auto}}
+        @media print{body{width:80mm}}
     </style></head><body>
     <h1>CIERRE DE CAJA</h1>
     <p class="center" style="font-size:10px;color:#555;margin-bottom:2px">${a.name}</p>
@@ -140,7 +141,7 @@ function printArqueo(a: Arqueo) {
     <script>window.onload=()=>{window.print();window.onafterprint=()=>window.close()}<\/script>
     </body></html>`;
 
-    const w = window.open('', '_blank', 'width=400,height=600');
+    const w = window.open('', '_blank', 'width=320,height=700');
     if (w) { w.document.write(html); w.document.close(); }
 }
 
