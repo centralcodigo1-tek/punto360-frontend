@@ -6,6 +6,7 @@ import { ShoppingCart, Search, CreditCard, Banknote, Building2, Plus, Minus, Tra
 import { api } from "../api/axios";
 import { useAuth } from "../auth/AuthContext";
 import BarcodeScannerModal from "../components/ui/BarcodeScannerModal";
+import CashPadModal from "../components/ui/CashPadModal";
 import type { ProductRow } from "./InventoryPage";
 
 interface VariantOption {
@@ -74,6 +75,8 @@ export default function PosPage() {
   const [consignmentPrice, setConsignmentPrice] = useState("");
   const [hasCashSession, setHasCashSession] = useState<boolean | null>(null);
   const [showScanner, setShowScanner] = useState(false);
+  const [showCashPad, setShowCashPad] = useState(false);
+  const isTouch = window.matchMedia("(pointer: coarse)").matches;
   
   const [cashReceived, setCashReceived] = useState<string>("");
   const [isPriceEditing, setIsPriceEditing] = useState<string | null>(null);
@@ -803,23 +806,34 @@ export default function PosPage() {
                 
                 {paymentMethod === 'CASH' && cartTotal > 0 && (
                     <div className="space-y-3 pt-2 animate-in slide-in-from-bottom-2 duration-300">
-                        <div className="flex justify-between items-center">
-                            <span className="font-black text-[9px] uppercase text-app-text-muted tracking-widest">Recibido</span>
-                            <div className="relative">
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-app-accent font-bold text-xs">$</span>
-                                <input 
-                                    type="number"
-                                    value={cashReceived}
-                                    onChange={(e) => setCashReceived(e.target.value)}
-                                    placeholder="0"
-                                    className="w-28 bg-app-bg border border-app-accent/30 rounded-lg pl-6 pr-2 py-1.5 text-right text-app-accent font-black text-base focus:outline-none focus:ring-2 focus:ring-app-accent/20"
-                                />
+                        {isTouch ? (
+                            /* Pantalla táctil: botón que abre el teclado de billetes */
+                            <button onClick={() => setShowCashPad(true)}
+                                className="w-full py-3 rounded-xl border-2 border-app-accent/40 bg-app-accent/10 text-app-accent font-black text-sm active:scale-95 transition-all flex items-center justify-center gap-2">
+                                💵 {cashReceived ? `Recibido: $${parseFloat(cashReceived).toLocaleString()} · Cambio: $${change.toLocaleString()}` : "Ingresar efectivo recibido"}
+                            </button>
+                        ) : (
+                            /* Desktop: input numérico normal */
+                            <div className="flex justify-between items-center">
+                                <span className="font-black text-[9px] uppercase text-app-text-muted tracking-widest">Recibido</span>
+                                <div className="relative">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-app-accent font-bold text-xs">$</span>
+                                    <input
+                                        type="number"
+                                        value={cashReceived}
+                                        onChange={(e) => setCashReceived(e.target.value)}
+                                        placeholder="0"
+                                        className="w-28 bg-app-bg border border-app-accent/30 rounded-lg pl-6 pr-2 py-1.5 text-right text-app-accent font-black text-base focus:outline-none focus:ring-2 focus:ring-app-accent/20"
+                                    />
+                                </div>
                             </div>
-                        </div>
-                        <div className="flex justify-between items-center bg-emerald-500/10 p-2.5 rounded-xl border border-emerald-500/20">
-                            <span className="text-emerald-500 font-black text-[9px] uppercase tracking-widest">Cambio</span>
-                            <span className="text-xl font-black text-emerald-500 animate-in fade-in duration-500">${change.toLocaleString()}</span>
-                        </div>
+                        )}
+                        {!isTouch && (
+                            <div className="flex justify-between items-center bg-emerald-500/10 p-2.5 rounded-xl border border-emerald-500/20">
+                                <span className="text-emerald-500 font-black text-[9px] uppercase tracking-widest">Cambio</span>
+                                <span className="text-xl font-black text-emerald-500 animate-in fade-in duration-500">${change.toLocaleString()}</span>
+                            </div>
+                        )}
                     </div>
                 )}
             </div>
@@ -1145,6 +1159,14 @@ export default function PosPage() {
       <BarcodeScannerModal
         onScan={(code) => { setSearchQuery(code); setShowScanner(false); }}
         onClose={() => setShowScanner(false)}
+      />
+    )}
+
+    {showCashPad && (
+      <CashPadModal
+        total={cartTotal}
+        onConfirm={(received) => { setCashReceived(String(received)); setShowCashPad(false); }}
+        onClose={() => setShowCashPad(false)}
       />
     )}
     </>
