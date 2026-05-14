@@ -25,6 +25,8 @@ interface ArqueoSummary {
     cardSales: number;
     transferSales: number;
     consignmentItems?: { name: string; total: number }[];
+    totalConsignment?: number;
+    totalNegocio?: number;
     totalSales: number;
     totalExpenses: number;
     expectedCash: number;
@@ -105,12 +107,19 @@ function printArqueo(a: Arqueo) {
         ${row('Efectivo', cop(s.cashSales))}
         ${row('Tarjeta', cop(s.cardSales))}
         ${row('Transferencia', cop(s.transferSales))}
-        <tr class="total-row">${row('TOTAL VENTAS', cop(s.totalSales), true)}</tr>
+        <tr class="total-row">${row('TOTAL NEGOCIO', cop(s.totalNegocio ?? s.totalSales), true)}</tr>
     </table>
     ${(s.consignmentItems ?? []).length > 0 ? `
     <hr class="divider">
     <p class="section-title">Consignación</p>
-    <table>${(s.consignmentItems ?? []).map(ci => row(ci.name, cop(ci.total))).join('')}</table>` : ''}
+    <table>
+        ${(s.consignmentItems ?? []).map(ci => row(ci.name, cop(ci.total))).join('')}
+        <tr class="total-row">${row('SUBTOTAL CONSIGNACIÓN', cop(s.totalConsignment ?? 0), true)}</tr>
+    </table>` : ''}
+    <hr class="divider">
+    <table>
+        <tr class="total-row">${row('TOTAL GENERAL', cop(s.totalSales), true)}</tr>
+    </table>
     <hr class="divider">
     <p class="section-title">Arqueo de Efectivo</p>
     <table>
@@ -321,20 +330,34 @@ export default function ArqueosPage() {
                                                                 <span className="font-bold text-app-text">{cop(row.value)}</span>
                                                             </div>
                                                         ))}
+
+                                                        {/* Total negocio */}
+                                                        <div className="flex items-center justify-between text-sm font-black border-t border-app-border pt-2 mt-1">
+                                                            <span className="text-app-text-muted">Total Negocio</span>
+                                                            <span className="text-emerald-400">{cop(s.totalNegocio ?? s.totalSales)}</span>
+                                                        </div>
+
+                                                        {/* Consignación */}
                                                         {(s.consignmentItems ?? []).length > 0 && (
-                                                            <div className="border-t border-app-border/50 pt-2 mt-1">
-                                                                <p className="text-[9px] font-black text-amber-400 uppercase tracking-widest mb-1.5">Consignación</p>
+                                                            <div className="border-t border-amber-500/20 pt-2 mt-1 space-y-1">
+                                                                <p className="text-[9px] font-black text-amber-400 uppercase tracking-widest">Consignación</p>
                                                                 {(s.consignmentItems ?? []).map(ci => (
                                                                     <div key={ci.name} className="flex items-center justify-between text-sm">
                                                                         <span className="text-amber-400/80 truncate max-w-[60%]">{ci.name}</span>
                                                                         <span className="font-bold text-amber-400">{cop(ci.total)}</span>
                                                                     </div>
                                                                 ))}
+                                                                <div className="flex items-center justify-between text-sm font-black">
+                                                                    <span className="text-amber-400/70">Subtotal consignación</span>
+                                                                    <span className="text-amber-400">{cop(s.totalConsignment ?? 0)}</span>
+                                                                </div>
                                                             </div>
                                                         )}
-                                                        <div className="flex items-center justify-between text-sm font-black border-t border-app-border pt-2 mt-1">
-                                                            <span className="text-app-text-muted">Total Ventas</span>
-                                                            <span className="text-emerald-400">{cop(s.totalSales)}</span>
+
+                                                        {/* Total general */}
+                                                        <div className="flex items-center justify-between text-sm font-black border-t-2 border-app-border pt-2 mt-1">
+                                                            <span className="text-app-text">Total General</span>
+                                                            <span className="text-app-text text-base">{cop(s.totalSales)}</span>
                                                         </div>
                                                     </div>
                                                 </div>
