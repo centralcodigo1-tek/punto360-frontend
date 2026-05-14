@@ -5,7 +5,7 @@ import { api } from "../api/axios";
 import { useAuth } from "../auth/AuthContext";
 import {
     PackagePlus, Search, Trash2, Plus, ChevronDown, ChevronUp,
-    Loader2, CheckCircle2, Truck, Calendar, ShoppingBag, Layers
+    Loader2, CheckCircle2, Truck, Calendar, ShoppingBag, Layers, Pause, RotateCcw, X
 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -114,6 +114,38 @@ export default function PurchasesPage() {
     const [paymentMethod, setPaymentMethod] = useState("CASH");
     const [paymentSource, setPaymentSource] = useState<"CASH" | "CARTERA">("CASH");
     const [dueDate, setDueDate] = useState("");
+
+    // ── Draft (pausa) ──────────────────────────────────────────────────────────
+    const DRAFT_KEY = "purchaseDraft";
+    const [hasDraft, setHasDraft] = useState(() => !!localStorage.getItem(DRAFT_KEY));
+
+    const pauseDraft = () => {
+        if (items.length === 0) return toast.error("No hay productos para pausar.");
+        localStorage.setItem(DRAFT_KEY, JSON.stringify({ selectedSupplier, items, paidAmount, paymentMethod, paymentSource, dueDate }));
+        setItems([]); setSelectedSupplier(""); setPaidAmount(""); setPaymentSource("CASH"); setDueDate("");
+        setHasDraft(true);
+        toast.success("Factura pausada. Puedes retomar cuando quieras.");
+    };
+
+    const restoreDraft = () => {
+        const raw = localStorage.getItem(DRAFT_KEY);
+        if (!raw) return;
+        const d = JSON.parse(raw);
+        setSelectedSupplier(d.selectedSupplier ?? "");
+        setItems(d.items ?? []);
+        setPaidAmount(d.paidAmount ?? "");
+        setPaymentMethod(d.paymentMethod ?? "CASH");
+        setPaymentSource(d.paymentSource ?? "CASH");
+        setDueDate(d.dueDate ?? "");
+        localStorage.removeItem(DRAFT_KEY);
+        setHasDraft(false);
+        toast.success("Factura restaurada.");
+    };
+
+    const discardDraft = () => {
+        localStorage.removeItem(DRAFT_KEY);
+        setHasDraft(false);
+    };
 
     // ── Load ───────────────────────────────────────────────────────────────────
     useEffect(() => {
@@ -273,6 +305,8 @@ export default function PurchasesPage() {
             setPaidAmount("");
             setPaymentSource("CASH");
             setDueDate("");
+            localStorage.removeItem(DRAFT_KEY);
+            setHasDraft(false);
             toast.success("Compra registrada. El stock ha sido actualizado.");
             fetchHistory();
         } catch (e: any) {
@@ -284,6 +318,24 @@ export default function PurchasesPage() {
     return (
         <DashboardLayout>
             <div className="mb-6">
+                {/* Banner de borrador pausado */}
+                {hasDraft && (
+                    <div className="mb-4 flex items-center justify-between gap-3 bg-amber-500/10 border border-amber-500/30 rounded-xl px-4 py-3">
+                        <div className="flex items-center gap-2 text-amber-400">
+                            <Pause size={16} />
+                            <span className="text-sm font-bold">Tienes una factura en pausa</span>
+                        </div>
+                        <div className="flex gap-2">
+                            <button onClick={restoreDraft} className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 text-white rounded-lg text-xs font-bold hover:bg-amber-400 transition-colors">
+                                <RotateCcw size={13} /> Retomar
+                            </button>
+                            <button onClick={discardDraft} className="flex items-center gap-1 px-2 py-1.5 text-amber-400/70 hover:text-amber-300 text-xs transition-colors">
+                                <X size={13} /> Descartar
+                            </button>
+                        </div>
+                    </div>
+                )}
+
                 <h1 className="text-3xl font-bold text-app-text flex items-center gap-3">
                     <PackagePlus size={28} className="text-violet-400" />
                     Módulo de Compras
@@ -614,14 +666,23 @@ export default function PurchasesPage() {
                                     <span className="text-app-text-muted font-medium text-sm">Total de la Compra</span>
                                     <span className="text-2xl font-black text-app-text">{cop(total)}</span>
                                 </div>
-                                <button
-                                    onClick={handleSubmit}
-                                    disabled={isSubmitting}
-                                    className="w-full py-3 rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 text-white font-bold hover:opacity-90 transition-opacity flex items-center justify-center gap-2 shadow-lg shadow-violet-900/30 disabled:opacity-40"
-                                >
-                                    {isSubmitting ? <Loader2 size={18} className="animate-spin" /> : <CheckCircle2 size={18} />}
-                                    Registrar Compra
-                                </button>
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={pauseDraft}
+                                        className="flex-none px-4 py-3 rounded-xl border border-amber-500/40 text-amber-400 hover:bg-amber-500/10 font-bold transition-colors flex items-center gap-2"
+                                        title="Pausar factura"
+                                    >
+                                        <Pause size={16} />
+                                    </button>
+                                    <button
+                                        onClick={handleSubmit}
+                                        disabled={isSubmitting}
+                                        className="flex-1 py-3 rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 text-white font-bold hover:opacity-90 transition-opacity flex items-center justify-center gap-2 shadow-lg shadow-violet-900/30 disabled:opacity-40"
+                                    >
+                                        {isSubmitting ? <Loader2 size={18} className="animate-spin" /> : <CheckCircle2 size={18} />}
+                                        Registrar Compra
+                                    </button>
+                                </div>
                             </div>
                         )}
 
