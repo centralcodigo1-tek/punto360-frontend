@@ -5,7 +5,6 @@ import { api } from "../api/axios";
 import JsBarcode from "jsbarcode";
 import { Tag, Settings, Printer, Search, Plus, Trash2, Save, CheckCircle2, Wifi, WifiOff, ChevronDown, ExternalLink } from "lucide-react";
 import { toast } from "../lib/toast";
-import qz from "qz-tray";
 
 interface LabelConfig {
     labelWidthMm: number;
@@ -101,25 +100,30 @@ function buildZPL(products: LabelProduct[], config: LabelConfig): string {
     return zpl;
 }
 
-// ── QZ Tray helpers ───────────────────────────────────────────────────────────
-async function connectQZ(): Promise<void> {
+// ── QZ Tray helpers (dynamic import para no crashear el módulo) ───────────────
+async function getQZ() {
+    const mod = await import("qz-tray");
+    return (mod.default ?? mod) as any;
+}
+
+async function connectQZ(qz: any): Promise<void> {
     if (qz.websocket.isActive()) return;
-    qz.security.setCertificatePromise((_resolve: (cert: string) => void, reject: (err: unknown) => void) => {
-        reject("unsigned");
-    });
+    qz.security.setCertificatePromise((_resolve: any, reject: any) => reject("unsigned"));
     qz.security.setSignatureAlgorithm("SHA512");
     qz.security.setSignaturePromise(() => () => Promise.resolve(null));
     await qz.websocket.connect({ retries: 1, delay: 1 });
 }
 
 async function listPrinters(): Promise<string[]> {
-    await connectQZ();
+    const qz = await getQZ();
+    await connectQZ(qz);
     const result = await qz.printers.find();
     return Array.isArray(result) ? result : [result as string];
 }
 
 async function printZPL(printerName: string, zpl: string): Promise<void> {
-    await connectQZ();
+    const qz = await getQZ();
+    await connectQZ(qz);
     const cfg = qz.configs.create(printerName);
     await qz.print(cfg, [{ type: "raw", format: "plain", data: zpl }]);
 }
