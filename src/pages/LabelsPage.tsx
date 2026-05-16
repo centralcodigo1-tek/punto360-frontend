@@ -132,32 +132,46 @@ function buildZPL(products: LabelProduct[], config: LabelConfig): string {
     const labelW = dots(config.labelWidthMm);
     const labelH = dots(config.labelHeightMm);
     const margin = Math.max(4, dots(config.marginMm));
+    const cols   = config.columns;
+    const totalW = labelW * cols;
+
+    // Tamaños de fuente calculados una sola vez
+    const bcH     = Math.min(Math.max(18, dots(config.labelHeightMm * 0.34)), labelH - margin * 3 - 28);
+    const nameFs  = Math.min(Math.max(14, dots(config.labelHeightMm * 0.09)), 22);
+    const skuFs   = Math.min(Math.max(12, dots(config.labelHeightMm * 0.07)), 18);
+    const priceFs = Math.min(Math.max(16, dots(config.labelHeightMm * 0.11)), 26);
+
+    // Agrupar en filas según columnas configuradas
+    const rows: LabelProduct[][] = [];
+    for (let i = 0; i < products.length; i += cols) rows.push(products.slice(i, i + cols));
 
     let zpl = "";
-    for (const product of products) {
-        const bv = (product.barcode || product.sku).replace(/[^A-Za-z0-9\-\. \$\/\+\%]/g, "").trim();
-        let y = margin;
 
-        zpl += `^XA^PW${labelW}^LL${labelH}^CI28`;
+    for (const row of rows) {
+        // Un ^XA^XZ por fila — todas las columnas en un solo bloque
+        zpl += `^XA^PW${totalW}^LL${labelH}^CI28`;
 
-        if (config.showBarcode && bv) {
-            const bcH = Math.min(Math.max(18, dots(config.labelHeightMm * 0.34)), labelH - margin * 3 - 28);
-            zpl += `^FO${margin},${y}^BY1,2,${bcH}^BCN,,N,N^FD${bv}^FS`;
-            y += bcH + 3;
-        }
-        if (config.showName && y + 14 < labelH) {
-            const fs = Math.min(Math.max(14, dots(config.labelHeightMm * 0.09)), 22);
-            zpl += `^FO${margin},${y}^A0N,${fs},${fs}^FD${product.name.substring(0, 22).toUpperCase()}^FS`;
-            y += fs + 2;
-        }
-        if (config.showSku && y + 12 < labelH) {
-            const fs = Math.min(Math.max(12, dots(config.labelHeightMm * 0.07)), 18);
-            zpl += `^FO${margin},${y}^A0N,${fs},${fs}^FD${product.sku}^FS`;
-            y += fs + 2;
-        }
-        if (config.showPrice && y + 14 < labelH) {
-            const fs = Math.min(Math.max(16, dots(config.labelHeightMm * 0.11)), 26);
-            zpl += `^FO${margin},${y}^A0N,${fs},${fs}^FD${COP(product.sale_price).replace(/\s/g, "")}^FS`;
+        for (let c = 0; c < row.length; c++) {
+            const product = row[c];
+            const xBase = labelW * c + margin;
+            const bv = (product.barcode || product.sku).replace(/[^A-Za-z0-9\-\. \$\/\+\%]/g, "").trim();
+            let y = margin;
+
+            if (config.showBarcode && bv) {
+                zpl += `^FO${xBase},${y}^BY1,2,${bcH}^BCN,,N,N^FD${bv}^FS`;
+                y += bcH + 3;
+            }
+            if (config.showName && y + nameFs < labelH) {
+                zpl += `^FO${xBase},${y}^A0N,${nameFs},${nameFs}^FD${product.name.substring(0, 18).toUpperCase()}^FS`;
+                y += nameFs + 2;
+            }
+            if (config.showSku && y + skuFs < labelH) {
+                zpl += `^FO${xBase},${y}^A0N,${skuFs},${skuFs}^FD${product.sku}^FS`;
+                y += skuFs + 2;
+            }
+            if (config.showPrice && y + priceFs < labelH) {
+                zpl += `^FO${xBase},${y}^A0N,${priceFs},${priceFs}^FD${COP(product.sale_price).replace(/\s/g, "")}^FS`;
+            }
         }
 
         zpl += "^XZ";
