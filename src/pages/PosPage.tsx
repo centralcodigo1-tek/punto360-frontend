@@ -43,6 +43,8 @@ interface ShiftStats {
   transferSales: number;
   totalSales: number;
   ticketsCount: number;
+  totalConsignment?: number;
+  totalNegocio?: number;
 }
 
 const cop = (n: number) =>
@@ -564,6 +566,30 @@ export default function PosPage() {
                     </span>
                   </div>
                 </div>
+
+                {/* Desglose consignación */}
+                {shiftStats && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-app-card border border-app-border rounded-2xl p-4 flex flex-col gap-1.5 shadow">
+                      <div className="flex items-center gap-1.5 text-teal-400">
+                        <ShoppingCart size={15} />
+                        <span className="text-[9px] font-black uppercase tracking-widest">Ventas de la Tienda</span>
+                      </div>
+                      <span className="text-xl font-black text-app-text">
+                        {cop(shiftStats.totalNegocio ?? shiftStats.totalSales)}
+                      </span>
+                    </div>
+                    <div className="bg-app-card border border-app-border rounded-2xl p-4 flex flex-col gap-1.5 shadow">
+                      <div className="flex items-center gap-1.5 text-amber-400">
+                        <Layers size={15} />
+                        <span className="text-[9px] font-black uppercase tracking-widest">Ventas por Consención</span>
+                      </div>
+                      <span className="text-xl font-black text-app-text">
+                        {cop(shiftStats.totalConsignment ?? 0)}
+                      </span>
+                    </div>
+                  </div>
+                )}
 
                 <p className="text-center text-[10px] font-black uppercase tracking-widest text-app-text-muted opacity-40 mt-2">
                   Escanea o busca un producto para agregar al ticket
