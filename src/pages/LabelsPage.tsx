@@ -125,16 +125,51 @@ async function listPrinters(): Promise<string[]> {
     return Array.isArray(result) ? result : [result as string];
 }
 
-async function printViaQZ(printerName: string, html: string, pageWIn: number, pageHIn: number): Promise<void> {
+function buildZPL(products: LabelProduct[], config: LabelConfig): string {
+    const DPI = 203;
+    const dots = (mm: number) => Math.round(mm * DPI / 25.4);
+
+    const labelW = dots(config.labelWidthMm);
+    const labelH = dots(config.labelHeightMm);
+    const margin = Math.max(4, dots(config.marginMm));
+
+    let zpl = "";
+    for (const product of products) {
+        const bv = (product.barcode || product.sku).replace(/[^A-Za-z0-9\-\. \$\/\+\%]/g, "").trim();
+        let y = margin;
+
+        zpl += `^XA^PW${labelW}^LL${labelH}^CI28`;
+
+        if (config.showBarcode && bv) {
+            const bcH = Math.min(Math.max(18, dots(config.labelHeightMm * 0.34)), labelH - margin * 3 - 28);
+            zpl += `^FO${margin},${y}^BY1,2,${bcH}^BCN,,N,N^FD${bv}^FS`;
+            y += bcH + 3;
+        }
+        if (config.showName && y + 14 < labelH) {
+            const fs = Math.min(Math.max(14, dots(config.labelHeightMm * 0.09)), 22);
+            zpl += `^FO${margin},${y}^A0N,${fs},${fs}^FD${product.name.substring(0, 22).toUpperCase()}^FS`;
+            y += fs + 2;
+        }
+        if (config.showSku && y + 12 < labelH) {
+            const fs = Math.min(Math.max(12, dots(config.labelHeightMm * 0.07)), 18);
+            zpl += `^FO${margin},${y}^A0N,${fs},${fs}^FD${product.sku}^FS`;
+            y += fs + 2;
+        }
+        if (config.showPrice && y + 14 < labelH) {
+            const fs = Math.min(Math.max(16, dots(config.labelHeightMm * 0.11)), 26);
+            zpl += `^FO${margin},${y}^A0N,${fs},${fs}^FD${COP(product.sale_price).replace(/\s/g, "")}^FS`;
+        }
+
+        zpl += "^XZ";
+    }
+    return zpl;
+}
+
+async function printViaQZ(printerName: string, zpl: string): Promise<void> {
     const qz = await getQZ();
     await connectQZ(qz);
-    const cfg = qz.configs.create(printerName, {
-        size: { width: pageWIn, height: pageHIn },
-        units: "in",
-        colorType: "blackwhite",
-        margins: 0,
-    });
-    await qz.print(cfg, [{ type: "html", format: "plain", data: html }]);
+    const cfg = qz.configs.create(printerName);
+    await qz.print(cfg, [{ type: "raw", format: "plain", data: zpl }]);
 }
 
 // ── Components ────────────────────────────────────────────────────────────────
@@ -282,13 +317,10 @@ export default function LabelsPage() {
         const all: LabelProduct[] = [];
         for (const p of labelProducts) for (let i = 0; i < p.quantity; i++) all.push(p);
 
-        const html    = buildLabelHtml(all, config);
-        const pageWIn = mmToIn(config.pageWidthMm);
-        const pageHIn = mmToIn(config.labelHeightMm) + mmToIn(config.marginMm) * 2;
-
         if (config.printMode === "zpl" && config.printerName) {
             try {
-                await printViaQZ(config.printerName, html, pageWIn, pageHIn);
+                const zpl = buildZPL(all, config);
+                await printViaQZ(config.printerName, zpl);
                 toast.success(`${totalLabels} etiqueta${totalLabels !== 1 ? "s" : ""} enviada${totalLabels !== 1 ? "s" : ""} a ${config.printerName}`);
             } catch (err: any) {
                 toast.error("Error al imprimir: " + (err?.message ?? "QZ Tray no disponible"));
@@ -296,7 +328,8 @@ export default function LabelsPage() {
             return;
         }
 
-        // Fallback: browser print (abre popup sin cabeceras del navegador)
+        // Fallback: browser print
+        const html = buildLabelHtml(all, config);
         const win = window.open("", "_blank", "width=900,height=600");
         if (!win) { toast.error("Permite ventanas emergentes"); return; }
         win.document.write(html);
