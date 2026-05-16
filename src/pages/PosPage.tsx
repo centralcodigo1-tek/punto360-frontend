@@ -1141,11 +1141,11 @@ export default function PosPage() {
                   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Ticket</title><style>
                     @page{size:${pw} auto;margin:0;}
                     *{margin:0;padding:0;box-sizing:border-box;}
-                    body{font-family:'Courier New',monospace;font-size:12px;width:${pw};padding:4mm;}
+                    body{font-family:'Courier New',monospace;font-size:12px;width:${pw};padding:3mm 2mm;}
                     .center{text-align:center;}
                     .bold{font-weight:bold;}
                     .line{border-top:1px dashed #000;margin:5px 0;}
-                    .row{display:flex;justify-content:space-between;gap:4px;}
+                    .row{display:flex;justify-content:space-between;gap:4px;}.row span:last-child{white-space:nowrap;text-align:right;flex-shrink:0;}
                     .total{font-size:14px;font-weight:bold;}
                     .small{font-size:10px;}
                     .logo{font-size:9px;text-align:center;margin-top:6px;opacity:0.5;}
