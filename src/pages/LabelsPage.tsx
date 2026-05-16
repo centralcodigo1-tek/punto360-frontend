@@ -108,10 +108,14 @@ async function getQZ() {
 
 async function connectQZ(qz: any): Promise<void> {
     if (qz.websocket.isActive()) return;
-    qz.security.setCertificatePromise((_resolve: any, reject: any) => reject("unsigned"));
-    qz.security.setSignatureAlgorithm("SHA512");
-    qz.security.setSignaturePromise(() => () => Promise.resolve(null));
-    await qz.websocket.connect({ retries: 1, delay: 1 });
+    qz.security.setCertificatePromise((resolve: any) => resolve(""));
+    qz.security.setSignaturePromise(() => (resolve: any) => resolve(""));
+    await Promise.race([
+        qz.websocket.connect({ retries: 0, delay: 0 }),
+        new Promise((_, reject) =>
+            setTimeout(() => reject(new Error("QZ Tray no responde. Verifica que esté instalado y corriendo.")), 7000)
+        ),
+    ]);
 }
 
 async function listPrinters(): Promise<string[]> {
