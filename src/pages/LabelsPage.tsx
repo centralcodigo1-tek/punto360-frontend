@@ -55,49 +55,49 @@ const COP = (v: number) =>
     new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", minimumFractionDigits: 0 }).format(v);
 
 const mmToIn = (mm: number) => mm / 25.4;
-const mmToDots = (mm: number, dpi = 203) => Math.round((mm / 25.4) * dpi);
 
-// ── ZPL generator ─────────────────────────────────────────────────────────────
-function buildZPL(products: LabelProduct[], config: LabelConfig): string {
-    const w = mmToDots(config.labelWidthMm);
-    const h = mmToDots(config.labelHeightMm);
-    const margin = mmToDots(config.marginMm);
+// ── HTML generator (usado por browser Y por QZ Tray) ──────────────────────────
+function buildLabelHtml(products: LabelProduct[], config: LabelConfig): string {
+    const wIn   = mmToIn(config.labelWidthMm);
+    const hIn   = mmToIn(config.labelHeightMm);
+    const padIn = mmToIn(config.marginMm);
+    const pageWIn = mmToIn(config.pageWidthMm);
 
-    let zpl = "";
-    for (const product of products) {
-        const bv = (product.barcode || product.sku).replace(/[^A-Za-z0-9\-\.\ \$\/\+\%]/g, "");
-        let y = margin;
+    const rows: LabelProduct[][] = [];
+    for (let i = 0; i < products.length; i += config.columns) rows.push(products.slice(i, i + config.columns));
 
-        zpl += `^XA^PW${w}^LL${h}^CI28`;
+    const body = rows.map(row => `<div class="row">${
+        row.map(p => {
+            const bv = (p.barcode || p.sku).replace(/"/g, "&quot;");
+            return `<div class="label">${
+                config.showBarcode ? `<svg class="bc" data-v="${bv}"></svg>` : ""
+            }${config.showName    ? `<p class="name">${p.name}</p>` : ""
+            }${config.showSku     ? `<p class="sku">${p.sku}</p>`   : ""
+            }${config.showPrice   ? `<p class="price">${COP(p.sale_price)}</p>` : ""
+            }</div>`;
+        }).join("")
+    }</div>`).join("");
 
-        if (config.showBarcode && bv) {
-            const bcH = Math.max(20, mmToDots(config.labelHeightMm * 0.38));
-            zpl += `^FO${margin},${y}^BY1,2,${bcH}^BCN,,N,N^FD${bv}^FS`;
-            y += bcH + 4;
-        }
-
-        if (config.showName) {
-            const fontSize = Math.max(14, mmToDots(config.labelHeightMm * 0.1));
-            const name = product.name.substring(0, 28).toUpperCase();
-            zpl += `^FO${margin},${y}^A0N,${fontSize},${fontSize}^FD${name}^FS`;
-            y += fontSize + 2;
-        }
-
-        if (config.showSku) {
-            const fontSize = Math.max(12, mmToDots(config.labelHeightMm * 0.08));
-            zpl += `^FO${margin},${y}^A0N,${fontSize},${fontSize}^FD${product.sku}^FS`;
-            y += fontSize + 2;
-        }
-
-        if (config.showPrice) {
-            const fontSize = Math.max(16, mmToDots(config.labelHeightMm * 0.12));
-            const price = COP(product.sale_price).replace(/\s/g, "");
-            zpl += `^FO${margin},${y}^A0N,${fontSize},${fontSize}^FD${price}^FS`;
-        }
-
-        zpl += "^XZ";
-    }
-    return zpl;
+    return `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Etiquetas</title>
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+@page{size:${pageWIn}in ${hIn + padIn * 2}in;margin:0;}
+html,body{margin:0;padding:0;background:white;font-family:Arial,sans-serif;}
+.row{display:flex;width:${pageWIn}in;height:${hIn + padIn * 2}in;page-break-after:always;}
+.row:last-child{page-break-after:avoid;}
+.label{width:${wIn}in;height:${hIn}in;padding:${padIn}in;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;}
+.bc{max-width:100%;height:auto;}
+.name{font-size:6pt;font-weight:bold;text-align:center;line-height:1.1;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.sku{font-size:5pt;color:#555;text-align:center;}
+.price{font-size:7pt;font-weight:bold;text-align:center;}
+</style></head><body>${body}
+<script>window.onload=function(){
+  document.querySelectorAll('.bc').forEach(function(el){
+    try{JsBarcode(el,el.getAttribute('data-v'),{format:'CODE128',width:1.2,height:20,displayValue:false,margin:0});}catch(e){}
+  });
+  setTimeout(function(){window.print();},500);
+};</script></body></html>`;
 }
 
 // ── QZ Tray helpers (dynamic import para no crashear el módulo) ───────────────
@@ -125,11 +125,16 @@ async function listPrinters(): Promise<string[]> {
     return Array.isArray(result) ? result : [result as string];
 }
 
-async function printZPL(printerName: string, zpl: string): Promise<void> {
+async function printViaQZ(printerName: string, html: string, pageWIn: number, pageHIn: number): Promise<void> {
     const qz = await getQZ();
     await connectQZ(qz);
-    const cfg = qz.configs.create(printerName);
-    await qz.print(cfg, [{ type: "raw", format: "plain", data: zpl }]);
+    const cfg = qz.configs.create(printerName, {
+        size: { width: pageWIn, height: pageHIn },
+        units: "in",
+        colorType: "blackwhite",
+        margins: 0,
+    });
+    await qz.print(cfg, [{ type: "html", format: "plain", data: html }]);
 }
 
 // ── Components ────────────────────────────────────────────────────────────────
@@ -277,10 +282,13 @@ export default function LabelsPage() {
         const all: LabelProduct[] = [];
         for (const p of labelProducts) for (let i = 0; i < p.quantity; i++) all.push(p);
 
+        const html    = buildLabelHtml(all, config);
+        const pageWIn = mmToIn(config.pageWidthMm);
+        const pageHIn = mmToIn(config.labelHeightMm) + mmToIn(config.marginMm) * 2;
+
         if (config.printMode === "zpl" && config.printerName) {
             try {
-                const zpl = buildZPL(all, config);
-                await printZPL(config.printerName, zpl);
+                await printViaQZ(config.printerName, html, pageWIn, pageHIn);
                 toast.success(`${totalLabels} etiqueta${totalLabels !== 1 ? "s" : ""} enviada${totalLabels !== 1 ? "s" : ""} a ${config.printerName}`);
             } catch (err: any) {
                 toast.error("Error al imprimir: " + (err?.message ?? "QZ Tray no disponible"));
@@ -288,24 +296,10 @@ export default function LabelsPage() {
             return;
         }
 
-        // Fallback: browser print
-        const rows: LabelProduct[][] = [];
-        for (let i = 0; i < all.length; i += config.columns) rows.push(all.slice(i, i + config.columns));
-        const wIn = mmToIn(config.labelWidthMm);
-        const hIn = mmToIn(config.labelHeightMm);
-        const padIn = mmToIn(config.marginMm);
-        const pageWIn = mmToIn(config.pageWidthMm);
-        const pageHIn = hIn + padIn * 2;
-        const html = rows.map(row => `<div class="row">${row.map(p => {
-            const bv = (p.barcode || p.sku).replace(/"/g, "&quot;");
-            return `<div class="label">${config.showBarcode ? `<svg class="bc" data-v="${bv}"></svg>` : ""}${config.showName ? `<p class="name">${p.name}</p>` : ""}${config.showSku ? `<p class="sku">${p.sku}</p>` : ""}${config.showPrice ? `<p class="price">${COP(p.sale_price)}</p>` : ""}</div>`;
-        }).join("")}</div>`).join("");
+        // Fallback: browser print (abre popup sin cabeceras del navegador)
         const win = window.open("", "_blank", "width=900,height=600");
         if (!win) { toast.error("Permite ventanas emergentes"); return; }
-        win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Etiquetas</title>
-<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
-<style>*{margin:0;padding:0;box-sizing:border-box;}@page{size:${pageWIn}in ${pageHIn}in;margin:0;}body{margin:0;font-family:Arial,sans-serif;}.row{display:flex;width:${pageWIn}in;height:${pageHIn}in;page-break-after:always;}.row:last-child{page-break-after:avoid;}.label{width:${wIn}in;height:${hIn}in;padding:${padIn}in;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;}.bc{max-width:100%;height:auto;}.name{font-size:6pt;font-weight:bold;text-align:center;line-height:1.1;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}.sku{font-size:5pt;color:#555;text-align:center;}.price{font-size:7pt;font-weight:bold;text-align:center;}</style></head><body>${html}
-<script>window.onload=function(){document.querySelectorAll('.bc').forEach(function(el){try{JsBarcode(el,el.getAttribute('data-v'),{format:'CODE128',width:1.2,height:20,displayValue:false,margin:0});}catch(e){}});setTimeout(function(){window.print();},400);};</script></body></html>`);
+        win.document.write(html);
         win.document.close();
     };
 
