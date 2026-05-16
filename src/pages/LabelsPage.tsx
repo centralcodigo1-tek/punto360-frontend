@@ -3,8 +3,9 @@ import { useLocation } from "react-router-dom";
 import DashboardLayout from "../layouts/DashboardLayout";
 import { api } from "../api/axios";
 import JsBarcode from "jsbarcode";
-import { Tag, Settings, Printer, Search, Plus, Trash2, Save, CheckCircle2 } from "lucide-react";
+import { Tag, Settings, Printer, Search, Plus, Trash2, Save, CheckCircle2, Wifi, WifiOff, ChevronDown, ExternalLink } from "lucide-react";
 import { toast } from "../lib/toast";
+import qz from "qz-tray";
 
 interface LabelConfig {
     labelWidthMm: number;
@@ -16,18 +17,22 @@ interface LabelConfig {
     showSku: boolean;
     showPrice: boolean;
     showBarcode: boolean;
+    printerName: string;
+    printMode: "zpl" | "browser";
 }
 
 const DEFAULT_CONFIG: LabelConfig = {
-    labelWidthMm: 36.1,   // 1.42"
-    labelHeightMm: 19.1,  // 0.752"
+    labelWidthMm: 36.1,
+    labelHeightMm: 19.1,
     columns: 3,
-    marginMm: 1.3,        // 0.051"
-    pageWidthMm: 110.8,   // 4.362"
+    marginMm: 1.3,
+    pageWidthMm: 110.8,
     showName: true,
     showSku: true,
     showPrice: true,
     showBarcode: true,
+    printerName: "",
+    printMode: "browser",
 };
 
 const PRESETS = [
@@ -51,7 +56,75 @@ const COP = (v: number) =>
     new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", minimumFractionDigits: 0 }).format(v);
 
 const mmToIn = (mm: number) => mm / 25.4;
+const mmToDots = (mm: number, dpi = 203) => Math.round((mm / 25.4) * dpi);
 
+// ── ZPL generator ─────────────────────────────────────────────────────────────
+function buildZPL(products: LabelProduct[], config: LabelConfig): string {
+    const w = mmToDots(config.labelWidthMm);
+    const h = mmToDots(config.labelHeightMm);
+    const margin = mmToDots(config.marginMm);
+
+    let zpl = "";
+    for (const product of products) {
+        const bv = (product.barcode || product.sku).replace(/[^A-Za-z0-9\-\.\ \$\/\+\%]/g, "");
+        let y = margin;
+
+        zpl += `^XA^PW${w}^LL${h}^CI28`;
+
+        if (config.showBarcode && bv) {
+            const bcH = Math.max(20, mmToDots(config.labelHeightMm * 0.38));
+            zpl += `^FO${margin},${y}^BY1,2,${bcH}^BCN,,N,N^FD${bv}^FS`;
+            y += bcH + 4;
+        }
+
+        if (config.showName) {
+            const fontSize = Math.max(14, mmToDots(config.labelHeightMm * 0.1));
+            const name = product.name.substring(0, 28).toUpperCase();
+            zpl += `^FO${margin},${y}^A0N,${fontSize},${fontSize}^FD${name}^FS`;
+            y += fontSize + 2;
+        }
+
+        if (config.showSku) {
+            const fontSize = Math.max(12, mmToDots(config.labelHeightMm * 0.08));
+            zpl += `^FO${margin},${y}^A0N,${fontSize},${fontSize}^FD${product.sku}^FS`;
+            y += fontSize + 2;
+        }
+
+        if (config.showPrice) {
+            const fontSize = Math.max(16, mmToDots(config.labelHeightMm * 0.12));
+            const price = COP(product.sale_price).replace(/\s/g, "");
+            zpl += `^FO${margin},${y}^A0N,${fontSize},${fontSize}^FD${price}^FS`;
+        }
+
+        zpl += "^XZ";
+    }
+    return zpl;
+}
+
+// ── QZ Tray helpers ───────────────────────────────────────────────────────────
+async function connectQZ(): Promise<void> {
+    if (qz.websocket.isActive()) return;
+    qz.security.setCertificatePromise((_resolve: (cert: string) => void, reject: (err: unknown) => void) => {
+        reject("unsigned");
+    });
+    qz.security.setSignatureAlgorithm("SHA512");
+    qz.security.setSignaturePromise(() => () => Promise.resolve(null));
+    await qz.websocket.connect({ retries: 1, delay: 1 });
+}
+
+async function listPrinters(): Promise<string[]> {
+    await connectQZ();
+    const result = await qz.printers.find();
+    return Array.isArray(result) ? result : [result as string];
+}
+
+async function printZPL(printerName: string, zpl: string): Promise<void> {
+    await connectQZ();
+    const cfg = qz.configs.create(printerName);
+    await qz.print(cfg, [{ type: "raw", format: "plain", data: zpl }]);
+}
+
+// ── Components ────────────────────────────────────────────────────────────────
 function BarcodePreview({ value, height = 18 }: { value: string; height?: number }) {
     const ref = useRef<SVGSVGElement>(null);
     useEffect(() => {
@@ -78,6 +151,7 @@ function LabelCard({ product, config, scale = 3 }: { product: LabelProduct; conf
     );
 }
 
+// ── Main page ─────────────────────────────────────────────────────────────────
 export default function LabelsPage() {
     const location = useLocation();
     const [tab, setTab] = useState<"print" | "config">("print");
@@ -107,7 +181,6 @@ export default function LabelsPage() {
         toast.success("Valores restaurados");
     };
 
-    // Custom size inputs (mm) — local strings, sin interferencia con React
     const [customW, setCustomW] = useState(String(config.labelWidthMm));
     const [customH, setCustomH] = useState(String(config.labelHeightMm));
     const [customPage, setCustomPage] = useState(String(config.pageWidthMm));
@@ -128,7 +201,28 @@ export default function LabelsPage() {
         if (!isNaN(h) && h > 0) setCfg("labelHeightMm", h);
     };
 
-    // Products
+    // ── QZ Tray state ──────────────────────────────────────────────────────────
+    const [qzStatus, setQzStatus] = useState<"idle" | "connecting" | "connected" | "error">("idle");
+    const [availablePrinters, setAvailablePrinters] = useState<string[]>([]);
+    const [showPrinterDropdown, setShowPrinterDropdown] = useState(false);
+
+    const detectPrinters = async () => {
+        setQzStatus("connecting");
+        try {
+            const printers = await listPrinters();
+            setAvailablePrinters(printers);
+            setQzStatus("connected");
+            if (printers.length > 0 && !config.printerName) {
+                setCfg("printerName", printers[0]);
+            }
+            toast.success(`${printers.length} impresora${printers.length !== 1 ? "s" : ""} detectada${printers.length !== 1 ? "s" : ""}`);
+        } catch {
+            setQzStatus("error");
+            toast.error("No se pudo conectar a QZ Tray");
+        }
+    };
+
+    // ── Products ───────────────────────────────────────────────────────────────
     const [allProducts, setAllProducts] = useState<Product[]>([]);
     const [search, setSearch] = useState("");
     const [showDropdown, setShowDropdown] = useState(false);
@@ -143,7 +237,6 @@ export default function LabelsPage() {
         })));
     }, []);
 
-    // Precarga producto desde inventario
     useEffect(() => {
         const p = location.state?.product;
         if (p) {
@@ -169,10 +262,25 @@ export default function LabelsPage() {
         setLabelProducts(prev => prev.filter(p => p.id !== id));
     const totalLabels = labelProducts.reduce((s, p) => s + p.quantity, 0);
 
-    const handlePrint = () => {
+    // ── Print ──────────────────────────────────────────────────────────────────
+    const handlePrint = async () => {
         if (labelProducts.length === 0) { toast.error("Agrega al menos un producto"); return; }
+
         const all: LabelProduct[] = [];
         for (const p of labelProducts) for (let i = 0; i < p.quantity; i++) all.push(p);
+
+        if (config.printMode === "zpl" && config.printerName) {
+            try {
+                const zpl = buildZPL(all, config);
+                await printZPL(config.printerName, zpl);
+                toast.success(`${totalLabels} etiqueta${totalLabels !== 1 ? "s" : ""} enviada${totalLabels !== 1 ? "s" : ""} a ${config.printerName}`);
+            } catch (err: any) {
+                toast.error("Error al imprimir: " + (err?.message ?? "QZ Tray no disponible"));
+            }
+            return;
+        }
+
+        // Fallback: browser print
         const rows: LabelProduct[][] = [];
         for (let i = 0; i < all.length; i += config.columns) rows.push(all.slice(i, i + config.columns));
         const wIn = mmToIn(config.labelWidthMm);
@@ -195,6 +303,9 @@ export default function LabelsPage() {
 
     const btnCls = (active: boolean) =>
         `flex-1 py-2.5 px-3 rounded-xl border text-sm font-bold transition-all text-center cursor-pointer ${active ? "bg-violet-600 border-violet-500 text-white shadow-lg" : "border-app-border text-app-text-muted hover:text-app-text hover:border-violet-500/40"}`;
+
+    const qzConnected = qzStatus === "connected";
+    const qzError = qzStatus === "error";
 
     return (
         <DashboardLayout>
@@ -282,10 +393,14 @@ export default function LabelsPage() {
                                 )}
                             </div>
 
-                            <div className="bg-app-card border border-app-border rounded-2xl p-4 text-xs">
-                                <p className="font-bold text-app-text-muted uppercase tracking-widest mb-2">Plantilla activa</p>
+                            <div className="bg-app-card border border-app-border rounded-2xl p-4 text-xs flex flex-col gap-1.5">
+                                <p className="font-bold text-app-text-muted uppercase tracking-widest">Plantilla activa</p>
                                 <p className="text-app-text font-bold">{config.labelWidthMm} × {config.labelHeightMm} mm · {config.columns} col.</p>
-                                <button onClick={() => setTab("config")} className="mt-2 text-violet-400 hover:text-violet-300 flex items-center gap-1"><Settings size={11} /> Cambiar configuración</button>
+                                {config.printMode === "zpl" && config.printerName
+                                    ? <p className="text-emerald-400 font-bold flex items-center gap-1"><Wifi size={11} /> ZPL → {config.printerName}</p>
+                                    : <p className="text-amber-400 font-bold">Modo: navegador</p>
+                                }
+                                <button onClick={() => setTab("config")} className="mt-1 text-violet-400 hover:text-violet-300 flex items-center gap-1"><Settings size={11} /> Cambiar configuración</button>
                             </div>
                         </div>
 
@@ -324,6 +439,84 @@ export default function LabelsPage() {
                 {tab === "config" && (
                     <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
                         <div className="bg-app-card border border-app-border rounded-2xl p-6 flex flex-col gap-6">
+
+                            {/* Modo de impresión */}
+                            <div>
+                                <p className="text-xs font-bold text-app-text-muted uppercase tracking-widest mb-3">Modo de impresión</p>
+                                <div className="flex gap-2 mb-4">
+                                    <button onClick={() => setCfg("printMode", "zpl")}
+                                        className={`flex-1 py-3 px-3 rounded-xl border text-sm font-bold transition-all flex flex-col items-center gap-1 ${config.printMode === "zpl" ? "bg-emerald-600/20 border-emerald-500/50 text-emerald-300" : "border-app-border text-app-text-muted hover:border-emerald-500/30"}`}>
+                                        <Wifi size={16} />
+                                        ZPL directo
+                                        <span className="text-[10px] opacity-70 font-normal">Requiere QZ Tray</span>
+                                    </button>
+                                    <button onClick={() => setCfg("printMode", "browser")}
+                                        className={`flex-1 py-3 px-3 rounded-xl border text-sm font-bold transition-all flex flex-col items-center gap-1 ${config.printMode === "browser" ? "bg-violet-600/20 border-violet-500/50 text-violet-300" : "border-app-border text-app-text-muted hover:border-violet-500/30"}`}>
+                                        <Printer size={16} />
+                                        Navegador
+                                        <span className="text-[10px] opacity-70 font-normal">Sin instalación</span>
+                                    </button>
+                                </div>
+
+                                {/* Panel QZ Tray */}
+                                {config.printMode === "zpl" && (
+                                    <div className="bg-app-bg border border-app-border rounded-xl p-4 flex flex-col gap-3">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                                {qzConnected
+                                                    ? <Wifi size={14} className="text-emerald-400" />
+                                                    : qzError
+                                                    ? <WifiOff size={14} className="text-rose-400" />
+                                                    : <WifiOff size={14} className="text-app-text-muted" />}
+                                                <span className="text-xs font-bold text-app-text">
+                                                    {qzConnected ? "QZ Tray conectado" : qzError ? "QZ Tray no disponible" : "QZ Tray no conectado"}
+                                                </span>
+                                            </div>
+                                            <button onClick={detectPrinters} disabled={qzStatus === "connecting"}
+                                                className="px-3 py-1.5 bg-emerald-600/20 border border-emerald-500/30 text-emerald-400 text-xs font-bold rounded-lg hover:bg-emerald-600/30 transition-colors disabled:opacity-50">
+                                                {qzStatus === "connecting" ? "Conectando..." : "Detectar impresoras"}
+                                            </button>
+                                        </div>
+
+                                        {qzError && (
+                                            <div className="bg-rose-500/10 border border-rose-500/20 rounded-lg p-3 text-xs text-rose-300">
+                                                <p className="font-bold mb-1">QZ Tray no está instalado o no está corriendo</p>
+                                                <a href="https://qz.io/download" target="_blank" rel="noreferrer"
+                                                    className="flex items-center gap-1 text-rose-400 hover:text-rose-300 underline">
+                                                    <ExternalLink size={11} /> Descargar QZ Tray (gratuito)
+                                                </a>
+                                                <p className="mt-1 opacity-70">Instálalo y ejecútalo, luego haz clic en "Detectar impresoras"</p>
+                                            </div>
+                                        )}
+
+                                        {/* Selector de impresora */}
+                                        {availablePrinters.length > 0 && (
+                                            <div className="relative">
+                                                <p className="text-[10px] text-app-text-muted mb-1 font-bold uppercase tracking-wider">Impresora seleccionada</p>
+                                                <button onClick={() => setShowPrinterDropdown(v => !v)}
+                                                    className="w-full flex items-center justify-between bg-app-card border border-app-border rounded-xl px-4 py-2.5 text-app-text text-sm hover:border-violet-500/40 transition-colors">
+                                                    <span className="truncate font-bold">{config.printerName || "Seleccionar impresora..."}</span>
+                                                    <ChevronDown size={14} className="text-app-text-muted shrink-0 ml-2" />
+                                                </button>
+                                                {showPrinterDropdown && (
+                                                    <div className="absolute top-full left-0 right-0 mt-1 bg-app-bg border border-app-border rounded-xl shadow-2xl z-20 overflow-hidden max-h-48 overflow-y-auto">
+                                                        {availablePrinters.map(p => (
+                                                            <button key={p} onClick={() => { setCfg("printerName", p); setShowPrinterDropdown(false); }}
+                                                                className={`w-full px-4 py-2.5 text-left text-sm transition-colors hover:bg-app-card ${config.printerName === p ? "text-violet-400 font-bold" : "text-app-text"}`}>
+                                                                {p}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+
+                                        {!qzConnected && !qzError && (
+                                            <p className="text-xs text-app-text-muted">Haz clic en "Detectar impresoras" para conectar con QZ Tray</p>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
 
                             {/* Tamaño de etiqueta */}
                             <div>
