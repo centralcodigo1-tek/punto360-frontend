@@ -377,8 +377,8 @@ export default function CashRegisterPage() {
                     { label: "Ventas Efectivo", value: liveStats ? formatCOP(liveStats.cashSales) : "—", icon: <DollarSign size={18}/>, color: "from-emerald-600 to-teal-500", show: true },
                     { label: "Gastos de Caja", value: formatCOP(totalExpenses), icon: <TrendingDown size={18}/>, color: "from-rose-600 to-pink-500", show: true },
                     { label: "Total Ventas Turno", value: liveStats ? formatCOP(liveStats.totalSales) : "—", sub: liveStats ? `${liveStats.ticketsCount} tickets` : "", icon: <ClipboardList size={18}/>, color: "from-violet-600 to-purple-500", show: canViewFinancials },
-                    { label: "Ventas de la Tienda", value: liveStats ? formatCOP(liveStats.totalNegocio) : "—", icon: <DollarSign size={18}/>, color: "from-teal-600 to-cyan-500", show: canViewFinancials && (liveStats?.totalConsignment ?? 0) > 0 },
-                    { label: "Ventas por Consención", value: liveStats ? formatCOP(liveStats.totalConsignment) : "—", icon: <ClipboardList size={18}/>, color: "from-amber-600 to-orange-500", show: canViewFinancials && (liveStats?.totalConsignment ?? 0) > 0 },
+                    { label: "Ventas de la Tienda", value: liveStats ? formatCOP(liveStats.totalNegocio ?? liveStats.totalSales) : "—", icon: <DollarSign size={18}/>, color: "from-teal-600 to-cyan-500", show: canViewFinancials && liveStats !== null },
+                    { label: "Ventas por Consención", value: liveStats ? formatCOP(liveStats.totalConsignment ?? 0) : "—", icon: <ClipboardList size={18}/>, color: "from-amber-600 to-orange-500", show: canViewFinancials && liveStats !== null },
                 ].filter(c => c.show).map(c => (
                     <div key={c.label} className="bg-app-card border border-app-border rounded-2xl p-4 backdrop-blur-md">
                         <div className="flex items-center justify-between mb-3">
