@@ -182,7 +182,11 @@ export default function CustomersPage() {
             list = list.filter(p => p.customers.name.toLowerCase().includes(q) || p.notes?.toLowerCase().includes(q));
         }
         if (historyDateFilter) {
-            list = list.filter(p => p.created_at.startsWith(historyDateFilter));
+            list = list.filter(p => {
+                // Convertir a fecha local (no UTC) para evitar desfase de zona horaria
+                const local = new Date(p.created_at).toLocaleDateString("en-CA"); // YYYY-MM-DD en hora local
+                return local === historyDateFilter;
+            });
         }
         return list;
     }, [globalPayments, historySearch, historyDateFilter]);
