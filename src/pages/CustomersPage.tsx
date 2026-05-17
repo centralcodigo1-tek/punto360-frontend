@@ -5,7 +5,7 @@ import { api } from "../api/axios";
 import { useAuth } from "../auth/AuthContext";
 import {
     Users, Search, Plus, ChevronDown, ChevronUp, Phone, Mail,
-    CreditCard, Wallet, Receipt, Loader2, CheckCircle2, Edit2, X, History, Filter
+    CreditCard, Wallet, Receipt, Loader2, CheckCircle2, Edit2, X, History
 } from "lucide-react";
 
 const cop = (v: number) => new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", minimumFractionDigits: 0 }).format(v);
