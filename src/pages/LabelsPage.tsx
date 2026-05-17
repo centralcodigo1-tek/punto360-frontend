@@ -18,6 +18,7 @@ interface LabelConfig {
     showBarcode: boolean;
     printerName: string;
     printMode: "zpl" | "browser";
+    dpi: 203 | 300;
 }
 
 const DEFAULT_CONFIG: LabelConfig = {
@@ -32,6 +33,7 @@ const DEFAULT_CONFIG: LabelConfig = {
     showBarcode: true,
     printerName: "",
     printMode: "browser",
+    dpi: 203,
 };
 
 const PRESETS = [
@@ -70,8 +72,8 @@ function buildLabelHtml(products: LabelProduct[], config: LabelConfig): string {
         row.map(p => {
             const bv = (p.barcode || p.sku).replace(/"/g, "&quot;");
             return `<div class="label">${
-                config.showBarcode ? `<svg class="bc" data-v="${bv}"></svg>` : ""
-            }${config.showName    ? `<p class="name">${p.name}</p>` : ""
+                config.showName    ? `<p class="name">${p.name}</p>` : ""
+            }${config.showBarcode ? `<svg class="bc" data-v="${bv}"></svg>` : ""
             }${config.showSku     ? `<p class="sku">${p.sku}</p>`   : ""
             }${config.showPrice   ? `<p class="price">${COP(p.sale_price)}</p>` : ""
             }</div>`;
@@ -126,52 +128,61 @@ async function listPrinters(): Promise<string[]> {
 }
 
 function buildZPL(products: LabelProduct[], config: LabelConfig): string {
-    const DPI = 203;
+    const DPI = config.dpi ?? 203;
     const dots = (mm: number) => Math.round(mm * DPI / 25.4);
 
     const labelW = dots(config.labelWidthMm);
     const labelH = dots(config.labelHeightMm);
     const margin = Math.max(4, dots(config.marginMm));
-    const cols   = config.columns;
-    const totalW = labelW * cols;
+    const gap = 3;
 
-    // Tamaños de fuente calculados una sola vez
-    const bcH     = Math.min(Math.max(18, dots(config.labelHeightMm * 0.34)), labelH - margin * 3 - 28);
-    const nameFs  = Math.min(Math.max(14, dots(config.labelHeightMm * 0.09)), 22);
-    const skuFs   = Math.min(Math.max(12, dots(config.labelHeightMm * 0.07)), 18);
-    const priceFs = Math.min(Math.max(16, dots(config.labelHeightMm * 0.11)), 26);
+    // Fuentes más grandes
+    const nameFs  = Math.max(18, Math.min(dots(config.labelHeightMm * 0.13), 28));
+    const priceFs = Math.max(20, Math.min(dots(config.labelHeightMm * 0.15), 32));
+    // La línea de interpretación del barcode sustituye al campo SKU
+    const interpH = config.showSku ? 24 : 0;
 
-    // Agrupar en filas según columnas configuradas
-    const rows: LabelProduct[][] = [];
-    for (let i = 0; i < products.length; i += cols) rows.push(products.slice(i, i + cols));
+    // Ancho interior para ^FB (centrado de texto)
+    const innerW = labelW - margin * 2;
+
+    // Altura de barras = espacio total menos lo que ocupan nombre, precio e interpretación
+    const usedH =
+        (config.showName ? nameFs + gap : 0) +
+        (config.showPrice ? priceFs + gap : 0) +
+        (config.showBarcode ? interpH + gap : 0) +
+        margin * 2 + 4;
+    const bcH = Math.max(20, labelH - usedH);
 
     let zpl = "";
 
-    for (const row of rows) {
-        // Un ^XA^XZ por fila — todas las columnas en un solo bloque
-        zpl += `^XA^PW${totalW}^LL${labelH}^CI28`;
+    for (const product of products) {
+        const bv = (product.barcode || product.sku).replace(/[^A-Za-z0-9\-\. \$\/\+\%]/g, "").trim();
+        let y = margin;
 
-        for (let c = 0; c < row.length; c++) {
-            const product = row[c];
-            const xBase = labelW * c + margin;
-            const bv = (product.barcode || product.sku).replace(/[^A-Za-z0-9\-\. \$\/\+\%]/g, "").trim();
-            let y = margin;
+        // ^LH0,0: resetea Label Home al origen físico de cada columna.
+        // La impresora avanza columnas automáticamente entre ^XA^XZ.
+        zpl += `^XA^LH0,0^PW${labelW}^LL${labelH}^CI28`;
 
-            if (config.showBarcode && bv) {
-                zpl += `^FO${xBase},${y}^BY1,2,${bcH}^BCN,,N,N^FD${bv}^FS`;
-                y += bcH + 3;
-            }
-            if (config.showName && y + nameFs < labelH) {
-                zpl += `^FO${xBase},${y}^A0N,${nameFs},${nameFs}^FD${product.name.substring(0, 18).toUpperCase()}^FS`;
-                y += nameFs + 2;
-            }
-            if (config.showSku && y + skuFs < labelH) {
-                zpl += `^FO${xBase},${y}^A0N,${skuFs},${skuFs}^FD${product.sku}^FS`;
-                y += skuFs + 2;
-            }
-            if (config.showPrice && y + priceFs < labelH) {
-                zpl += `^FO${xBase},${y}^A0N,${priceFs},${priceFs}^FD${COP(product.sale_price).replace(/\s/g, "")}^FS`;
-            }
+        // 1. Nombre arriba — centrado con ^FB
+        if (config.showName) {
+            zpl += `^FO${margin},${y}^A0N,${nameFs},${nameFs}^FB${innerW},1,0,C^FD${product.name.substring(0, 22).toUpperCase()}^FS`;
+            y += nameFs + gap;
+        }
+
+        // 2. Código de barras (la línea de interpretación imprime el SKU debajo de las barras)
+        if (config.showBarcode && bv) {
+            const interp = config.showSku ? "Y" : "N";
+            zpl += `^FO${margin},${y}^BY1,2,${bcH}^BCN,,${interp},N^FD${bv}^FS`;
+            y += bcH + interpH + gap;
+        } else if (config.showSku) {
+            // Sin barcode: SKU como texto centrado
+            zpl += `^FO${margin},${y}^A0N,20,20^FB${innerW},1,0,C^FD${product.sku}^FS`;
+            y += 20 + gap;
+        }
+
+        // 3. Precio abajo — centrado con ^FB
+        if (config.showPrice && y + priceFs <= labelH) {
+            zpl += `^FO${margin},${y}^A0N,${priceFs},${priceFs}^FB${innerW},1,0,C^FD${COP(product.sale_price).replace(/\s/g, "")}^FS`;
         }
 
         zpl += "^XZ";
@@ -204,10 +215,10 @@ function LabelCard({ product, config, scale = 3 }: { product: LabelProduct; conf
     const bv = product.barcode || product.sku;
     return (
         <div style={{ width: w, height: h, padding: pad, boxSizing: "border-box" }}
-            className="bg-white border border-gray-300 flex flex-col items-center justify-center overflow-hidden shrink-0">
-            {config.showBarcode && <div style={{ maxWidth: "100%", lineHeight: 0 }}><BarcodePreview value={bv} height={Math.floor(h * 0.38)} /></div>}
+            className="bg-white border border-gray-300 flex flex-col items-center justify-start overflow-hidden shrink-0 gap-0.5">
             {config.showName && <p style={{ fontSize: Math.max(6, h * 0.08), margin: 0, fontWeight: "bold", textAlign: "center", lineHeight: 1.1, maxWidth: "100%", overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{product.name}</p>}
-            {config.showSku && <p style={{ fontSize: Math.max(5, h * 0.065), margin: 0, color: "#666", textAlign: "center" }}>{product.sku}</p>}
+            {config.showBarcode && <div style={{ maxWidth: "100%", lineHeight: 0, flex: 1 }}><BarcodePreview value={bv} height={Math.floor(h * 0.42)} /></div>}
+            {config.showSku && <p style={{ fontSize: Math.max(5, h * 0.065), margin: 0, color: "#333", textAlign: "center", fontWeight: "bold" }}>{product.sku}</p>}
             {config.showPrice && <p style={{ fontSize: Math.max(7, h * 0.09), margin: 0, fontWeight: "bold", textAlign: "center" }}>{COP(product.sale_price)}</p>}
         </div>
     );
@@ -438,6 +449,19 @@ export default function LabelsPage() {
                                         <button onClick={handlePrint} className="w-full py-3 rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 text-white font-bold text-sm hover:opacity-90 flex items-center justify-center gap-2">
                                             <Printer size={16} /> Imprimir {totalLabels} etiqueta{totalLabels !== 1 ? "s" : ""}
                                         </button>
+                                        {config.printMode === "zpl" && (
+                                            <button
+                                                onClick={() => {
+                                                    const all: LabelProduct[] = [];
+                                                    for (const p of labelProducts) for (let i = 0; i < p.quantity; i++) all.push(p);
+                                                    const zpl = buildZPL(all, config);
+                                                    navigator.clipboard.writeText(zpl);
+                                                    toast.success("ZPL copiado al portapapeles");
+                                                }}
+                                                className="w-full py-2 rounded-xl border border-app-border text-app-text-muted text-xs hover:text-app-text transition-colors">
+                                                Copiar ZPL (debug)
+                                            </button>
+                                        )}
                                     </>
                                 )}
                             </div>
@@ -666,6 +690,21 @@ export default function LabelsPage() {
                                     <span className="text-xs text-app-text-muted">mm</span>
                                 </div>
                             </div>
+
+                            {/* DPI */}
+                            {config.printMode === "zpl" && (
+                                <div>
+                                    <p className="text-xs font-bold text-app-text-muted uppercase tracking-widest mb-3">DPI de la impresora</p>
+                                    <div className="flex gap-2">
+                                        {([203, 300] as const).map(d => (
+                                            <button key={d} onClick={() => setCfg("dpi", d)} className={btnCls(config.dpi === d)}>
+                                                {d} DPI
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <p className="text-[10px] text-app-text-muted mt-1">SAT TT448-2 usa 203 DPI</p>
+                                </div>
+                            )}
 
                             {/* Contenido */}
                             <div>
