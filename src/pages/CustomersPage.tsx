@@ -5,7 +5,7 @@ import { api } from "../api/axios";
 import { useAuth } from "../auth/AuthContext";
 import {
     Users, Search, Plus, ChevronDown, ChevronUp, Phone, Mail,
-    CreditCard, Wallet, Receipt, Loader2, CheckCircle2, Edit2, X
+    CreditCard, Wallet, Receipt, Loader2, CheckCircle2, Edit2, X, History, Filter
 } from "lucide-react";
 
 const cop = (v: number) => new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", minimumFractionDigits: 0 }).format(v);
@@ -27,20 +27,34 @@ interface Payment {
     id: string; amount: string; payment_method: string; notes?: string;
     created_at: string; users?: { name: string };
 }
+interface GlobalPayment {
+    id: string; amount: string; payment_method: string; notes?: string;
+    created_at: string;
+    customers: { id: string; name: string };
+    users?: { name: string };
+}
 
 export default function CustomersPage() {
     const { hasPermission, user } = useAuth();
     const isAdmin = user?.role === "ADMIN";
     const canManage = hasPermission("customers.manage") || isAdmin;
     const canAddPayment = canManage || hasPermission("pos.access");
-    // Ver deuda/balance: cualquiera que pueda cobrar lo necesita ver
     const canViewBalance = canAddPayment;
+
+    // Tab principal: clientes | historial
+    const [mainTab, setMainTab] = useState<"customers" | "history">("customers");
 
     const [customers, setCustomers] = useState<Customer[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [search, setSearch] = useState("");
     const [selectedId, setSelectedId] = useState<string | null>(null);
     const [expandedSection, setExpandedSection] = useState<"invoices" | "payments">("invoices");
+
+    // Historial global de abonos
+    const [globalPayments, setGlobalPayments] = useState<GlobalPayment[]>([]);
+    const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+    const [historySearch, setHistorySearch] = useState("");
+    const [historyDateFilter, setHistoryDateFilter] = useState("");
 
     const [sales, setSales] = useState<Sale[]>([]);
     const [payments, setPayments] = useState<Payment[]>([]);
@@ -60,6 +74,19 @@ export default function CustomersPage() {
     const [isAddingPayment, setIsAddingPayment] = useState(false);
 
     useEffect(() => { fetchCustomers(); }, []);
+
+    const fetchGlobalPayments = async () => {
+        setIsLoadingHistory(true);
+        try {
+            const res = await api.get("/customers/payments/all");
+            setGlobalPayments(res.data);
+        } catch { setGlobalPayments([]); }
+        finally { setIsLoadingHistory(false); }
+    };
+
+    useEffect(() => {
+        if (mainTab === "history" && globalPayments.length === 0) fetchGlobalPayments();
+    }, [mainTab]);
 
     const fetchCustomers = async () => {
         setIsLoading(true);
@@ -148,6 +175,22 @@ export default function CustomersPage() {
         return customers.filter(c => c.name.toLowerCase().includes(q) || c.phone?.includes(q) || c.email?.toLowerCase().includes(q));
     }, [customers, search]);
 
+    const filteredHistory = useMemo(() => {
+        let list = globalPayments;
+        if (historySearch) {
+            const q = historySearch.toLowerCase();
+            list = list.filter(p => p.customers.name.toLowerCase().includes(q) || p.notes?.toLowerCase().includes(q));
+        }
+        if (historyDateFilter) {
+            list = list.filter(p => p.created_at.startsWith(historyDateFilter));
+        }
+        return list;
+    }, [globalPayments, historySearch, historyDateFilter]);
+
+    const historyTotal = useMemo(() =>
+        filteredHistory.filter(p => p.payment_method === "CASH").reduce((s, p) => s + Number(p.amount), 0),
+        [filteredHistory]);
+
     const selected = customers.find(c => c.id === selectedId);
 
     return (
@@ -159,14 +202,128 @@ export default function CustomersPage() {
                     </h1>
                     <p className="text-app-text-muted mt-1 text-sm">Gestión de clientes y cuentas por cobrar.</p>
                 </div>
-                {canManage && (
+                {canManage && mainTab === "customers" && (
                     <button onClick={openNew} className="flex items-center gap-2 px-5 py-2.5 bg-cyan-500 hover:bg-cyan-400 text-white font-bold rounded-xl shadow-lg shadow-cyan-900/20 transition-all text-sm">
                         <Plus size={16} /> Nuevo Cliente
                     </button>
                 )}
             </div>
 
-            <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
+            {/* Tabs principales */}
+            <div className="flex gap-1 bg-app-card border border-app-border rounded-xl p-1 w-fit mb-6">
+                <button onClick={() => setMainTab("customers")}
+                    className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-bold transition-all ${mainTab === "customers" ? "bg-cyan-600 text-white" : "text-app-text-muted hover:text-app-text"}`}>
+                    <Users size={14} /> Clientes
+                </button>
+                <button onClick={() => setMainTab("history")}
+                    className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-bold transition-all ${mainTab === "history" ? "bg-emerald-600 text-white" : "text-app-text-muted hover:text-app-text"}`}>
+                    <History size={14} /> Historial de Abonos
+                </button>
+            </div>
+
+            {/* ── HISTORIAL GLOBAL DE ABONOS ── */}
+            {mainTab === "history" && (
+                <div className="flex flex-col gap-4">
+                    {/* Filtros */}
+                    <div className="bg-app-card border border-app-border rounded-2xl p-4 flex flex-wrap gap-3 items-end">
+                        <div className="flex-1 min-w-48">
+                            <p className="text-[10px] font-black text-app-text-muted uppercase tracking-widest mb-1">Buscar cliente</p>
+                            <div className="relative">
+                                <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-app-text-muted" />
+                                <input type="text" placeholder="Nombre del cliente..." value={historySearch}
+                                    onChange={e => setHistorySearch(e.target.value)}
+                                    className="w-full bg-app-bg border border-app-border rounded-xl pl-8 pr-4 py-2 text-app-text text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/40" />
+                            </div>
+                        </div>
+                        <div>
+                            <p className="text-[10px] font-black text-app-text-muted uppercase tracking-widest mb-1">Fecha</p>
+                            <input type="date" value={historyDateFilter} onChange={e => setHistoryDateFilter(e.target.value)}
+                                className="bg-app-bg border border-app-border rounded-xl px-3 py-2 text-app-text text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/40" />
+                        </div>
+                        {(historySearch || historyDateFilter) && (
+                            <button onClick={() => { setHistorySearch(""); setHistoryDateFilter(""); }}
+                                className="px-3 py-2 text-xs text-app-text-muted hover:text-rose-400 border border-app-border rounded-xl transition-colors flex items-center gap-1">
+                                <X size={12} /> Limpiar
+                            </button>
+                        )}
+                        <button onClick={fetchGlobalPayments} className="px-3 py-2 text-xs text-emerald-400 border border-emerald-500/30 bg-emerald-500/10 rounded-xl hover:bg-emerald-500/20 transition-colors">
+                            Actualizar
+                        </button>
+                        {canViewBalance && (
+                            <div className="ml-auto text-right">
+                                <p className="text-[10px] text-app-text-muted uppercase tracking-widest">Total efectivo filtrado</p>
+                                <p className="text-xl font-black text-emerald-400">{cop(historyTotal)}</p>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Tabla de abonos */}
+                    <div className="bg-app-card border border-app-border rounded-2xl overflow-hidden shadow-xl">
+                        <div className="grid grid-cols-12 px-5 py-3 border-b border-app-border bg-app-bg text-[10px] font-black text-app-text-muted uppercase tracking-widest">
+                            <span className="col-span-3">Cliente</span>
+                            <span className="col-span-2">Fecha</span>
+                            <span className="col-span-2">Hora</span>
+                            <span className="col-span-2">Método</span>
+                            <span className="col-span-1">Cajero</span>
+                            <span className="col-span-2 text-right">Monto</span>
+                        </div>
+
+                        {isLoadingHistory ? (
+                            <div className="flex justify-center items-center py-16 gap-2 text-app-text-muted">
+                                <Loader2 size={20} className="animate-spin" /> Cargando...
+                            </div>
+                        ) : filteredHistory.length === 0 ? (
+                            <div className="text-center py-16 text-app-text-muted text-sm opacity-40">
+                                <History size={36} className="mx-auto mb-3 opacity-30" />
+                                No hay abonos registrados.
+                            </div>
+                        ) : (
+                            <div className="divide-y divide-app-border max-h-[600px] overflow-y-auto custom-scrollbar">
+                                {filteredHistory.map(p => {
+                                    const date = new Date(p.created_at);
+                                    const isCash = p.payment_method === "CASH";
+                                    const isTransfer = p.payment_method === "TRANSFER";
+                                    return (
+                                        <div key={p.id} className="grid grid-cols-12 px-5 py-3.5 items-center hover:bg-app-bg/50 transition-colors">
+                                            <div className="col-span-3">
+                                                <button onClick={() => { setMainTab("customers"); selectCustomer(p.customers.id); }}
+                                                    className="text-sm font-bold text-cyan-400 hover:text-cyan-300 truncate text-left">
+                                                    {p.customers.name}
+                                                </button>
+                                                {p.notes && <p className="text-[10px] text-app-text-muted truncate">{p.notes}</p>}
+                                            </div>
+                                            <span className="col-span-2 text-xs text-app-text">
+                                                {date.toLocaleDateString("es-CO", { dateStyle: "short" })}
+                                            </span>
+                                            <span className="col-span-2 text-xs text-app-text-muted">
+                                                {date.toLocaleTimeString("es-CO", { timeStyle: "short" })}
+                                            </span>
+                                            <span className="col-span-2">
+                                                <span className={`text-[10px] font-black px-2 py-0.5 rounded uppercase ${isCash ? "bg-emerald-500/10 text-emerald-400" : isTransfer ? "bg-blue-500/10 text-blue-400" : "bg-violet-500/10 text-violet-400"}`}>
+                                                    {isCash ? "Efectivo" : isTransfer ? "Transf." : "Tarjeta"}
+                                                </span>
+                                            </span>
+                                            <span className="col-span-1 text-[11px] text-app-text-muted truncate">{p.users?.name?.split(" ")[0] || "—"}</span>
+                                            <span className="col-span-2 text-sm font-black text-emerald-400 text-right">{cop(Number(p.amount))}</span>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+
+                        {filteredHistory.length > 0 && (
+                            <div className="px-5 py-3 border-t border-app-border bg-app-bg flex justify-between items-center">
+                                <span className="text-xs text-app-text-muted">{filteredHistory.length} abono{filteredHistory.length !== 1 ? "s" : ""}</span>
+                                {canViewBalance && (
+                                    <span className="text-sm font-black text-emerald-400">Total: {cop(filteredHistory.reduce((s, p) => s + Number(p.amount), 0))}</span>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {mainTab === "customers" && <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
 
                 {/* ── LISTA ── */}
                 <div className="xl:col-span-2 bg-app-card border border-app-border rounded-2xl overflow-hidden shadow-xl flex flex-col">
@@ -360,7 +517,7 @@ export default function CustomersPage() {
                         </>
                     )}
                 </div>
-            </div>
+            </div>}
 
             {/* ── Modal Crear/Editar Cliente ── */}
             {showForm && (
