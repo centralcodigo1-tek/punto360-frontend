@@ -147,7 +147,7 @@ html,body{margin:0;padding:0;background:white;font-family:Arial,sans-serif;width
 .row:last-child{page-break-after:avoid;}
 .label{width:${wIn}in;height:${hIn}in;padding:${padIn}in;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;gap:1px;}
 img{max-width:100%;height:auto;display:block;}
-.name{font-size:${namePt}pt;font-weight:bold;text-align:center;line-height:1.1;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.name{font-size:${namePt}pt;font-weight:bold;text-align:center;line-height:1.1;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-transform:uppercase;}
 .sku{font-size:${skuPt}pt;color:#333;text-align:center;font-weight:bold;}
 .price{font-size:${pricePt}pt;font-weight:bold;text-align:center;}
 </style></head><body>${body}${printScript}</body></html>`;
