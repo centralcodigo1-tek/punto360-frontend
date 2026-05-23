@@ -108,7 +108,7 @@ html,body{margin:0;padding:0;background:white;font-family:Arial,sans-serif;width
 <script>window.onload=function(){
   document.querySelectorAll('.bc').forEach(function(el){
     var h=parseInt(el.getAttribute('data-h'))||20;
-    try{JsBarcode(el,el.getAttribute('data-v'),{format:'CODE128',width:1.5,height:h,displayValue:true,margin:0,fontSize:8});}catch(e){}
+    try{JsBarcode(el,el.getAttribute('data-v'),{format:'CODE128',width:1.5,height:h,displayValue:false,margin:0});}catch(e){}
   });
   ${printScript}
 };</script></body></html>`;
