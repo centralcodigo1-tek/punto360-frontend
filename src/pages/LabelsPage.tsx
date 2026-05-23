@@ -59,26 +59,39 @@ const COP = (v: number) =>
 const mmToIn = (mm: number) => mm / 25.4;
 
 // ── HTML generator ────────────────────────────────────────────────────────────
-// autoPrint=true → abre ventana del navegador y lanza print()
-// autoPrint=false → HTML limpio para enviar a QZ Tray via driver Windows
+// Pre-genera los barcodes en el cliente (JsBarcode ya importado) e incrusta
+// el SVG directamente — sin CDN externo ni window.onload async que duplique.
+// autoPrint=false → HTML estático para QZ Tray; autoPrint=true → browser print
 function buildLabelHtml(products: LabelProduct[], config: LabelConfig, autoPrint = true): string {
     const wIn     = mmToIn(config.labelWidthMm);
     const hIn     = mmToIn(config.labelHeightMm);
     const padIn   = mmToIn(config.marginMm);
     const pageWIn = mmToIn(config.pageWidthMm);
-    const bcH     = Math.floor(hIn * 72 * 0.42); // altura barcode en pt
+    const bcH     = Math.floor(hIn * 72 * 0.42);
+
+    const bcCache = new Map<string, string>();
+    const renderBc = (value: string): string => {
+        if (bcCache.has(value)) return bcCache.get(value)!;
+        const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        try {
+            JsBarcode(svg, value, { format: "CODE128", width: 1.5, height: bcH, displayValue: false, margin: 0 });
+            const out = (svg as SVGSVGElement).outerHTML;
+            bcCache.set(value, out);
+            return out;
+        } catch { return ""; }
+    };
 
     const rows: LabelProduct[][] = [];
     for (let i = 0; i < products.length; i += config.columns) rows.push(products.slice(i, i + config.columns));
 
     const body = rows.map(row => `<div class="row">${
         row.map(p => {
-            const bv = (p.barcode || p.sku).replace(/"/g, "&quot;");
+            const bv = (p.barcode || p.sku).replace(/[<>&"]/g, c => ({ "<":"&lt;",">":"&gt;","&":"&amp;",'"':"&quot;" }[c]!));
             return `<div class="label">${
-                config.showName    ? `<p class="name">${p.name}</p>` : ""
-            }${config.showBarcode ? `<svg class="bc" data-v="${bv}" data-h="${bcH}"></svg>` : ""
-            }${config.showSku     ? `<p class="sku">${p.sku}</p>`   : ""
-            }${config.showPrice   ? `<p class="price">${COP(p.sale_price)}</p>` : ""
+                config.showName    ? `<p class="name">${p.name}</p>`  : ""
+            }${config.showBarcode  ? renderBc(bv)                     : ""
+            }${config.showSku      ? `<p class="sku">${p.sku}</p>`    : ""
+            }${config.showPrice    ? `<p class="price">${COP(p.sale_price)}</p>` : ""
             }</div>`;
         }).join("")
     }</div>`).join("");
@@ -86,13 +99,9 @@ function buildLabelHtml(products: LabelProduct[], config: LabelConfig, autoPrint
     const namePt  = Math.max(6,  Math.round(hIn * 72 * 0.09));
     const skuPt   = Math.max(5,  Math.round(hIn * 72 * 0.07));
     const pricePt = Math.max(7,  Math.round(hIn * 72 * 0.11));
-
-    const printScript = autoPrint
-        ? `setTimeout(function(){window.print();},500);`
-        : "";
+    const printScript = autoPrint ? `<script>setTimeout(function(){window.print();},300);</script>` : "";
 
     return `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Etiquetas</title>
-<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
 @page{size:${pageWIn}in ${hIn}in;margin:0;}
@@ -100,18 +109,11 @@ html,body{margin:0;padding:0;background:white;font-family:Arial,sans-serif;width
 .row{display:flex;width:${pageWIn}in;height:${hIn}in;page-break-after:always;}
 .row:last-child{page-break-after:avoid;}
 .label{width:${wIn}in;height:${hIn}in;padding:${padIn}in;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;gap:1px;}
-.bc{max-width:100%;height:auto;display:block;}
+svg{max-width:100%;height:auto;display:block;}
 .name{font-size:${namePt}pt;font-weight:bold;text-align:center;line-height:1.1;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .sku{font-size:${skuPt}pt;color:#333;text-align:center;font-weight:bold;}
 .price{font-size:${pricePt}pt;font-weight:bold;text-align:center;}
-</style></head><body>${body}
-<script>window.onload=function(){
-  document.querySelectorAll('.bc').forEach(function(el){
-    var h=parseInt(el.getAttribute('data-h'))||20;
-    try{JsBarcode(el,el.getAttribute('data-v'),{format:'CODE128',width:1.5,height:h,displayValue:false,margin:0});}catch(e){}
-  });
-  ${printScript}
-};</script></body></html>`;
+</style></head><body>${body}${printScript}</body></html>`;
 }
 
 // ── QZ Tray helpers (dynamic import para no crashear el módulo) ───────────────
