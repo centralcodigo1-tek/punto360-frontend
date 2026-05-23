@@ -48,9 +48,14 @@ interface LabelProduct {
     id: string; name: string; sku: string;
     sale_price: number; barcode?: string | null; quantity: number;
 }
+interface ProductVariant {
+    id: string; sku: string; barcode?: string | null;
+    sale_price?: number | null; stockCount: number;
+}
 interface Product {
     id: string; name: string; sku: string;
     sale_price: number; barcode?: string | null; stockCount: number;
+    has_variants: boolean; variants?: ProductVariant[];
 }
 
 const COP = (v: number) =>
@@ -74,7 +79,7 @@ function buildLabelHtml(products: LabelProduct[], config: LabelConfig, autoPrint
         if (bcCache.has(value)) return bcCache.get(value)!;
         const canvas = document.createElement("canvas");
         try {
-            JsBarcode(canvas, value, { format: "CODE128", width: 2, height: bcH, displayValue: false, margin: 2 });
+            JsBarcode(canvas, value, { format: "CODE128", width: 1, height: bcH, displayValue: false, margin: 10 });
             const src = canvas.toDataURL("image/png");
             const out = `<img src="${src}" style="max-width:100%;height:auto;display:block;"/>`;
             bcCache.set(value, out);
@@ -339,10 +344,22 @@ export default function LabelsPage() {
 
     useEffect(() => {
         api.get("/products").then(res => setAllProducts(res.data.map((p: any) => {
+            const variants: ProductVariant[] = (p.product_variants ?? []).map((v: any) => ({
+                id: v.id,
+                sku: v.sku,
+                barcode: v.barcode ?? null,
+                sale_price: v.sale_price ? Number(v.sale_price) : null,
+                stockCount: (v.stock ?? []).reduce((s: number, x: any) => s + Number(x.quantity), 0),
+            }));
             const stock = p.has_variants
-                ? (p.product_variants ?? []).flatMap((v: any) => v.stock ?? []).reduce((s: number, x: any) => s + Number(x.quantity), 0)
+                ? variants.reduce((s, v) => s + v.stockCount, 0)
                 : p.stock?.[0] ? Number(p.stock[0].quantity) : 0;
-            return { id: p.id, name: p.name, sku: p.sku, sale_price: Number(p.sale_price), barcode: p.barcode ?? null, stockCount: stock };
+            return {
+                id: p.id, name: p.name, sku: p.sku,
+                sale_price: Number(p.sale_price), barcode: p.barcode ?? null,
+                stockCount: stock, has_variants: !!p.has_variants,
+                variants: p.has_variants ? variants : undefined,
+            };
         })));
     }, []);
 
@@ -360,6 +377,20 @@ export default function LabelsPage() {
 
     const addProduct = (p: Product) => {
         setSearch(""); setShowDropdown(false);
+        if (p.has_variants && p.variants?.length) {
+            const toAdd = p.variants
+                .filter(v => !labelProducts.find(lp => lp.id === v.id))
+                .map(v => ({
+                    id: v.id,
+                    name: p.name,
+                    sku: v.sku,
+                    sale_price: v.sale_price ?? p.sale_price,
+                    barcode: v.barcode,
+                    quantity: Math.max(1, v.stockCount),
+                }));
+            if (toAdd.length) setLabelProducts(prev => [...prev, ...toAdd]);
+            return;
+        }
         if (labelProducts.find(lp => lp.id === p.id)) return;
         setLabelProducts(prev => [...prev, { ...p, quantity: Math.max(1, p.stockCount) }]);
     };
@@ -443,6 +474,7 @@ export default function LabelsPage() {
                                                 <button key={p.id} onMouseDown={() => addProduct(p)} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-app-card text-left transition-colors">
                                                     <span className="text-violet-400 font-mono text-xs w-20 shrink-0 truncate">{p.sku}</span>
                                                     <span className="text-white text-sm flex-1 truncate">{p.name}</span>
+                                                    {p.has_variants && <span className="text-[10px] text-amber-400 font-bold shrink-0">{p.variants?.length} var.</span>}
                                                     <Plus size={14} className="text-app-text-muted shrink-0" />
                                                 </button>
                                             ))}
@@ -461,7 +493,7 @@ export default function LabelsPage() {
                                             <div key={p.id} className="flex items-center gap-3 bg-app-bg border border-app-border rounded-xl px-3 py-2">
                                                 <div className="flex-1 min-w-0">
                                                     <p className="text-sm font-medium text-app-text truncate">{p.name}</p>
-                                                    <p className="text-[10px] text-app-text-muted font-mono">{p.sku}</p>
+                                                    <p className="text-[10px] text-violet-400 font-mono font-bold">{p.sku}</p>
                                                 </div>
                                                 <input
                                                     type="number" min={1}
