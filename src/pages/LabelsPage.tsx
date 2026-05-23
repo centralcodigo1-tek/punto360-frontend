@@ -74,14 +74,21 @@ function buildLabelHtml(products: LabelProduct[], config: LabelConfig, autoPrint
     const pageWIn = mmToIn(config.pageWidthMm);
     const bcH     = Math.floor(hIn * 72 * 0.42);
 
+    // Ancho disponible en px CSS (96 DPI) para el barcode
+    const innerWPx = Math.round((wIn - 2 * padIn) * 96);
     const bcCache = new Map<string, string>();
     const renderBc = (value: string): string => {
         if (bcCache.has(value)) return bcCache.get(value)!;
         const canvas = document.createElement("canvas");
         try {
-            JsBarcode(canvas, value, { format: "CODE128", width: 1, height: bcH, displayValue: false, margin: 10 });
+            // Estimar módulos totales Code128 e imponer módulo mínimo de 1px
+            // pero escalado al ancho real para que no haya downscaling con antialiasing
+            const estModules = value.length * 11 + 57; // aprox Code128B + quiet zones
+            const mw = Math.max(1, Math.floor(innerWPx / estModules));
+            JsBarcode(canvas, value, { format: "CODE128", width: mw, height: bcH, displayValue: false, margin: mw * 10 });
             const src = canvas.toDataURL("image/png");
-            const out = `<img src="${src}" style="max-width:100%;height:auto;display:block;"/>`;
+            // pixelated = sin antialiasing al redimensionar — barras nítidas
+            const out = `<img src="${src}" width="${canvas.width}" height="${canvas.height}" style="max-width:100%;height:auto;display:block;image-rendering:pixelated;image-rendering:-moz-crisp-edges;"/>`;
             bcCache.set(value, out);
             return out;
         } catch { return ""; }
@@ -385,7 +392,7 @@ export default function LabelsPage() {
                     name: p.name,
                     sku: v.sku,
                     sale_price: v.sale_price ?? p.sale_price,
-                    barcode: v.barcode,
+                    barcode: null, // forzar SKU de variante como barcode (v.barcode puede ser el del padre)
                     quantity: Math.max(1, v.stockCount),
                 }));
             if (toAdd.length) setLabelProducts(prev => [...prev, ...toAdd]);
