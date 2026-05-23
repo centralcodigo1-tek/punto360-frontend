@@ -128,12 +128,14 @@ async function listPrinters(): Promise<string[]> {
 }
 
 function buildZPL(products: LabelProduct[], config: LabelConfig): string {
-    const DPI = config.dpi ?? 203;
-    const dots = (mm: number) => Math.round(mm * DPI / 25.4);
+    const DPI   = config.dpi ?? 203;
+    const dots  = (mm: number) => Math.round(mm * DPI / 25.4);
 
     const labelW = dots(config.labelWidthMm);
     const labelH = dots(config.labelHeightMm);
     const margin = Math.max(4, dots(config.marginMm));
+    const cols   = config.columns;
+    const totalW = labelW * cols;   // ancho total del cabezal (ej: 864 para 3×36mm)
     const gap    = 3;
     const innerW = labelW - margin * 2;
 
@@ -141,53 +143,59 @@ function buildZPL(products: LabelProduct[], config: LabelConfig): string {
     const priceFs = Math.max(20, Math.min(dots(config.labelHeightMm * 0.15), 32));
     const interpH = config.showSku ? 24 : 0;
 
-    // Calcula altura total del contenido para centrar verticalmente
+    // Altura disponible para barras
     const contentH =
         (config.showName    ? nameFs  + gap : 0) +
         (config.showBarcode ? interpH + gap : 0) +
         (config.showPrice   ? priceFs + gap : 0);
-
-    // Altura disponible para barras (lo que sobra tras descontar texto y márgenes)
     const bcH = Math.max(20, labelH - margin * 2 - contentH - gap);
 
+    // Centrado vertical: startY desplaza el bloque al centro de la etiqueta
     const totalContentH = contentH + (config.showBarcode ? bcH : 0);
-    // startY centra el bloque verticalmente
     const startY = Math.max(margin, Math.floor((labelH - totalContentH) / 2));
 
-    // Estima ancho Code128 en dots (módulo=1): start+data+check+stop+quiet zones
+    // Ancho estimado de Code128 en dots (módulo=1)
     const estimateBcW = (data: string) => Math.min(data.length * 11 + 55, innerW);
+
+    // Agrupar en filas — UN ^XA^XZ por fila con ^PW=totalW para activar todo el cabezal.
+    // ^LH0,0 resetea el origen al borde físico izquierdo del papel.
+    // Las columnas se posicionan manualmente con ^FO{colX + offset}.
+    const rows: LabelProduct[][] = [];
+    for (let i = 0; i < products.length; i += cols) rows.push(products.slice(i, i + cols));
 
     let zpl = "";
 
-    for (const product of products) {
-        const bv = (product.barcode || product.sku).replace(/[^A-Za-z0-9\-\. \$\/\+\%]/g, "").trim();
-        let y = startY;
+    for (const row of rows) {
+        zpl += `^XA^LH0,0^PW${totalW}^LL${labelH}^CI28`;
 
-        // Un ^XA^XZ por etiqueta con ^PW = ancho de UNA columna.
-        // Sin ^LH0,0: el firmware avanza columnas automáticamente.
-        zpl += `^XA^PW${labelW}^LL${labelH}^CI28`;
+        for (let c = 0; c < row.length; c++) {
+            const product = row[c];
+            const colX = labelW * c;
+            const bv = (product.barcode || product.sku).replace(/[^A-Za-z0-9\-\. \$\/\+\%]/g, "").trim();
+            let y = startY;
 
-        // 1. Nombre — centrado horizontal con ^FB
-        if (config.showName) {
-            zpl += `^FO${margin},${y}^A0N,${nameFs},${nameFs}^FB${innerW},1,0,C^FD${product.name.substring(0, 22).toUpperCase()}^FS`;
-            y += nameFs + gap;
-        }
+            // 1. Nombre centrado dentro de la columna con ^FB
+            if (config.showName) {
+                zpl += `^FO${colX + margin},${y}^A0N,${nameFs},${nameFs}^FB${innerW},1,0,C^FD${product.name.substring(0, 22).toUpperCase()}^FS`;
+                y += nameFs + gap;
+            }
 
-        // 2. Barcode — centrado horizontal por ancho estimado Code128
-        if (config.showBarcode && bv) {
-            const bcW = estimateBcW(bv);
-            const bcX = margin + Math.max(0, Math.floor((innerW - bcW) / 2));
-            const interp = config.showSku ? "Y" : "N";
-            zpl += `^FO${bcX},${y}^BY1,2,${bcH}^BCN,,${interp},N^FD${bv}^FS`;
-            y += bcH + interpH + gap;
-        } else if (config.showSku) {
-            zpl += `^FO${margin},${y}^A0N,20,20^FB${innerW},1,0,C^FD${product.sku}^FS`;
-            y += 20 + gap;
-        }
+            // 2. Barcode centrado horizontalmente por ancho estimado Code128
+            if (config.showBarcode && bv) {
+                const bcW = estimateBcW(bv);
+                const bcX = colX + margin + Math.max(0, Math.floor((innerW - bcW) / 2));
+                const interp = config.showSku ? "Y" : "N";
+                zpl += `^FO${bcX},${y}^BY1,2,${bcH}^BCN,,${interp},N^FD${bv}^FS`;
+                y += bcH + interpH + gap;
+            } else if (config.showSku) {
+                zpl += `^FO${colX + margin},${y}^A0N,20,20^FB${innerW},1,0,C^FD${product.sku}^FS`;
+                y += 20 + gap;
+            }
 
-        // 3. Precio — centrado horizontal con ^FB
-        if (config.showPrice && y + priceFs <= labelH) {
-            zpl += `^FO${margin},${y}^A0N,${priceFs},${priceFs}^FB${innerW},1,0,C^FD${COP(product.sale_price).replace(/\s/g, "")}^FS`;
+            // 3. Precio centrado dentro de la columna con ^FB
+            if (config.showPrice && y + priceFs <= labelH) {
+                zpl += `^FO${colX + margin},${y}^A0N,${priceFs},${priceFs}^FB${innerW},1,0,C^FD${COP(product.sale_price).replace(/\s/g, "")}^FS`;
+            }
         }
 
         zpl += "^XZ";
