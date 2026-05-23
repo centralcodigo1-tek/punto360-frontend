@@ -63,6 +63,18 @@ const COP = (v: number) =>
 
 const mmToIn = (mm: number) => mm / 25.4;
 
+// Acorta el SKU de variante: "F87452D7-MAIN-0001-LECHERITA-35" → "F87452D71-LECHERITA-35"
+// Toma el primer segmento del SKU base + número de secuencia sin ceros + sufijo de variante
+function shortVariantCode(baseSku: string, variantSku: string): string {
+    if (!variantSku.startsWith(baseSku + "-")) return variantSku;
+    const suffix = variantSku.slice(baseSku.length + 1);      // "LECHERITA-35"
+    const parts = baseSku.split("-");                          // ["F87452D7","MAIN","0001"]
+    if (parts.length < 2) return variantSku;
+    const prefix = parts[0];                                   // "F87452D7"
+    const seq = parseInt(parts[parts.length - 1], 10) || 1;   // 1
+    return `${prefix}${seq}-${suffix}`;                        // "F87452D71-LECHERITA-35"
+}
+
 // ── HTML generator ────────────────────────────────────────────────────────────
 // Pre-genera los barcodes en el cliente (JsBarcode ya importado) e incrusta
 // el SVG directamente — sin CDN externo ni window.onload async que duplique.
@@ -387,14 +399,17 @@ export default function LabelsPage() {
         if (p.has_variants && p.variants?.length) {
             const toAdd = p.variants
                 .filter(v => !labelProducts.find(lp => lp.id === v.id))
-                .map(v => ({
-                    id: v.id,
-                    name: p.name,
-                    sku: v.sku,
-                    sale_price: v.sale_price ?? p.sale_price,
-                    barcode: null, // forzar SKU de variante como barcode (v.barcode puede ser el del padre)
-                    quantity: Math.max(1, v.stockCount),
-                }));
+                .map(v => {
+                    const code = shortVariantCode(p.sku, v.sku);
+                    return {
+                        id: v.id,
+                        name: p.name,
+                        sku: code,      // display + barcode usan el código corto
+                        sale_price: v.sale_price ?? p.sale_price,
+                        barcode: null,  // null → buildLabelHtml usa p.sku (= code)
+                        quantity: Math.max(1, v.stockCount),
+                    };
+                });
             if (toAdd.length) setLabelProducts(prev => [...prev, ...toAdd]);
             return;
         }
