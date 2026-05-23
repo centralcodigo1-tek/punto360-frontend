@@ -72,10 +72,11 @@ function buildLabelHtml(products: LabelProduct[], config: LabelConfig, autoPrint
     const bcCache = new Map<string, string>();
     const renderBc = (value: string): string => {
         if (bcCache.has(value)) return bcCache.get(value)!;
-        const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        const canvas = document.createElement("canvas");
         try {
-            JsBarcode(svg, value, { format: "CODE128", width: 1.5, height: bcH, displayValue: false, margin: 0 });
-            const out = (svg as SVGSVGElement).outerHTML;
+            JsBarcode(canvas, value, { format: "CODE128", width: 2, height: bcH, displayValue: false, margin: 2 });
+            const src = canvas.toDataURL("image/png");
+            const out = `<img src="${src}" style="max-width:100%;height:auto;display:block;"/>`;
             bcCache.set(value, out);
             return out;
         } catch { return ""; }
@@ -109,7 +110,7 @@ html,body{margin:0;padding:0;background:white;font-family:Arial,sans-serif;width
 .row{display:flex;width:${pageWIn}in;height:${hIn}in;page-break-after:always;}
 .row:last-child{page-break-after:avoid;}
 .label{width:${wIn}in;height:${hIn}in;padding:${padIn}in;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;gap:1px;}
-svg{max-width:100%;height:auto;display:block;}
+img{max-width:100%;height:auto;display:block;}
 .name{font-size:${namePt}pt;font-weight:bold;text-align:center;line-height:1.1;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .sku{font-size:${skuPt}pt;color:#333;text-align:center;font-weight:bold;}
 .price{font-size:${pricePt}pt;font-weight:bold;text-align:center;}
