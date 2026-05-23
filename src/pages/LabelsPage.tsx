@@ -63,16 +63,28 @@ const COP = (v: number) =>
 
 const mmToIn = (mm: number) => mm / 25.4;
 
-// Acorta el SKU de variante: "F87452D7-MAIN-0001-LECHERITA-35" → "F87452D71-LECHERITA-35"
-// Toma el primer segmento del SKU base + número de secuencia sin ceros + sufijo de variante
+// Elimina tildes/diacríticos para encoding Code128 estándar
+function stripAccents(s: string): string {
+    return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
+// Acorta el SKU de variante a máx ~10 chars para que quepa en etiqueta 36mm a 203 DPI.
+// "F87452D7-MAIN-0001-LECHERITA-38" → "F871LECH38"
+// Formula: prefix(3) + seq(1) + colorAbbr(4) + talla(max 3) = 10-11 chars
 function shortVariantCode(baseSku: string, variantSku: string): string {
-    if (!variantSku.startsWith(baseSku + "-")) return variantSku;
-    const suffix = variantSku.slice(baseSku.length + 1);      // "LECHERITA-35"
-    const parts = baseSku.split("-");                          // ["F87452D7","MAIN","0001"]
-    if (parts.length < 2) return variantSku;
-    const prefix = parts[0];                                   // "F87452D7"
-    const seq = parseInt(parts[parts.length - 1], 10) || 1;   // 1
-    return `${prefix}${seq}-${suffix}`;                        // "F87452D71-LECHERITA-35"
+    if (!variantSku.startsWith(baseSku + "-")) {
+        return stripAccents(variantSku).replace(/[^A-Z0-9]/gi, "").slice(0, 11).toUpperCase();
+    }
+    const suffix = stripAccents(variantSku.slice(baseSku.length + 1)); // "LECHERITA-38"
+    const baseparts = baseSku.split("-");
+    const prefix = baseparts[0].slice(0, 3);                     // "F87"
+    const seq = parseInt(baseparts[baseparts.length - 1], 10) || 1; // 1
+
+    const suffixParts = suffix.split("-").filter(Boolean);
+    const colorAbbr = (suffixParts[0] || "").slice(0, 4).toUpperCase(); // "LECH"
+    const size = (suffixParts[suffixParts.length - 1] || "").slice(0, 3).toUpperCase(); // "38"
+
+    return `${prefix}${seq}${colorAbbr}${size}`;  // "F871LECH38" = 10 chars
 }
 
 // ── HTML generator ────────────────────────────────────────────────────────────
