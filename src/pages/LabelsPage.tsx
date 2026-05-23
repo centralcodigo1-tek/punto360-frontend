@@ -384,37 +384,43 @@ export default function LabelsPage() {
 
     useEffect(() => {
         const p = location.state?.product;
-        if (p) {
+        if (!p) return;
+        // Esperar a que allProducts esté cargado para expandir variantes
+        const match = allProducts.find(ap => ap.id === p.id);
+        if (match) {
+            setLabelProducts(expandToLabels(match));
+        } else {
             setLabelProducts([{ ...p, sale_price: Number(p.sale_price), quantity: Math.max(1, Number(p.quantity) || 1) }]);
-            setTab("print");
         }
-    }, []);
+        setTab("print");
+    }, [allProducts]);
 
     const filteredProducts = search
         ? allProducts.filter(p => p.name.toLowerCase().includes(search.toLowerCase()) || p.sku.toLowerCase().includes(search.toLowerCase())).slice(0, 8)
         : [];
 
+    const expandToLabels = useCallback((p: Product): LabelProduct[] => {
+        if (p.variants && p.variants.length > 0) {
+            return p.variants.map(v => {
+                const code = shortVariantCode(p.sku, v.sku);
+                return {
+                    id: v.id,
+                    name: p.name,
+                    sku: code,
+                    sale_price: v.sale_price ?? p.sale_price,
+                    barcode: null,
+                    quantity: Math.max(1, v.stockCount),
+                };
+            });
+        }
+        return [{ id: p.id, name: p.name, sku: p.sku, sale_price: p.sale_price, barcode: p.barcode, quantity: Math.max(1, p.stockCount) }];
+    }, []);
+
     const addProduct = (p: Product) => {
         setSearch(""); setShowDropdown(false);
-        if (p.has_variants && p.variants?.length) {
-            const toAdd = p.variants
-                .filter(v => !labelProducts.find(lp => lp.id === v.id))
-                .map(v => {
-                    const code = shortVariantCode(p.sku, v.sku);
-                    return {
-                        id: v.id,
-                        name: p.name,
-                        sku: code,      // display + barcode usan el código corto
-                        sale_price: v.sale_price ?? p.sale_price,
-                        barcode: null,  // null → buildLabelHtml usa p.sku (= code)
-                        quantity: Math.max(1, v.stockCount),
-                    };
-                });
-            if (toAdd.length) setLabelProducts(prev => [...prev, ...toAdd]);
-            return;
-        }
-        if (labelProducts.find(lp => lp.id === p.id)) return;
-        setLabelProducts(prev => [...prev, { ...p, quantity: Math.max(1, p.stockCount) }]);
+        const items = expandToLabels(p);
+        const newItems = items.filter(item => !labelProducts.find(lp => lp.id === item.id));
+        if (newItems.length) setLabelProducts(prev => [...prev, ...newItems]);
     };
     const updateQty = (id: string, raw: string) => {
         const qty = parseInt(raw, 10);
