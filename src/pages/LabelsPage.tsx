@@ -109,10 +109,10 @@ function buildLabelHtml(products: LabelProduct[], config: LabelConfig, autoPrint
             // pero escalado al ancho real para que no haya downscaling con antialiasing
             const estModules = value.length * 11 + 57; // aprox Code128B + quiet zones
             const mw = Math.max(1, Math.floor(innerWPx / estModules));
-            JsBarcode(canvas, value, { format: "CODE128", width: mw, height: bcH, displayValue: false, margin: mw * 10 });
+            JsBarcode(canvas, value, { format: "CODE128", width: mw, height: bcH, displayValue: false, margin: mw * 8 });
             const src = canvas.toDataURL("image/png");
-            // pixelated = sin antialiasing al redimensionar — barras nítidas
-            const out = `<img src="${src}" width="${canvas.width}" height="${canvas.height}" style="max-width:100%;height:auto;display:block;image-rendering:pixelated;image-rendering:-moz-crisp-edges;"/>`;
+            // Ancho fijo al canvas real; centrado con margin auto; pixelated = sin antialiasing
+            const out = `<img src="${src}" width="${canvas.width}" height="${canvas.height}" style="max-width:80%;height:auto;display:block;margin:0 auto;image-rendering:pixelated;image-rendering:-moz-crisp-edges;"/>`;
             bcCache.set(value, out);
             return out;
         } catch { return ""; }
