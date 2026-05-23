@@ -58,12 +58,15 @@ const COP = (v: number) =>
 
 const mmToIn = (mm: number) => mm / 25.4;
 
-// ── HTML generator (usado por browser Y por QZ Tray) ──────────────────────────
-function buildLabelHtml(products: LabelProduct[], config: LabelConfig): string {
-    const wIn   = mmToIn(config.labelWidthMm);
-    const hIn   = mmToIn(config.labelHeightMm);
-    const padIn = mmToIn(config.marginMm);
+// ── HTML generator ────────────────────────────────────────────────────────────
+// autoPrint=true → abre ventana del navegador y lanza print()
+// autoPrint=false → HTML limpio para enviar a QZ Tray via driver Windows
+function buildLabelHtml(products: LabelProduct[], config: LabelConfig, autoPrint = true): string {
+    const wIn     = mmToIn(config.labelWidthMm);
+    const hIn     = mmToIn(config.labelHeightMm);
+    const padIn   = mmToIn(config.marginMm);
     const pageWIn = mmToIn(config.pageWidthMm);
+    const bcH     = Math.floor(hIn * 72 * 0.42); // altura barcode en pt
 
     const rows: LabelProduct[][] = [];
     for (let i = 0; i < products.length; i += config.columns) rows.push(products.slice(i, i + config.columns));
@@ -73,32 +76,41 @@ function buildLabelHtml(products: LabelProduct[], config: LabelConfig): string {
             const bv = (p.barcode || p.sku).replace(/"/g, "&quot;");
             return `<div class="label">${
                 config.showName    ? `<p class="name">${p.name}</p>` : ""
-            }${config.showBarcode ? `<svg class="bc" data-v="${bv}"></svg>` : ""
+            }${config.showBarcode ? `<svg class="bc" data-v="${bv}" data-h="${bcH}"></svg>` : ""
             }${config.showSku     ? `<p class="sku">${p.sku}</p>`   : ""
             }${config.showPrice   ? `<p class="price">${COP(p.sale_price)}</p>` : ""
             }</div>`;
         }).join("")
     }</div>`).join("");
 
+    const namePt  = Math.max(6,  Math.round(hIn * 72 * 0.09));
+    const skuPt   = Math.max(5,  Math.round(hIn * 72 * 0.07));
+    const pricePt = Math.max(7,  Math.round(hIn * 72 * 0.11));
+
+    const printScript = autoPrint
+        ? `setTimeout(function(){window.print();},500);`
+        : "";
+
     return `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Etiquetas</title>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
-@page{size:${pageWIn}in ${hIn + padIn * 2}in;margin:0;}
-html,body{margin:0;padding:0;background:white;font-family:Arial,sans-serif;}
-.row{display:flex;width:${pageWIn}in;height:${hIn + padIn * 2}in;page-break-after:always;}
+@page{size:${pageWIn}in ${hIn}in;margin:0;}
+html,body{margin:0;padding:0;background:white;font-family:Arial,sans-serif;width:${pageWIn}in;}
+.row{display:flex;width:${pageWIn}in;height:${hIn}in;page-break-after:always;}
 .row:last-child{page-break-after:avoid;}
-.label{width:${wIn}in;height:${hIn}in;padding:${padIn}in;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;}
-.bc{max-width:100%;height:auto;}
-.name{font-size:6pt;font-weight:bold;text-align:center;line-height:1.1;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.sku{font-size:5pt;color:#555;text-align:center;}
-.price{font-size:7pt;font-weight:bold;text-align:center;}
+.label{width:${wIn}in;height:${hIn}in;padding:${padIn}in;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;gap:1px;}
+.bc{max-width:100%;height:auto;display:block;}
+.name{font-size:${namePt}pt;font-weight:bold;text-align:center;line-height:1.1;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.sku{font-size:${skuPt}pt;color:#333;text-align:center;font-weight:bold;}
+.price{font-size:${pricePt}pt;font-weight:bold;text-align:center;}
 </style></head><body>${body}
 <script>window.onload=function(){
   document.querySelectorAll('.bc').forEach(function(el){
-    try{JsBarcode(el,el.getAttribute('data-v'),{format:'CODE128',width:1.2,height:20,displayValue:false,margin:0});}catch(e){}
+    var h=parseInt(el.getAttribute('data-h'))||20;
+    try{JsBarcode(el,el.getAttribute('data-v'),{format:'CODE128',width:1.5,height:h,displayValue:true,margin:0,fontSize:8});}catch(e){}
   });
-  setTimeout(function(){window.print();},500);
+  ${printScript}
 };</script></body></html>`;
 }
 
@@ -203,11 +215,19 @@ function buildZPL(products: LabelProduct[], config: LabelConfig): string {
     return zpl;
 }
 
-async function printViaQZ(printerName: string, zpl: string): Promise<void> {
+async function printViaQZ(printerName: string, html: string, config: LabelConfig): Promise<void> {
     const qz = await getQZ();
     await connectQZ(qz);
-    const cfg = qz.configs.create(printerName);
-    await qz.print(cfg, [{ type: "raw", format: "plain", data: zpl }]);
+    const cfg = qz.configs.create(printerName, {
+        size: { width: mmToIn(config.pageWidthMm), height: mmToIn(config.labelHeightMm) },
+        units: "in",
+        scaleContent: false,
+        colorType: "blackwhite",
+        margins: { top: 0, right: 0, bottom: 0, left: 0 },
+        orientation: "portrait",
+        density: config.dpi,
+    });
+    await qz.print(cfg, [{ type: "html", format: "plain", data: html }]);
 }
 
 // ── Components ────────────────────────────────────────────────────────────────
@@ -357,8 +377,8 @@ export default function LabelsPage() {
 
         if (config.printMode === "zpl" && config.printerName) {
             try {
-                const zpl = buildZPL(all, config);
-                await printViaQZ(config.printerName, zpl);
+                const html = buildLabelHtml(all, config, false);
+                await printViaQZ(config.printerName, html, config);
                 toast.success(`${totalLabels} etiqueta${totalLabels !== 1 ? "s" : ""} enviada${totalLabels !== 1 ? "s" : ""} a ${config.printerName}`);
             } catch (err: any) {
                 toast.error("Error al imprimir: " + (err?.message ?? "QZ Tray no disponible"));
