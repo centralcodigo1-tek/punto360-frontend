@@ -134,55 +134,62 @@ function buildZPL(products: LabelProduct[], config: LabelConfig): string {
     const labelW = dots(config.labelWidthMm);
     const labelH = dots(config.labelHeightMm);
     const margin = Math.max(4, dots(config.marginMm));
-    const gap = 3;
-
-    // Fuentes más grandes
-    const nameFs  = Math.max(18, Math.min(dots(config.labelHeightMm * 0.13), 28));
-    const priceFs = Math.max(20, Math.min(dots(config.labelHeightMm * 0.15), 32));
-    // La línea de interpretación del barcode sustituye al campo SKU
-    const interpH = config.showSku ? 24 : 0;
-
-    // Ancho interior para ^FB (centrado de texto)
+    const cols   = config.columns;
+    const totalW = labelW * cols;
+    const gap    = 3;
     const innerW = labelW - margin * 2;
 
-    // Altura de barras = espacio total menos lo que ocupan nombre, precio e interpretación
+    const nameFs  = Math.max(18, Math.min(dots(config.labelHeightMm * 0.13), 28));
+    const priceFs = Math.max(20, Math.min(dots(config.labelHeightMm * 0.15), 32));
+    const interpH = config.showSku ? 24 : 0;
+
     const usedH =
-        (config.showName ? nameFs + gap : 0) +
-        (config.showPrice ? priceFs + gap : 0) +
+        (config.showName    ? nameFs  + gap : 0) +
+        (config.showPrice   ? priceFs + gap : 0) +
         (config.showBarcode ? interpH + gap : 0) +
         margin * 2 + 4;
     const bcH = Math.max(20, labelH - usedH);
 
+    // Estima ancho de barcode Code128 en dots (módulo=1): start+data+check+stop+quiet
+    const estimateBcW = (data: string) => Math.min(data.length * 11 + 55, innerW);
+
+    // Agrupar en filas según columnas — un ^XA^XZ por fila, columnas posicionadas con ^FO
+    const rows: LabelProduct[][] = [];
+    for (let i = 0; i < products.length; i += cols) rows.push(products.slice(i, i + cols));
+
     let zpl = "";
 
-    for (const product of products) {
-        const bv = (product.barcode || product.sku).replace(/[^A-Za-z0-9\-\. \$\/\+\%]/g, "").trim();
-        let y = margin;
+    for (const row of rows) {
+        zpl += `^XA^LH0,0^PW${totalW}^LL${labelH}^CI28`;
 
-        // ^LH0,0: resetea Label Home al origen físico de cada columna.
-        // La impresora avanza columnas automáticamente entre ^XA^XZ.
-        zpl += `^XA^LH0,0^PW${labelW}^LL${labelH}^CI28`;
+        for (let c = 0; c < row.length; c++) {
+            const product = row[c];
+            const colX = labelW * c;
+            const bv = (product.barcode || product.sku).replace(/[^A-Za-z0-9\-\. \$\/\+\%]/g, "").trim();
+            let y = margin;
 
-        // 1. Nombre arriba — centrado con ^FB
-        if (config.showName) {
-            zpl += `^FO${margin},${y}^A0N,${nameFs},${nameFs}^FB${innerW},1,0,C^FD${product.name.substring(0, 22).toUpperCase()}^FS`;
-            y += nameFs + gap;
-        }
+            // 1. Nombre centrado con ^FB
+            if (config.showName) {
+                zpl += `^FO${colX + margin},${y}^A0N,${nameFs},${nameFs}^FB${innerW},1,0,C^FD${product.name.substring(0, 22).toUpperCase()}^FS`;
+                y += nameFs + gap;
+            }
 
-        // 2. Código de barras (la línea de interpretación imprime el SKU debajo de las barras)
-        if (config.showBarcode && bv) {
-            const interp = config.showSku ? "Y" : "N";
-            zpl += `^FO${margin},${y}^BY1,2,${bcH}^BCN,,${interp},N^FD${bv}^FS`;
-            y += bcH + interpH + gap;
-        } else if (config.showSku) {
-            // Sin barcode: SKU como texto centrado
-            zpl += `^FO${margin},${y}^A0N,20,20^FB${innerW},1,0,C^FD${product.sku}^FS`;
-            y += 20 + gap;
-        }
+            // 2. Barcode centrado: offset calculado por ancho estimado Code128
+            if (config.showBarcode && bv) {
+                const bcW  = estimateBcW(bv);
+                const bcX  = colX + margin + Math.max(0, Math.floor((innerW - bcW) / 2));
+                const interp = config.showSku ? "Y" : "N";
+                zpl += `^FO${bcX},${y}^BY1,2,${bcH}^BCN,,${interp},N^FD${bv}^FS`;
+                y += bcH + interpH + gap;
+            } else if (config.showSku) {
+                zpl += `^FO${colX + margin},${y}^A0N,20,20^FB${innerW},1,0,C^FD${product.sku}^FS`;
+                y += 20 + gap;
+            }
 
-        // 3. Precio abajo — centrado con ^FB
-        if (config.showPrice && y + priceFs <= labelH) {
-            zpl += `^FO${margin},${y}^A0N,${priceFs},${priceFs}^FB${innerW},1,0,C^FD${COP(product.sale_price).replace(/\s/g, "")}^FS`;
+            // 3. Precio centrado con ^FB
+            if (config.showPrice && y + priceFs <= labelH) {
+                zpl += `^FO${colX + margin},${y}^A0N,${priceFs},${priceFs}^FB${innerW},1,0,C^FD${COP(product.sale_price).replace(/\s/g, "")}^FS`;
+            }
         }
 
         zpl += "^XZ";
