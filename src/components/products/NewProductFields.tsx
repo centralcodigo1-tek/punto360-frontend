@@ -678,7 +678,23 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
               {/* ── Variantes ya guardadas ── */}
               {variants.length > 0 && (
                 <div className="space-y-2">
-                  <p className="text-xs font-black uppercase tracking-widest text-app-text-muted">Variantes guardadas ({variants.length})</p>
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-black uppercase tracking-widest text-app-text-muted">Variantes guardadas ({variants.length})</p>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (!window.confirm("¿Actualizar el SKU y código de barras de todas las variantes al formato corto de impresión?")) return;
+                        try {
+                          const res = await api.post(`/products/${activeProductId}/migrate-variant-skus`);
+                          toast.success(`${res.data.updated} variante(s) actualizadas`);
+                          fetchVariantData(activeProductId!);
+                        } catch { toast.error("Error al migrar SKUs"); }
+                      }}
+                      className="text-[10px] font-bold text-amber-400 hover:text-amber-300 border border-amber-500/30 rounded-lg px-2 py-1 transition-colors"
+                    >
+                      Generar códigos cortos
+                    </button>
+                  </div>
                   {variants.map(v => (
                     <div key={v.id} className="flex items-center justify-between bg-app-bg border border-app-border rounded-xl px-4 py-3">
                       <div>
