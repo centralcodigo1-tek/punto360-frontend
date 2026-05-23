@@ -96,23 +96,23 @@ function buildLabelHtml(products: LabelProduct[], config: LabelConfig, autoPrint
     const hIn     = mmToIn(config.labelHeightMm);
     const padIn   = mmToIn(config.marginMm);
     const pageWIn = mmToIn(config.pageWidthMm);
-    const bcH     = Math.floor(hIn * 72 * 0.42);
+    // Barcode más alto = láser del escáner lo encuentra más fácil
+    const bcH = Math.floor(hIn * 72 * 0.52);
 
-    // Ancho disponible en px CSS (96 DPI) para el barcode
-    const innerWPx = Math.round((wIn - 2 * padIn) * 96);
+    // Generar a resolución de impresora (203 DPI) para que el driver escale 1:1 sin antialiasing
+    const innerWDots = Math.round((wIn - 2 * padIn) * 203); // dots reales de impresora
     const bcCache = new Map<string, string>();
     const renderBc = (value: string): string => {
         if (bcCache.has(value)) return bcCache.get(value)!;
         const canvas = document.createElement("canvas");
         try {
-            // Estimar módulos totales Code128 e imponer módulo mínimo de 1px
-            // pero escalado al ancho real para que no haya downscaling con antialiasing
-            const estModules = value.length * 11 + 57; // aprox Code128B + quiet zones
-            const mw = Math.max(1, Math.floor(innerWPx / estModules));
-            JsBarcode(canvas, value, { format: "CODE128", width: mw, height: bcH, displayValue: false, margin: mw * 8 });
+            const estModules = value.length * 11 + 35; // barras Code128B sin quiet zones
+            const mw = Math.max(1, Math.floor(innerWDots / (estModules + 24))); // 12 quiet zones c/lado
+            const margin = 12 * mw; // zona de silencio amplia = detección rápida
+            JsBarcode(canvas, value, { format: "CODE128", width: mw, height: bcH, displayValue: false, margin });
             const src = canvas.toDataURL("image/png");
-            // Ancho fijo al canvas real; centrado con margin auto; pixelated = sin antialiasing
-            const out = `<img src="${src}" width="${canvas.width}" height="${canvas.height}" style="max-width:80%;height:auto;display:block;margin:0 auto;image-rendering:pixelated;image-rendering:-moz-crisp-edges;"/>`;
+            // max-width:70% + margin auto = centrado con espacio blanco visible a los lados
+            const out = `<img src="${src}" width="${canvas.width}" height="${canvas.height}" style="max-width:70%;height:auto;display:block;margin:0 auto;image-rendering:pixelated;image-rendering:-moz-crisp-edges;"/>`;
             bcCache.set(value, out);
             return out;
         } catch { return ""; }
