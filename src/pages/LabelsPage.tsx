@@ -96,23 +96,23 @@ function buildLabelHtml(products: LabelProduct[], config: LabelConfig, autoPrint
     const hIn     = mmToIn(config.labelHeightMm);
     const padIn   = mmToIn(config.marginMm);
     const pageWIn = mmToIn(config.pageWidthMm);
-    // Barcode más alto = láser del escáner lo encuentra más fácil
     const bcH = Math.floor(hIn * 72 * 0.52);
 
-    // Generar a resolución de impresora (203 DPI) para que el driver escale 1:1 sin antialiasing
-    const innerWDots = Math.round((wIn - 2 * padIn) * 203); // dots reales de impresora
     const bcCache = new Map<string, string>();
     const renderBc = (value: string): string => {
         if (bcCache.has(value)) return bcCache.get(value)!;
-        const canvas = document.createElement("canvas");
+        const svgEl = document.createElementNS("http://www.w3.org/2000/svg", "svg");
         try {
-            const estModules = value.length * 11 + 35; // barras Code128B sin quiet zones
-            const mw = Math.max(1, Math.floor(innerWDots / (estModules + 24))); // 12 quiet zones c/lado
-            const margin = 12 * mw; // zona de silencio amplia = detección rápida
-            JsBarcode(canvas, value, { format: "CODE128", width: mw, height: bcH, displayValue: false, margin });
-            const src = canvas.toDataURL("image/png");
-            // max-width:70% + margin auto = centrado con espacio blanco visible a los lados
-            const out = `<img src="${src}" width="${canvas.width}" height="${canvas.height}" style="max-width:70%;height:auto;display:block;margin:0 auto;image-rendering:pixelated;image-rendering:-moz-crisp-edges;"/>`;
+            // SVG = vectorial → el driver imprime a resolución nativa sin blur
+            JsBarcode(svgEl, value, { format: "CODE128", width: 2, height: bcH, displayValue: false, margin: 24 });
+            const s = svgEl as SVGSVGElement;
+            const w = s.getAttribute("width") || "200";
+            const h = s.getAttribute("height") || String(bcH);
+            s.setAttribute("viewBox", `0 0 ${w} ${h}`);
+            s.removeAttribute("width");
+            s.removeAttribute("height");
+            s.setAttribute("style", "max-width:70%;height:auto;display:block;margin:0 auto;");
+            const out = s.outerHTML;
             bcCache.set(value, out);
             return out;
         } catch { return ""; }
@@ -146,7 +146,7 @@ html,body{margin:0;padding:0;background:white;font-family:Arial,sans-serif;width
 .row{display:flex;width:${pageWIn}in;height:${hIn}in;page-break-after:always;}
 .row:last-child{page-break-after:avoid;}
 .label{width:${wIn}in;height:${hIn}in;padding:${padIn}in;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;gap:1px;}
-img{max-width:100%;height:auto;display:block;}
+svg.bc{max-width:70%;height:auto;display:block;margin:0 auto;}
 .name{font-size:${namePt}pt;font-weight:bold;text-align:center;line-height:1.1;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-transform:uppercase;}
 .sku{font-size:${skuPt}pt;color:#333;text-align:center;font-weight:bold;}
 .price{font-size:${pricePt}pt;font-weight:bold;text-align:center;}
