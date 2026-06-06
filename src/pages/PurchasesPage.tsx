@@ -34,6 +34,7 @@ interface Product {
     unit_type: string;
     has_variants: boolean;
     cost_price: number;
+    sale_price: number;
     stockTotal: number;
     variants?: VariantOption[];
 }
@@ -48,6 +49,8 @@ interface PurchaseItem {
     variantId?: string;
     variantLabel?: string;
     stockTotal?: number;
+    currentCost?: number;
+    currentSalePrice?: number;
 }
 interface PurchaseRecord {
     id: string;
@@ -165,6 +168,7 @@ export default function PurchasesPage() {
                 unit_type: p.unit_type || "UNIT",
                 has_variants: p.has_variants ?? false,
                 cost_price: p.cost_price ?? 0,
+                sale_price: p.sale_price ?? 0,
                 stockTotal: (p.stock ?? []).reduce((sum: number, s: any) => sum + Number(s.quantity), 0),
             })));
         });
@@ -231,6 +235,8 @@ export default function PurchasesPage() {
             sku: product.sku, unit_type: product.unit_type,
             quantity: 1, cost: product.cost_price, salePrice: 0,
             stockTotal: product.stockTotal,
+            currentCost: product.cost_price,
+            currentSalePrice: product.sale_price,
         }]);
     };
 
@@ -581,6 +587,13 @@ export default function PurchasesPage() {
                                             <p className="text-[10px] text-app-text-muted">{item.sku} · {item.unit_type === "WEIGHT" ? "Kg" : "Unid."}</p>
                                             {!item.variantLabel && item.stockTotal !== undefined && (
                                                 <p className="text-[10px] text-cyan-400/80">Stock: {item.stockTotal} {item.unit_type === "WEIGHT" ? "Kg" : "Uds"}</p>
+                                            )}
+                                            {!item.variantLabel && (item.currentCost !== undefined || item.currentSalePrice !== undefined) && (
+                                                <p className="text-[10px] text-app-text-muted">
+                                                    Costo: <span className="text-amber-400">{cop(item.currentCost ?? 0)}</span>
+                                                    <span className="mx-1 opacity-40">·</span>
+                                                    P. Venta: <span className="text-emerald-400">{cop(item.currentSalePrice ?? 0)}</span>
+                                                </p>
                                             )}
                                         </div>
                                         <div className="col-span-2">
