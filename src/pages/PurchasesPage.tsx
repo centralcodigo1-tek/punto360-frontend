@@ -51,6 +51,7 @@ interface PurchaseItem {
 }
 interface PurchaseRecord {
     id: string;
+    supplier_id?: string;
     created_at: string;
     total: string;
     paid_amount: string;
@@ -275,6 +276,16 @@ export default function PurchasesPage() {
     const removeItem = (idx: number) => setItems(prev => prev.filter((_, n) => n !== idx));
 
     const total = useMemo(() => items.reduce((sum, i) => sum + (i.quantity * i.cost), 0), [items]);
+
+    const visiblePurchases = useMemo(() => {
+        if (!selectedSupplier) return purchases;
+        return purchases.filter(p => p.supplier_id === selectedSupplier);
+    }, [purchases, selectedSupplier]);
+
+    const visibleDebts = useMemo(() => {
+        if (!selectedSupplier) return debts;
+        return debts.filter(p => p.supplier_id === selectedSupplier);
+    }, [debts, selectedSupplier]);
 
     // ── Save new supplier ──────────────────────────────────────────────────────
     const handleSaveSupplier = async () => {
@@ -717,6 +728,17 @@ export default function PurchasesPage() {
 
                 {/* ── PANEL DERECHO: Historial ── */}
                 <div className="bg-app-card border border-app-border rounded-2xl backdrop-blur-md shadow-xl overflow-hidden flex flex-col">
+                    {selectedSupplier && (
+                        <div className="px-4 py-2 bg-violet-500/10 border-b border-violet-500/20 flex items-center justify-between">
+                            <span className="text-xs text-violet-400 font-bold flex items-center gap-1.5">
+                                <Truck size={12} />
+                                Filtrado: {suppliers.find(s => s.id === selectedSupplier)?.name}
+                            </span>
+                            <button onClick={() => setSelectedSupplier("")} className="text-violet-400/60 hover:text-violet-400 text-xs transition-colors">
+                                <X size={12} />
+                            </button>
+                        </div>
+                    )}
                     <div className="px-1 py-1 border-b border-app-border flex bg-app-bg">
                         <button
                             onClick={() => setView("history")}
@@ -768,7 +790,7 @@ export default function PurchasesPage() {
                                 </div>
                                 <div className="text-right">
                                     <p className="text-xl font-black text-rose-400">
-                                        {cop(debts.reduce((sum, d) => sum + (Number(d.total) - Number(d.paid_amount)), 0))}
+                                        {cop(visibleDebts.reduce((sum, d) => sum + (Number(d.total) - Number(d.paid_amount)), 0))}
                                     </p>
                                 </div>
                             </div>
@@ -780,12 +802,12 @@ export default function PurchasesPage() {
                             <div className="flex justify-center items-center py-16 gap-2 text-app-text-muted">
                                 <Loader2 size={20} className="animate-spin" /> Cargando...
                             </div>
-                        ) : (view === "history" ? purchases : debts).length === 0 ? (
+                        ) : (view === "history" ? visiblePurchases : visibleDebts).length === 0 ? (
                             <div className="text-center py-16 text-app-text-muted text-sm">
                                 <PackagePlus size={36} className="mx-auto mb-3 opacity-20" />
-                                No hay registros para mostrar.
+                                {selectedSupplier ? "No hay compras de este proveedor." : "No hay registros para mostrar."}
                             </div>
-                        ) : (view === "history" ? purchases : debts).map(p => {
+                        ) : (view === "history" ? visiblePurchases : visibleDebts).map(p => {
                             const isOpen = expandedId === p.id;
                             const balance = Number(p.total) - Number(p.paid_amount);
                             const isOverdue = p.due_date && new Date(p.due_date) < new Date();
