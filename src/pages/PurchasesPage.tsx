@@ -15,6 +15,7 @@ interface VariantOption {
     sku: string;
     sale_price: number;
     cost_price: number;
+    stockCount: number;
     values: { attribute_value: { value: string; attribute: { name: string } } }[];
 }
 interface VariantEntry {
@@ -24,6 +25,7 @@ interface VariantEntry {
     quantity: string;
     cost: string;
     salePrice: string;
+    stockCount: number;
 }
 interface Product {
     id: string;
@@ -31,6 +33,8 @@ interface Product {
     sku: string;
     unit_type: string;
     has_variants: boolean;
+    cost_price: number;
+    stockTotal: number;
     variants?: VariantOption[];
 }
 interface PurchaseItem {
@@ -43,6 +47,7 @@ interface PurchaseItem {
     salePrice: number;
     variantId?: string;
     variantLabel?: string;
+    stockTotal?: number;
 }
 interface PurchaseRecord {
     id: string;
@@ -158,6 +163,8 @@ export default function PurchasesPage() {
                 id: p.id, name: p.name, sku: p.sku,
                 unit_type: p.unit_type || "UNIT",
                 has_variants: p.has_variants ?? false,
+                cost_price: p.cost_price ?? 0,
+                stockTotal: (p.stock ?? []).reduce((sum: number, s: any) => sum + Number(s.quantity), 0),
             })));
         });
         fetchHistory();
@@ -197,7 +204,10 @@ export default function PurchasesPage() {
             setLoadingVariants(true);
             try {
                 const res = await api.get(`/products/${product.id}/variants`);
-                const loaded: VariantOption[] = res.data;
+                const loaded: VariantOption[] = res.data.map((v: any) => ({
+                    ...v,
+                    stockCount: (v.stock ?? []).reduce((sum: number, s: any) => sum + Number(s.quantity), 0),
+                }));
                 setVariantPickerProduct({ ...product, variants: loaded });
                 setVariantEntries(loaded.map(v => ({
                     variantId: v.id,
@@ -206,6 +216,7 @@ export default function PurchasesPage() {
                     quantity: "",
                     cost: String(v.cost_price ?? 0),
                     salePrice: String(v.sale_price ?? 0),
+                    stockCount: v.stockCount,
                 })));
             } catch {
                 toast.error("No se pudieron cargar las variantes");
@@ -217,7 +228,8 @@ export default function PurchasesPage() {
         setItems(prev => [...prev, {
             productId: product.id, productName: product.name,
             sku: product.sku, unit_type: product.unit_type,
-            quantity: 1, cost: 0, salePrice: 0,
+            quantity: 1, cost: product.cost_price, salePrice: 0,
+            stockTotal: product.stockTotal,
         }]);
     };
 
@@ -366,19 +378,24 @@ export default function PurchasesPage() {
                                 <div className="space-y-3">
                                     {/* Cabecera */}
                                     <div className="grid grid-cols-12 gap-2 px-1 text-[10px] font-bold text-app-text-muted uppercase">
-                                        <span className="col-span-3">Variante</span>
-                                        <span className="col-span-3">SKU</span>
+                                        <span className="col-span-2">Variante</span>
+                                        <span className="col-span-2">SKU</span>
+                                        <span className="col-span-2 text-center">Stock</span>
                                         <span className="col-span-2 text-center">Cantidad</span>
                                         <span className="col-span-2 text-center">Costo</span>
-                                        <span className="col-span-2 text-center">Precio venta</span>
+                                        <span className="col-span-2 text-center">P. Venta</span>
                                     </div>
                                     {variantEntries.map((entry, idx) => (
                                         <div key={entry.variantId} className="grid grid-cols-12 gap-2 items-center bg-app-bg border border-app-border rounded-xl px-3 py-2">
-                                            <div className="col-span-3">
-                                                <p className="text-xs font-bold text-violet-300">{entry.label}</p>
+                                            <div className="col-span-2">
+                                                <p className="text-xs font-bold text-violet-300 truncate">{entry.label}</p>
                                             </div>
-                                            <div className="col-span-3">
-                                                <p className="text-xs font-mono text-app-text-muted">{entry.sku}</p>
+                                            <div className="col-span-2">
+                                                <p className="text-xs font-mono text-app-text-muted truncate">{entry.sku}</p>
+                                            </div>
+                                            <div className="col-span-2 text-center">
+                                                <span className="text-xs font-bold text-cyan-400">{entry.stockCount}</span>
+                                                <p className="text-[9px] text-app-text-muted">Uds</p>
                                             </div>
                                             <div className="col-span-2">
                                                 <input
@@ -551,6 +568,9 @@ export default function PurchasesPage() {
                                                 <p className="text-[10px] text-violet-400 font-bold truncate">{item.variantLabel}</p>
                                             ) : null}
                                             <p className="text-[10px] text-app-text-muted">{item.sku} · {item.unit_type === "WEIGHT" ? "Kg" : "Unid."}</p>
+                                            {!item.variantLabel && item.stockTotal !== undefined && (
+                                                <p className="text-[10px] text-cyan-400/80">Stock: {item.stockTotal} {item.unit_type === "WEIGHT" ? "Kg" : "Uds"}</p>
+                                            )}
                                         </div>
                                         <div className="col-span-2">
                                             <input
