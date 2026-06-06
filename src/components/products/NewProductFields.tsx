@@ -28,9 +28,11 @@ interface PendingVariant {
 }
 interface Category { id: string; name: string; }
 
+export interface SavedProduct { id: string; name: string; sku: string; sale_price: number; has_variants: boolean; }
+
 interface NewProductFieldsProps {
   initialData?: ProductRow;
-  onSaveSuccess?: () => void;
+  onSaveSuccess?: (product?: SavedProduct) => void;
   onCancel?: () => void;
 }
 
@@ -276,7 +278,7 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
           toast.success("Producto creado. Ahora agrega sus variantes.");
         } else {
           toast.success("Producto creado exitosamente");
-          if (onSaveSuccess) onSaveSuccess();
+          if (onSaveSuccess) onSaveSuccess({ id: newProductId, name: res.data.name, sku: res.data.sku, sale_price: res.data.sale_price, has_variants: false });
         }
       }
     } catch (error) {
@@ -753,11 +755,11 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
         {productJustCreated ? (
           <button
             type="button"
-            onClick={() => { if (onSaveSuccess) onSaveSuccess(); }}
+            onClick={() => { if (onSaveSuccess) onSaveSuccess(activeProductId ? { id: activeProductId, name: form.name, sku: form.sku, sale_price: Number(form.sale_price), has_variants: true } : undefined); }}
             className="px-6 py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-lg shadow-emerald-500/20 transition-all font-semibold flex items-center gap-2"
           >
             <CheckCircle2 size={18} />
-            Finalizar e ir al Inventario
+            Finalizar
           </button>
         ) : (
           <button
