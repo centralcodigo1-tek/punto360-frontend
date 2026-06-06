@@ -402,7 +402,7 @@ export default function CashRegisterPage() {
                             </h3>
                             <span className="text-emerald-400 font-bold text-sm">+{formatCOP(totalIncomes)}</span>
                         </div>
-                        <div className="divide-y divide-white/5 max-h-64 overflow-y-auto">
+                        <div className="divide-y divide-app-border max-h-64 overflow-y-auto">
                             {movements.filter(m => m.type === "INCOME").map(m => (
                                 <div key={m.id} className="flex items-center justify-between px-6 py-3">
                                     <div>
@@ -477,7 +477,7 @@ export default function CashRegisterPage() {
                         </div>
                     )}
 
-                    <div className="divide-y divide-white/5 max-h-64 overflow-y-auto">
+                    <div className="divide-y divide-app-border max-h-64 overflow-y-auto">
                         {movements.filter(m => m.type === "EXPENSE").length === 0 ? (
                             <div className="px-6 py-8 text-center text-app-text-muted text-sm">Sin gastos registrados en este turno.</div>
                         ) : movements.filter(m => m.type === "EXPENSE").map(m => (
@@ -538,7 +538,7 @@ export default function CashRegisterPage() {
                                     </div>
                                     <div className="flex justify-between font-bold border-t border-app-border pt-2">
                                         <span className="text-app-text-muted">Efectivo contado</span>
-                                        <span className="text-white">{formatCOP(parseFloat(closingAmount) || 0)}</span>
+                                        <span className="text-app-text">{formatCOP(parseFloat(closingAmount) || 0)}</span>
                                     </div>
                                 </div>
                             )}

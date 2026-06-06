@@ -225,12 +225,12 @@ export default function UsersRolesPage() {
                     <th className="px-6 py-4 text-right">Acciones</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-white/5">
+                <tbody className="divide-y divide-app-border">
                   {users.map(user => (
                     <tr key={user.id} className="hover:bg-app-card transition-colors">
                       <td className="px-6 py-4">
                         <div className="flex flex-col">
-                          <span className="text-white font-medium">{user.name}</span>
+                          <span className="text-app-text font-medium">{user.name}</span>
                           <span className="text-app-text-muted text-xs">{user.email} | @{user.user_name}</span>
                         </div>
                       </td>
@@ -398,7 +398,7 @@ export default function UsersRolesPage() {
                            <button 
                              key={branch.id}
                              onClick={() => toggleBranch(branch.id)}
-                             className={`w-full flex items-center justify-between p-3 rounded-xl border transition-all ${formData.branchIds.includes(branch.id) ? "bg-blue-500/10 border-blue-500/50 text-white" : "bg-app-card border-app-border text-white-muted hover:bg-app-card"}`}
+                             className={`w-full flex items-center justify-between p-3 rounded-xl border transition-all ${formData.branchIds.includes(branch.id) ? "bg-blue-500/10 border-blue-500/50 text-app-text" : "bg-app-card border-app-border text-app-text-muted hover:bg-app-card"}`}
                            >
                               <div className="flex items-center gap-2">
                                 <Building2 size={16} className={formData.branchIds.includes(branch.id) ? "text-blue-400" : "text-app-text-muted"} />

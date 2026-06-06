@@ -534,7 +534,7 @@ export default function PurchasesPage() {
                                                 className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-app-card text-left transition-colors"
                                             >
                                                 <span className="text-violet-400 font-mono text-xs w-24 shrink-0">{p.sku}</span>
-                                                <span className="text-white text-sm flex-1">{p.name}</span>
+                                                <span className="text-app-text text-sm flex-1">{p.name}</span>
                                                 <div className="flex items-center gap-1.5 shrink-0">
                                                     {p.has_variants && (
                                                         <span className="flex items-center gap-0.5 text-[10px] font-bold text-violet-400 bg-violet-500/10 px-1.5 py-0.5 rounded">
@@ -670,7 +670,7 @@ export default function PurchasesPage() {
                                                 type="date"
                                                 value={dueDate}
                                                 onChange={e => setDueDate(e.target.value)}
-                                                className="w-full bg-violet-500/5 border border-violet-500/30 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:ring-1 focus:ring-violet-500/50"
+                                                className="w-full bg-violet-500/5 border border-violet-500/30 rounded-xl px-3 py-2 text-app-text text-sm focus:outline-none focus:ring-1 focus:ring-violet-500/50"
                                             />
                                         </div>
                                     )}
@@ -775,7 +775,7 @@ export default function PurchasesPage() {
                         </div>
                     )}
 
-                    <div className="flex-1 overflow-y-auto divide-y divide-white/5">
+                    <div className="flex-1 overflow-y-auto divide-y divide-app-border">
                         {isLoadingHistory ? (
                             <div className="flex justify-center items-center py-16 gap-2 text-app-text-muted">
                                 <Loader2 size={20} className="animate-spin" /> Cargando...

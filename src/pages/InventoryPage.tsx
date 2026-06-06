@@ -172,7 +172,7 @@ export default function InventoryPage() {
                     <div className="relative w-full max-w-4xl bg-app-bg rounded-2xl shadow-2xl border border-app-border max-h-[90vh] overflow-y-auto">
                         <div className="sticky top-0 z-10 flex justify-between items-center p-4 bg-app-bg/90 backdrop-blur border-b border-app-border">
                             <h2 className="text-xl font-bold text-app-text">Editar Producto</h2>
-                            <button onClick={() => setEditingProduct(null)} className="p-2 text-app-text-muted hover:text-white bg-app-card rounded-lg transition-colors">
+                            <button onClick={() => setEditingProduct(null)} className="p-2 text-app-text-muted hover:text-app-text bg-app-card rounded-lg transition-colors">
                                 <X size={20} />
                             </button>
                         </div>

@@ -513,7 +513,7 @@ export default function LabelsPage() {
                                             {filteredProducts.map(p => (
                                                 <button key={p.id} onMouseDown={() => addProduct(p)} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-app-card text-left transition-colors">
                                                     <span className="text-violet-400 font-mono text-xs w-20 shrink-0 truncate">{p.sku}</span>
-                                                    <span className="text-white text-sm flex-1 truncate">{p.name}</span>
+                                                    <span className="text-app-text text-sm flex-1 truncate">{p.name}</span>
                                                     {p.has_variants && <span className="text-[10px] text-amber-400 font-bold shrink-0">{p.variants?.length} var.</span>}
                                                     <Plus size={14} className="text-app-text-muted shrink-0" />
                                                 </button>

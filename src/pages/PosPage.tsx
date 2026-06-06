@@ -665,7 +665,7 @@ export default function PosPage() {
               )}
               <button
                 onClick={() => setActiveTab('catalog')}
-                className="lg:hidden p-2 text-app-text-muted hover:text-white"
+                className="lg:hidden p-2 text-app-text-muted hover:text-app-text"
               >
                 <Plus size={20} className="rotate-45" />
               </button>
@@ -908,7 +908,7 @@ export default function PosPage() {
                 <Clock size={18} className="text-amber-400" />
                 <h3 className="font-black text-app-text uppercase tracking-widest text-sm">Facturas Pendientes</h3>
               </div>
-              <button onClick={() => setShowPending(false)} className="text-app-text-muted hover:text-white transition-colors">
+              <button onClick={() => setShowPending(false)} className="text-app-text-muted hover:text-app-text transition-colors">
                 <X size={18} />
               </button>
             </div>
@@ -972,7 +972,7 @@ export default function PosPage() {
                 </div>
                 <h3 className="font-black text-app-text text-lg">{variantPrompt.product.name}</h3>
               </div>
-              <button onClick={() => setVariantPrompt(null)} className="text-app-text-muted hover:text-white transition-colors">
+              <button onClick={() => setVariantPrompt(null)} className="text-app-text-muted hover:text-app-text transition-colors">
                 <X size={20} />
               </button>
             </div>
@@ -1029,7 +1029,7 @@ export default function PosPage() {
               />
             </div>
             <div className="flex gap-3 w-full">
-              <button onClick={() => setConsignmentPrompt(null)} className="flex-1 py-4 rounded-xl border border-app-border text-app-text-muted font-black uppercase text-[10px] tracking-widest hover:text-white transition-colors">Cerrar</button>
+              <button onClick={() => setConsignmentPrompt(null)} className="flex-1 py-4 rounded-xl border border-app-border text-app-text-muted font-black uppercase text-[10px] tracking-widest hover:text-app-text transition-colors">Cerrar</button>
               <button onClick={commitConsignmentSale} className="flex-1 py-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-white font-black uppercase text-[10px] tracking-widest transition-all shadow-lg shadow-amber-500/20">Agregar</button>
             </div>
           </div>
@@ -1059,7 +1059,7 @@ export default function PosPage() {
               <span className="absolute right-5 top-1/2 -translate-y-1/2 text-app-text-muted font-black uppercase text-xs">Kg</span>
             </div>
             <div className="flex gap-3 w-full">
-              <button onClick={() => setWeightPrompt(null)} className="flex-1 py-4 rounded-xl border border-app-border text-app-text-muted font-black uppercase text-[10px] tracking-widest hover:text-white transition-colors">Cerrar</button>
+              <button onClick={() => setWeightPrompt(null)} className="flex-1 py-4 rounded-xl border border-app-border text-app-text-muted font-black uppercase text-[10px] tracking-widest hover:text-app-text transition-colors">Cerrar</button>
               <button onClick={commitWeightSale} className="flex-1 py-4 rounded-xl bg-app-accent hover:bg-app-accent-hover text-white font-black uppercase text-[10px] tracking-widest transition-all shadow-lg shadow-app-accent/20">Agregar</button>
             </div>
           </div>
@@ -1088,7 +1088,7 @@ export default function PosPage() {
               />
             </div>
             <div className="flex gap-3 w-full">
-              <button onClick={() => setConsignmentPrompt(null)} className="flex-1 py-4 rounded-xl border border-app-border text-app-text-muted font-black uppercase text-[10px] tracking-widest hover:text-white transition-colors">Cerrar</button>
+              <button onClick={() => setConsignmentPrompt(null)} className="flex-1 py-4 rounded-xl border border-app-border text-app-text-muted font-black uppercase text-[10px] tracking-widest hover:text-app-text transition-colors">Cerrar</button>
               <button onClick={commitConsignmentSale} className="flex-1 py-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-white font-black uppercase text-[10px] tracking-widest transition-all shadow-lg shadow-amber-500/20">Agregar</button>
             </div>
           </div>
@@ -1127,7 +1127,7 @@ export default function PosPage() {
             <div className="flex gap-3 w-full">
               <button
                 onClick={() => { setPrintData(null); toast.success("¡Venta registrada con éxito!"); }}
-                className="flex-1 py-3 rounded-xl border border-app-border text-app-text-muted font-black text-[11px] uppercase tracking-widest hover:text-white transition-colors"
+                className="flex-1 py-3 rounded-xl border border-app-border text-app-text-muted font-black text-[11px] uppercase tracking-widest hover:text-app-text transition-colors"
               >
                 Omitir
               </button>
