@@ -101,12 +101,12 @@ function buildLabelHtml(products: LabelProduct[], config: LabelConfig, autoPrint
     const body = rows.map(row => `<div class="row">${
         row.map(p => {
             const bv = (p.barcode || p.sku).replace(/[<>&"]/g, c => ({ "<":"&lt;",">":"&gt;","&":"&amp;",'"':"&quot;" }[c]!));
-            return `<div class="label">${
+            return `<div class="label"><div class="inner">${
                 config.showName    ? `<p class="name">${p.name}</p>`  : ""
             }${config.showBarcode  ? renderBc(bv)                     : ""
             }${config.showSku      ? `<p class="sku">${p.sku}</p>`    : ""
             }${config.showPrice    ? `<p class="price">${COP(p.sale_price)}</p>` : ""
-            }</div>`;
+            }</div></div>`;
         }).join("")
     }</div>`).join("");
 
@@ -122,10 +122,11 @@ function buildLabelHtml(products: LabelProduct[], config: LabelConfig, autoPrint
 html,body{margin:0;padding:0;background:white;font-family:Arial,sans-serif;width:${pageWIn}in;}
 .row{display:flex;width:${pageWIn}in;height:${hIn}in;page-break-after:always;}
 .row:last-child{page-break-after:avoid;}
-.label{width:${wIn}in;height:${hIn}in;padding:${padIn}in;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;gap:1px;}
-.name{font-size:${namePt}pt;font-weight:bold;text-align:center;line-height:1.1;width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-transform:uppercase;}
-.sku{font-size:${skuPt}pt;color:#333;text-align:center;font-weight:bold;}
-.price{font-size:${pricePt}pt;font-weight:bold;text-align:center;}
+.label{display:table;width:${wIn}in;height:${hIn}in;overflow:hidden;}
+.inner{display:table-cell;vertical-align:middle;text-align:center;padding:${padIn}in;}
+.name{font-size:${namePt}pt;font-weight:bold;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-transform:uppercase;display:block;}
+.sku{font-size:${skuPt}pt;color:#333;font-weight:bold;display:block;}
+.price{font-size:${pricePt}pt;font-weight:bold;display:block;}
 </style></head><body>${body}${printScript}</body></html>`;
 }
 
