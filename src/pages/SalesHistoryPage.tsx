@@ -26,6 +26,7 @@ interface Sale {
     total: number;
     payment_method: string;
     status: string;
+    sale_type?: string;
     sale_items: SaleItem[];
     branches: { name: string };
 }
@@ -38,6 +39,7 @@ export default function SalesHistoryPage() {
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
     const [startDate, setStartDate] = useState(isCajero ? today : sevenDaysAgo);
     const [endDate, setEndDate] = useState(today);
+    const [saleTypeFilter, setSaleTypeFilter] = useState<"" | "WHOLESALE" | "RETAIL">("");
     const [sales, setSales] = useState<Sale[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [fetchError, setFetchError] = useState(false);
@@ -49,7 +51,9 @@ export default function SalesHistoryPage() {
         const effectiveStart = isCajero ? today : startDate;
         const effectiveEnd = isCajero ? today : endDate;
         try {
-            const res = await api.get(`/sales?startDate=${effectiveStart}&endDate=${effectiveEnd}`);
+            const params = new URLSearchParams({ startDate: effectiveStart, endDate: effectiveEnd });
+            if (saleTypeFilter) params.set("saleType", saleTypeFilter);
+            const res = await api.get(`/sales?${params.toString()}`);
             setSales(res.data);
         } catch (e) {
             console.error("Error fetching sales history", e);
@@ -115,7 +119,7 @@ export default function SalesHistoryPage() {
                 <p className="text-[10px] font-black text-app-text-muted uppercase tracking-widest mb-4 opacity-60">Mostrando ventas de hoy</p>
             )}
             {!isCajero && <div className="bg-app-card backdrop-blur-md rounded-2xl p-4 md:p-5 border border-app-border shadow-lg mb-6 flex flex-col md:flex-row gap-4 items-end">
-                <div className="grid grid-cols-2 lg:grid-cols-2 gap-3 w-full flex-1">
+                <div className={`grid gap-3 w-full flex-1 ${user?.saleTypeEnabled ? "grid-cols-3" : "grid-cols-2"}`}>
                     <div className="relative">
                         <label className="block text-[9px] font-black text-app-text-muted mb-1 ml-1 uppercase tracking-widest">
                             Desde
@@ -131,13 +135,29 @@ export default function SalesHistoryPage() {
                         <label className="block text-[9px] font-black text-app-text-muted mb-1 ml-1 uppercase tracking-widest">
                             Hasta
                         </label>
-                        <input 
+                        <input
                             type="date"
                             value={endDate}
                             onChange={(e) => setEndDate(e.target.value)}
                             className="w-full bg-app-bg border border-app-border rounded-xl px-3 py-2.5 md:px-4 md:py-3 text-sm text-app-text focus:outline-none focus:ring-2 focus:ring-app-accent/30"
                         />
                     </div>
+                    {user?.saleTypeEnabled && (
+                        <div className="relative">
+                            <label className="block text-[9px] font-black text-app-text-muted mb-1 ml-1 uppercase tracking-widest">
+                                Tipo de Factura
+                            </label>
+                            <select
+                                value={saleTypeFilter}
+                                onChange={e => setSaleTypeFilter(e.target.value as "" | "WHOLESALE" | "RETAIL")}
+                                className="w-full bg-app-bg border border-app-border rounded-xl px-3 py-2.5 md:px-4 md:py-3 text-sm text-app-text focus:outline-none focus:ring-2 focus:ring-app-accent/30"
+                            >
+                                <option value="">Todos</option>
+                                <option value="WHOLESALE">Mayorista</option>
+                                <option value="RETAIL">Detal</option>
+                            </select>
+                        </div>
+                    )}
                 </div>
                 <button
                     onClick={fetchSales}
@@ -235,6 +255,11 @@ export default function SalesHistoryPage() {
                                             </td>
                                             <td className="px-6 py-4 text-[10px] font-black text-app-text uppercase tracking-[0.1em]">
                                                 {translatePayment(sale.payment_method)}
+                                                {user?.saleTypeEnabled && sale.sale_type && (
+                                                    <span className={`ml-2 px-1.5 py-0.5 rounded text-[8px] font-black uppercase ${sale.sale_type === "RETAIL" ? "bg-app-accent/20 text-app-accent" : "bg-violet-500/20 text-violet-400"}`}>
+                                                        {sale.sale_type === "RETAIL" ? "Detal" : "Mayor"}
+                                                    </span>
+                                                )}
                                             </td>
                                             <td className="px-6 py-4">
                                                 {isCancelled ? 
@@ -322,6 +347,11 @@ export default function SalesHistoryPage() {
                                             </span>
                                         )}
                                         <span className="text-[9px] font-black text-app-text-muted uppercase tracking-widest">{translatePayment(sale.payment_method)}</span>
+                                        {user?.saleTypeEnabled && sale.sale_type && (
+                                            <span className={`mt-0.5 px-1.5 py-0.5 rounded text-[8px] font-black uppercase ${sale.sale_type === "RETAIL" ? "bg-app-accent/20 text-app-accent" : "bg-violet-500/20 text-violet-400"}`}>
+                                                {sale.sale_type === "RETAIL" ? "Detal" : "Mayor"}
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
                                 <div className="flex justify-between items-center">

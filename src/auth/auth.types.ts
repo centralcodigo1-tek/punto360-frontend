@@ -7,6 +7,7 @@ export interface User {
   companyName: string | null;
   branchIds: string[];
   permissions: string[];
+  saleTypeEnabled: boolean;
 }
 
 export interface AuthContextType {

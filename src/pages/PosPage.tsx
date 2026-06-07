@@ -71,6 +71,7 @@ export default function PosPage() {
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
   const customerSearchRef = useRef<HTMLInputElement>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [saleType, setSaleType] = useState<"WHOLESALE" | "RETAIL">("WHOLESALE");
   const [weightPrompt, setWeightPrompt] = useState<ProductRow | null>(null);
   const [weightInput, setWeightInput] = useState("");
   const [consignmentPrompt, setConsignmentPrompt] = useState<ProductRow | null>(null);
@@ -423,6 +424,9 @@ export default function PosPage() {
       };
       if (paymentMethod === 'CREDIT' && selectedCustomer) {
         payload.customerId = selectedCustomer.id;
+      }
+      if (user?.saleTypeEnabled) {
+        payload.saleType = saleType;
       }
       await api.post("/sales", payload);
       setPrintData({
@@ -822,6 +826,23 @@ export default function PosPage() {
                   </div>
                 )}
               </div>
+            )}
+
+            {user?.saleTypeEnabled && (
+                <div className="flex gap-2 bg-app-bg p-1 rounded-xl border border-app-border animate-in fade-in duration-200">
+                    <button
+                        onClick={() => setSaleType("WHOLESALE")}
+                        className={`flex-1 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${saleType === "WHOLESALE" ? "bg-violet-600 text-white shadow" : "text-app-text-muted hover:text-app-text"}`}
+                    >
+                        Mayorista
+                    </button>
+                    <button
+                        onClick={() => setSaleType("RETAIL")}
+                        className={`flex-1 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${saleType === "RETAIL" ? "bg-app-accent text-white shadow" : "text-app-text-muted hover:text-app-text"}`}
+                    >
+                        Detal
+                    </button>
+                </div>
             )}
 
             <div className="flex flex-col border-b border-app-border pb-4 space-y-3">
