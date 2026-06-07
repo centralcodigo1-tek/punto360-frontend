@@ -11,8 +11,8 @@ interface Props {
 const COP = (v: number) =>
     new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", minimumFractionDigits: 0 }).format(v);
 
-const BILLS = [100_000, 50_000, 20_000, 10_000, 5_000, 2_000, 1_000];
-const COINS = [500, 200, 100, 50];
+const BILLS = [100_000, 50_000, 20_000, 10_000, 5_000, 2_000];
+const COINS = [1_000, 500, 200, 100, 50];
 
 const BILL_IMAGES: Record<number, string> = {
     100_000: "/bills/bill_100000.jpg",
@@ -112,12 +112,12 @@ export default function CashPadModal({ total, onConfirm, onClose, showBillImages
                 {/* Monedas */}
                 <div className="px-5 pb-4">
                     <p className="text-[9px] font-black text-app-text-muted uppercase tracking-widest mb-2">Monedas</p>
-                    <div className="grid grid-cols-4 gap-2">
+                    <div className="grid grid-cols-5 gap-2">
                         {COINS.map(c => (
                             <button key={c} onClick={() => add(c)}
                                 className="flex flex-col items-center justify-center rounded-2xl border-2 border-amber-500/30 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20 active:scale-95 transition-all py-3 font-black text-sm select-none cursor-pointer">
                                 <span className="text-[10px] opacity-60">$</span>
-                                <span>{c}</span>
+                                <span>{c >= 1000 ? `${c / 1000}K` : c}</span>
                             </button>
                         ))}
                     </div>
