@@ -20,9 +20,10 @@ export function buildShortVariantSku(baseSku: string, comboValues: string[]): st
     if (parts.length === 1) {
         return `${prefix}${seq}${parts[0].slice(0, 6)}`;
     }
-    const colorAbbr = parts[0].slice(0, 4);
-    const size      = parts[parts.length - 1].slice(0, 3);
-    return `${prefix}${seq}${colorAbbr}${size}`;
+    // Concatenar todos los valores y tomar los primeros 8 chars del resultado
+    // Esto preserva más información que tomar N chars de cada uno por separado
+    const combined = parts.join("");
+    return `${prefix}${seq}${combined.slice(0, 8)}`;
 }
 
 /**

@@ -202,6 +202,9 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
       v.values.map(x => x.attribute_value.id).sort().join("|")
     );
 
+    const usedSkus = new Set<string>();
+    let hasDuplicates = false;
+
     const newPending: PendingVariant[] = combos
       .map(combo => {
         const valueIds = combo.map(v => v.id);
@@ -209,23 +212,28 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
         if (existingValueSets.includes(key)) return null;
 
         const label = combo.map(v => v.value).join(" / ");
-        const sku = buildShortVariantSku(form.sku, combo.map(v => v.value));
+        let sku = buildShortVariantSku(form.sku, combo.map(v => v.value));
 
-        return {
-          label,
-          sku,
-          barcode: "",
-          sale_price: form.sale_price,
-          cost_price: form.cost_price,
-          stock: "",
-          valueIds,
-        };
+        // Si el SKU generado colisiona, agregar sufijo numérico
+        if (usedSkus.has(sku)) {
+          hasDuplicates = true;
+          let i = 2;
+          while (usedSkus.has(`${sku}${i}`)) i++;
+          sku = `${sku}${i}`;
+        }
+        usedSkus.add(sku);
+
+        return { label, sku, barcode: "", sale_price: form.sale_price, cost_price: form.cost_price, stock: "", valueIds };
       })
       .filter((x): x is PendingVariant => x !== null);
 
     if (newPending.length === 0) {
       toast.info("Todas las combinaciones ya existen");
       return;
+    }
+
+    if (hasDuplicates) {
+      toast.warning("Algunos SKUs generados eran iguales — se les agregó un sufijo. Revísalos antes de guardar.");
     }
 
     setPendingVariants(newPending);
