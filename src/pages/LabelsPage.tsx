@@ -266,20 +266,6 @@ function buildZPL(products: LabelProduct[], config: LabelConfig): string {
     return zpl;
 }
 
-async function printViaQZ(printerName: string, html: string, config: LabelConfig): Promise<void> {
-    const qz = await getQZ();
-    await connectQZ(qz);
-    const cfg = qz.configs.create(printerName, {
-        size: { width: mmToIn(config.pageWidthMm), height: mmToIn(config.labelHeightMm) },
-        units: "in",
-        scaleContent: false,
-        colorType: "blackwhite",
-        margins: { top: 0, right: 0, bottom: 0, left: 0 },
-        orientation: "portrait",
-        density: config.dpi,
-    });
-    await qz.print(cfg, [{ type: "html", format: "plain", data: html }]);
-}
 
 async function printZplViaQZ(printerName: string, zpl: string): Promise<void> {
     const qz = await getQZ();
