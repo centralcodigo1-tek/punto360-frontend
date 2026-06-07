@@ -32,7 +32,8 @@ export function buildShortVariantSku(baseSku: string, comboValues: string[]): st
  */
 export function shortVariantCode(baseSku: string, variantSku: string): string {
     if (!variantSku.startsWith(baseSku + "-")) {
-        return stripAccents(variantSku).replace(/[^A-Z0-9]/gi, "").slice(0, 11).toUpperCase();
+        // SKU ya está en formato corto — limpiar y devolver sin truncar
+        return stripAccents(variantSku).replace(/[^A-Z0-9]/gi, "").toUpperCase();
     }
     const suffix      = stripAccents(variantSku.slice(baseSku.length + 1));
     const baseparts   = baseSku.split("-");
