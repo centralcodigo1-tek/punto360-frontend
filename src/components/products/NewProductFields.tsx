@@ -217,7 +217,7 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
           barcode: "",
           sale_price: form.sale_price,
           cost_price: form.cost_price,
-          stock: "0",
+          stock: "",
           valueIds,
         };
       })
@@ -740,7 +740,7 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
                       </div>
                       <div className="col-span-1">
                         <input
-                          type="number" value={v.stock}
+                          type="number" value={v.stock} placeholder="0"
                           onChange={e => updatePending(idx, "stock", e.target.value)}
                           className="w-full bg-app-card border border-app-border rounded-lg px-2 py-1.5 text-xs text-app-text text-center focus:outline-none focus:border-violet-500/50"
                         />
