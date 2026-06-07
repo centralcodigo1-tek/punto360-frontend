@@ -110,7 +110,7 @@ function buildLabelHtml(products: LabelProduct[], config: LabelConfig, autoPrint
             s.setAttribute("viewBox", `0 0 ${w} ${h}`);
             s.removeAttribute("width");
             s.removeAttribute("height");
-            s.setAttribute("style", "width:96%;max-width:96%;height:auto;display:block;margin:0 auto;");
+            s.setAttribute("style", "width:72%;max-width:72%;height:auto;display:block;margin:0 auto;");
             const out = s.outerHTML;
             bcCache.set(value, out);
             return out;
@@ -208,12 +208,12 @@ function buildZPL(products: LabelProduct[], config: LabelConfig): string {
         ? Math.max(30, labelH - vMargin * 2 - nameSlot - skuSlot - priceSlot)
         : 0;
 
-    // Code128B module count (without quiet zones — die-cut gaps between labels provide them):
-    //   start(11) + N×char(11) + check(11) + stop(13) = N×11 + 35
-    // With BY2 (2 dots/module = 0.25 mm @ 203 dpi, minimum for reliable scanning):
-    //   barcode dots = (N×11 + 35) × 2
-    // For a 10-char code: 145 × 2 = 290 ≈ labelW(289) → starts at column edge
-    const bcDots = (data: string) => (data.length * 11 + 35) * 2;
+    // Code128B data modules: start(11) + N×char(11) + check(11) + stop(13) = N×11 + 35
+    // BY1 (1 dot/module = 0.125 mm @ 203 dpi): a 10-char code = 145 dots → fits with quiet zones
+    // BY2 (0.25 mm/module): a 10-char code = 290 dots ≥ labelW(289) → no room for quiet zones
+    // Quiet zone mínima: 51 dots ≈ 6.4 mm (estándar Code128 exige ≥ 6.35 mm)
+    const QZ     = Math.round(6.35 * DPI / 25.4);   // ~51 dots
+    const bcDots = (data: string) => data.length * 11 + 35;  // BY1 → 1 dot/module
 
     const rows: LabelProduct[][] = [];
     for (let i = 0; i < products.length; i += cols) rows.push(products.slice(i, i + cols));
@@ -238,12 +238,11 @@ function buildZPL(products: LabelProduct[], config: LabelConfig): string {
                 y += nameSlot;
             }
 
-            // 2. Código de barras — BY2 para módulos de 2 dots, HRI apagado (se imprime separado)
+            // 2. Código de barras — BY1, centrado garantizando QZ ≥ 51 dots cada lado
             if (config.showBarcode && bv) {
                 const bw  = bcDots(bv);
-                // Centra dentro de la columna; si supera labelW ancla al borde izquierdo
-                const bcX = colX + Math.max(0, Math.floor((labelW - bw) / 2));
-                zpl += `^FO${bcX},${y}^BY2,2,${bcH}^BCN,,N,N^FD${bv}^FS`;
+                const bcX = colX + Math.max(QZ, Math.floor((labelW - bw) / 2));
+                zpl += `^FO${bcX},${y}^BY1,2,${bcH}^BCN,,N,N^FD${bv}^FS`;
                 y += bcH + gap;
             }
 
