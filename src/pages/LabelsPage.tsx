@@ -350,7 +350,7 @@ export default function LabelsPage() {
     };
 
     // ── Print Queue ───────────────────────────────────────────────────────────
-    interface QueueItem { id: string; label: string; sku: string; quantity: number; }
+    interface QueueItem { id: string; label: string; sku: string; quantity: number; sale_price: number; }
     const [printQueue, setPrintQueue] = useState<QueueItem[]>([]);
     const [queueLoading, setQueueLoading] = useState(false);
 
@@ -371,14 +371,19 @@ export default function LabelsPage() {
     const printQueueItems = async () => {
         if (printQueue.length === 0) return;
         setQueueLoading(true);
-        const items: LabelProduct[] = printQueue.map(q => ({
-            id: q.id,
-            name: q.label,
-            sku: q.sku,
-            sale_price: 0,
-            barcode: null,
-            quantity: q.quantity,
-        }));
+        const items: LabelProduct[] = printQueue.map(q => {
+            // Buscar en productos cargados para obtener precio actualizado
+            let sale_price = Number(q.sale_price) || 0;
+            for (const p of allProducts) {
+                if (p.has_variants && p.variants) {
+                    const v = p.variants.find(v => v.sku === q.sku);
+                    if (v) { sale_price = v.sale_price ?? p.sale_price; break; }
+                } else if (p.sku === q.sku) {
+                    sale_price = p.sale_price; break;
+                }
+            }
+            return { id: q.id, name: q.label, sku: q.sku, sale_price, barcode: null, quantity: q.quantity };
+        });
         setLabelProducts(prev => {
             const existingIds = new Set(prev.map(p => p.id));
             return [...prev, ...items.filter(i => !existingIds.has(i.id))];

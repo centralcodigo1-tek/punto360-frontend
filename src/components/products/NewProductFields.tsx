@@ -262,9 +262,10 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
         const items = snapshot
           .filter(v => Number(v.stock) > 0)
           .map(v => ({
-            label: v.label,
+            label: form.name,
             sku: v.sku,
             quantity: Number(v.stock),
+            sale_price: Number(v.sale_price) || 0,
           }));
         try {
           await api.post("/print-queue", { items });
