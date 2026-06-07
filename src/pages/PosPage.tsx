@@ -1214,6 +1214,7 @@ export default function PosPage() {
         total={cartTotal}
         onConfirm={(received) => { setCashReceived(String(received)); setShowCashPad(false); }}
         onClose={() => setShowCashPad(false)}
+        showBillImages={user?.companyId === 'f87452d7-6d54-4ccd-88f1-b99d597594d8'}
       />
     )}
     </>

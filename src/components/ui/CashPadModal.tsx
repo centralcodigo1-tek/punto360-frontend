@@ -5,6 +5,7 @@ interface Props {
     total: number;
     onConfirm: (received: number) => void;
     onClose: () => void;
+    showBillImages?: boolean;
 }
 
 const COP = (v: number) =>
@@ -13,14 +14,22 @@ const COP = (v: number) =>
 const BILLS = [100_000, 50_000, 20_000, 10_000, 5_000, 2_000, 1_000];
 const COINS = [500, 200, 100, 50];
 
-export default function CashPadModal({ total, onConfirm, onClose }: Props) {
+const BILL_IMAGES: Record<number, string> = {
+    100_000: "/bills/bill_100000.jpg",
+    50_000:  "/bills/bill_50000.jpg",
+    20_000:  "/bills/bill_20000.jpg",
+    10_000:  "/bills/bill_10000.jpg",
+    5_000:   "/bills/bill_5000.jpg",
+    2_000:   "/bills/bill_2000.jpg",
+};
+
+export default function CashPadModal({ total, onConfirm, onClose, showBillImages = false }: Props) {
     const [received, setReceived] = useState(0);
     const change = Math.max(0, received - total);
     const enough = received >= total;
 
     const add = (amount: number) => setReceived(prev => prev + amount);
     const clear = () => setReceived(0);
-    const billCls = "flex flex-col items-center justify-center rounded-2xl border-2 active:scale-95 transition-all select-none cursor-pointer font-black";
 
     return (
         <div className="fixed inset-0 z-[90] flex items-end sm:items-center justify-center">
@@ -53,15 +62,51 @@ export default function CashPadModal({ total, onConfirm, onClose }: Props) {
                 {/* Billetes */}
                 <div className="px-5 pb-3">
                     <p className="text-[9px] font-black text-app-text-muted uppercase tracking-widest mb-2">Billetes</p>
-                    <div className="grid grid-cols-4 gap-2">
-                        {BILLS.map(b => (
-                            <button key={b} onClick={() => add(b)}
-                                className={`${billCls} py-3 border-violet-500/30 bg-violet-500/10 text-violet-300 hover:bg-violet-500/20 text-sm`}>
-                                <span className="text-[10px] opacity-60">$</span>
-                                <span>{b >= 1000 ? `${b / 1000}K` : b}</span>
-                            </button>
-                        ))}
-                    </div>
+                    {showBillImages ? (
+                        <div className="grid grid-cols-3 gap-2">
+                            {BILLS.map(b => {
+                                const img = BILL_IMAGES[b];
+                                return img ? (
+                                    <button
+                                        key={b}
+                                        onClick={() => add(b)}
+                                        className="relative overflow-hidden rounded-xl border-2 border-violet-500/20 active:scale-95 transition-all select-none cursor-pointer group shadow-md"
+                                        style={{ aspectRatio: "2/1" }}
+                                    >
+                                        <img
+                                            src={img}
+                                            alt={`$${b.toLocaleString('es-CO')}`}
+                                            className="w-full h-full object-cover"
+                                            draggable={false}
+                                        />
+                                        <div className="absolute inset-0 bg-black/0 group-active:bg-black/20 transition-colors" />
+                                        <span className="absolute bottom-1 right-1.5 text-white text-[10px] font-black drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
+                                            {b >= 1000 ? `$${b / 1000}K` : `$${b}`}
+                                        </span>
+                                    </button>
+                                ) : (
+                                    <button
+                                        key={b}
+                                        onClick={() => add(b)}
+                                        className="flex flex-col items-center justify-center rounded-xl border-2 border-violet-500/30 bg-violet-500/10 text-violet-300 active:scale-95 transition-all py-3 font-black text-sm select-none cursor-pointer"
+                                    >
+                                        <span className="text-[10px] opacity-60">$</span>
+                                        <span>{b >= 1000 ? `${b / 1000}K` : b}</span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-4 gap-2">
+                            {BILLS.map(b => (
+                                <button key={b} onClick={() => add(b)}
+                                    className="flex flex-col items-center justify-center rounded-2xl border-2 border-violet-500/30 bg-violet-500/10 text-violet-300 hover:bg-violet-500/20 active:scale-95 transition-all py-3 font-black text-sm select-none cursor-pointer">
+                                    <span className="text-[10px] opacity-60">$</span>
+                                    <span>{b >= 1000 ? `${b / 1000}K` : b}</span>
+                                </button>
+                            ))}
+                        </div>
+                    )}
                 </div>
 
                 {/* Monedas */}
@@ -70,7 +115,7 @@ export default function CashPadModal({ total, onConfirm, onClose }: Props) {
                     <div className="grid grid-cols-4 gap-2">
                         {COINS.map(c => (
                             <button key={c} onClick={() => add(c)}
-                                className={`${billCls} py-3 border-amber-500/30 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20 text-sm`}>
+                                className="flex flex-col items-center justify-center rounded-2xl border-2 border-amber-500/30 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20 active:scale-95 transition-all py-3 font-black text-sm select-none cursor-pointer">
                                 <span className="text-[10px] opacity-60">$</span>
                                 <span>{c}</span>
                             </button>
