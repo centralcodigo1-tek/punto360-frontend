@@ -78,6 +78,7 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
   // Variantes pendientes de confirmar (generación automática)
   const [pendingVariants, setPendingVariants] = useState<PendingVariant[]>([]);
   const [savingPending, setSavingPending] = useState(false);
+  const [addToQueue, setAddToQueue] = useState(true);
 
   const [form, setForm] = useState({
     name: "",
@@ -241,9 +242,10 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
   const handleSavePendingVariants = async () => {
     if (!activeProductId || pendingVariants.length === 0) return;
     setSavingPending(true);
+    const snapshot = [...pendingVariants];
     try {
       const res = await api.post(`/products/${activeProductId}/variants/batch`, {
-        variants: pendingVariants.map(v => ({
+        variants: snapshot.map(v => ({
           sku: v.sku,
           barcode: v.barcode || undefined,
           sale_price: Number(v.sale_price),
@@ -255,6 +257,18 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
       const { created, errors } = res.data as { created: number; errors: number };
       if (errors === 0) toast.success(`${created} variante${created !== 1 ? "s" : ""} creada${created !== 1 ? "s" : ""}`);
       else toast.warning(`${created} creadas, ${errors} con error`);
+
+      if (addToQueue && created > 0) {
+        const items = snapshot.map(v => ({
+          label: v.label,
+          sku: v.sku,
+          quantity: Math.max(1, Number(v.stock) || 1),
+        }));
+        try {
+          await api.post("/print-queue", { items });
+          toast.success("Agregado a cola de impresión");
+        } catch { /* silencioso */ }
+      }
     } catch { toast.error("Error al crear variantes"); }
     setPendingVariants([]);
     await fetchVariantData(activeProductId);
@@ -738,6 +752,16 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
                       </div>
                     </div>
                   ))}
+
+                  <label className="flex items-center gap-2 cursor-pointer select-none py-1">
+                    <input
+                      type="checkbox"
+                      checked={addToQueue}
+                      onChange={e => setAddToQueue(e.target.checked)}
+                      className="w-4 h-4 accent-violet-500 rounded"
+                    />
+                    <span className="text-xs text-app-text-muted font-medium">Agregar a cola de impresión</span>
+                  </label>
 
                   <button
                     type="button"

@@ -3,7 +3,7 @@ import { useLocation } from "react-router-dom";
 import DashboardLayout from "../layouts/DashboardLayout";
 import { api } from "../api/axios";
 import JsBarcode from "jsbarcode";
-import { Tag, Settings, Printer, Search, Plus, Trash2, Save, CheckCircle2, Wifi, WifiOff, ChevronDown, ExternalLink } from "lucide-react";
+import { Tag, Settings, Printer, Search, Plus, Trash2, Save, CheckCircle2, Wifi, WifiOff, ChevronDown, ExternalLink, Clock, X, PrinterCheck } from "lucide-react";
 import { toast } from "../lib/toast";
 import { stripAccents, shortVariantCode } from "../utils/skuUtils";
 
@@ -349,6 +349,45 @@ export default function LabelsPage() {
         }
     };
 
+    // ── Print Queue ───────────────────────────────────────────────────────────
+    interface QueueItem { id: string; label: string; sku: string; quantity: number; }
+    const [printQueue, setPrintQueue] = useState<QueueItem[]>([]);
+    const [queueLoading, setQueueLoading] = useState(false);
+
+    const fetchQueue = useCallback(async () => {
+        try { const r = await api.get("/print-queue"); setPrintQueue(r.data); } catch { /* silencioso */ }
+    }, []);
+
+    useEffect(() => { fetchQueue(); }, [fetchQueue]);
+
+    const dismissQueueItem = async (id: string) => {
+        try { await api.delete(`/print-queue/${id}`); setPrintQueue(q => q.filter(i => i.id !== id)); } catch { toast.error("Error al eliminar"); }
+    };
+
+    const clearPrintQueue = async () => {
+        try { await api.delete("/print-queue/all"); setPrintQueue([]); } catch { toast.error("Error al limpiar cola"); }
+    };
+
+    const printQueueItems = async () => {
+        if (printQueue.length === 0) return;
+        setQueueLoading(true);
+        const items: LabelProduct[] = printQueue.map(q => ({
+            id: q.id,
+            name: q.label,
+            sku: q.sku,
+            sale_price: 0,
+            barcode: null,
+            quantity: q.quantity,
+        }));
+        setLabelProducts(prev => {
+            const existingIds = new Set(prev.map(p => p.id));
+            return [...prev, ...items.filter(i => !existingIds.has(i.id))];
+        });
+        await clearPrintQueue();
+        setQueueLoading(false);
+        toast.success(`${printQueue.length} elemento${printQueue.length !== 1 ? "s" : ""} cargado${printQueue.length !== 1 ? "s" : ""} desde la cola`);
+    };
+
     // ── Products ───────────────────────────────────────────────────────────────
     const [allProducts, setAllProducts] = useState<Product[]>([]);
     const [search, setSearch] = useState("");
@@ -479,6 +518,46 @@ export default function LabelsPage() {
                 {tab === "print" && (
                     <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
                         <div className="xl:col-span-1 flex flex-col gap-4">
+
+                            {/* ── Cola pendiente ── */}
+                            {printQueue.length > 0 && (
+                                <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 flex flex-col gap-3">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <Clock size={14} className="text-amber-400" />
+                                            <h2 className="text-xs font-black text-amber-400 uppercase tracking-widest">
+                                                Cola pendiente · {printQueue.length} elemento{printQueue.length !== 1 ? "s" : ""}
+                                            </h2>
+                                        </div>
+                                        <button onClick={clearPrintQueue} title="Limpiar todo"
+                                            className="text-app-text-muted hover:text-rose-400 transition-colors p-1">
+                                            <Trash2 size={14} />
+                                        </button>
+                                    </div>
+
+                                    <div className="flex flex-col gap-1.5 max-h-48 overflow-y-auto">
+                                        {printQueue.map(item => (
+                                            <div key={item.id} className="flex items-center gap-2 bg-app-bg border border-app-border rounded-xl px-3 py-2">
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-xs font-medium text-app-text truncate">{item.label}</p>
+                                                    <p className="text-[10px] text-violet-400 font-mono">{item.sku} · {item.quantity} etiq.</p>
+                                                </div>
+                                                <button onClick={() => dismissQueueItem(item.id)}
+                                                    className="text-app-text-muted hover:text-rose-400 transition-colors shrink-0">
+                                                    <X size={14} />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    <button onClick={printQueueItems} disabled={queueLoading}
+                                        className="w-full flex items-center justify-center gap-2 py-2.5 bg-amber-500 hover:bg-amber-400 text-black rounded-xl font-black text-sm transition-colors disabled:opacity-50">
+                                        <PrinterCheck size={15} />
+                                        Cargar para imprimir
+                                    </button>
+                                </div>
+                            )}
+
                             <div className="bg-app-card border border-app-border rounded-2xl p-5 flex flex-col gap-4">
                                 <h2 className="text-xs font-bold text-app-text-muted uppercase tracking-widest">Agregar Productos</h2>
                                 <div className="relative">
