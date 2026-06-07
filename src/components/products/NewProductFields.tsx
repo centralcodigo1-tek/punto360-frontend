@@ -4,6 +4,7 @@ import { PlusCircle, Loader2, Layers, Trash2, Plus, X, ChevronDown, ChevronUp, C
 import { toast } from "../../lib/toast";
 import BarcodeScannerModal from "../ui/BarcodeScannerModal";
 import type { ProductRow } from "../../pages/InventoryPage";
+import { buildShortVariantSku } from "../../utils/skuUtils";
 
 interface AttributeValue { id: string; value: string; position: number; }
 interface Attribute { id: string; name: string; values: AttributeValue[]; }
@@ -195,9 +196,8 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
         const key = [...valueIds].sort().join("|");
         if (existingValueSets.includes(key)) return null;
 
-        const labels = combo.map(v => v.value.toUpperCase().replace(/\s+/g, ""));
         const label = combo.map(v => v.value).join(" / ");
-        const sku = `${form.sku}-${labels.join("-")}`;
+        const sku = buildShortVariantSku(form.sku, combo.map(v => v.value));
 
         return {
           label,
