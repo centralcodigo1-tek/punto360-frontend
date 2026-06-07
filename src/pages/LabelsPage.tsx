@@ -417,17 +417,16 @@ export default function LabelsPage() {
 
     const expandToLabels = useCallback((p: Product): LabelProduct[] => {
         if (p.variants && p.variants.length > 0) {
-            return p.variants.map(v => {
-                const code = shortVariantCode(p.sku, v.sku);
-                return {
+            return p.variants
+                .filter(v => v.stockCount > 0)
+                .map(v => ({
                     id: v.id,
                     name: p.name,
-                    sku: code,
+                    sku: shortVariantCode(p.sku, v.sku),
                     sale_price: v.sale_price ?? p.sale_price,
                     barcode: null,
-                    quantity: Math.max(1, v.stockCount),
-                };
-            });
+                    quantity: v.stockCount,
+                }));
         }
         return [{ id: p.id, name: p.name, sku: p.sku, sale_price: p.sale_price, barcode: p.barcode, quantity: Math.max(1, p.stockCount) }];
     }, []);

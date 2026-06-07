@@ -230,26 +230,24 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
   const handleSavePendingVariants = async () => {
     if (!activeProductId || pendingVariants.length === 0) return;
     setSavingPending(true);
-    let created = 0;
-    let errors = 0;
-    for (const v of pendingVariants) {
-      try {
-        await api.post(`/products/${activeProductId}/variants`, {
+    try {
+      const res = await api.post(`/products/${activeProductId}/variants/batch`, {
+        variants: pendingVariants.map(v => ({
           sku: v.sku,
           barcode: v.barcode || undefined,
           sale_price: Number(v.sale_price),
           cost_price: Number(v.cost_price) || 0,
           stock: Number(v.stock) || 0,
           attribute_value_ids: v.valueIds,
-        });
-        created++;
-      } catch { errors++; }
-    }
+        })),
+      });
+      const { created, errors } = res.data as { created: number; errors: number };
+      if (errors === 0) toast.success(`${created} variante${created !== 1 ? "s" : ""} creada${created !== 1 ? "s" : ""}`);
+      else toast.warning(`${created} creadas, ${errors} con error`);
+    } catch { toast.error("Error al crear variantes"); }
     setPendingVariants([]);
     await fetchVariantData(activeProductId);
     setSavingPending(false);
-    if (errors === 0) toast.success(`${created} variante${created !== 1 ? "s" : ""} creada${created !== 1 ? "s" : ""}`);
-    else toast.warning(`${created} creadas, ${errors} con error`);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
