@@ -177,73 +177,87 @@ async function listPrinters(): Promise<string[]> {
 }
 
 function buildZPL(products: LabelProduct[], config: LabelConfig): string {
-    const DPI   = config.dpi ?? 203;
-    const dots  = (mm: number) => Math.round(mm * DPI / 25.4);
+    const DPI    = config.dpi ?? 203;
+    const dots   = (mm: number) => Math.round(mm * DPI / 25.4);
 
-    const labelW = dots(config.labelWidthMm);
-    const labelH = dots(config.labelHeightMm);
-    const margin = Math.max(4, dots(config.marginMm));
+    const labelW = dots(config.labelWidthMm);    // 289 @ 36.1mm 203dpi
+    const labelH = dots(config.labelHeightMm);   // 153 @ 19.1mm 203dpi
     const cols   = config.columns;
-    const totalW = labelW * cols;   // ancho total del cabezal (ej: 864 para 3×36mm)
-    const gap    = 3;
-    const innerW = labelW - margin * 2;
+    const totalW = labelW * cols;                 // 867
 
-    const nameFs  = Math.max(18, Math.min(dots(config.labelHeightMm * 0.13), 28));
-    const priceFs = Math.max(20, Math.min(dots(config.labelHeightMm * 0.15), 32));
-    const interpH = config.showSku ? 24 : 0;
+    // Margin only for text fields; barcode spans full column for max width
+    const margin  = Math.max(4, dots(config.marginMm));
+    const innerW  = labelW - margin * 2;
+    const gap     = 3;
+    const vMargin = 5;
 
-    // Altura disponible para barras
-    const contentH =
-        (config.showName    ? nameFs  + gap : 0) +
-        (config.showBarcode ? interpH + gap : 0) +
-        (config.showPrice   ? priceFs + gap : 0);
-    const bcH = Math.max(20, labelH - margin * 2 - contentH - gap);
+    // Font heights scaled to label height, capped so text never dominates the barcode
+    const nameH  = Math.max(18, Math.min(Math.round(labelH * 0.14), 24));
+    const nameW  = Math.max(14, Math.round(nameH * 0.85));
+    const priceH = Math.max(18, Math.min(Math.round(labelH * 0.16), 26));
+    const priceW = Math.max(14, Math.round(priceH * 0.85));
+    const skuH   = Math.max(13, Math.min(Math.round(labelH * 0.11), 17));
+    const skuW   = Math.max(11, Math.round(skuH * 0.85));
 
-    // Centrado vertical: startY desplaza el bloque al centro de la etiqueta
-    const totalContentH = contentH + (config.showBarcode ? bcH : 0);
-    const startY = Math.max(margin, Math.floor((labelH - totalContentH) / 2));
+    const nameSlot  = config.showName    ? nameH  + gap : 0;
+    const skuSlot   = config.showSku     ? skuH   + gap : 0;
+    const priceSlot = config.showPrice   ? priceH + gap : 0;
 
-    // Ancho estimado de Code128 en dots (módulo=1)
-    const estimateBcW = (data: string) => Math.min(data.length * 11 + 55, innerW);
+    // Barcode bars get whatever vertical space remains after text rows
+    const bcH = config.showBarcode
+        ? Math.max(30, labelH - vMargin * 2 - nameSlot - skuSlot - priceSlot)
+        : 0;
 
-    // Agrupar en filas — UN ^XA^XZ por fila con ^PW=totalW para activar todo el cabezal.
-    // ^LH0,0 resetea el origen al borde físico izquierdo del papel.
-    // Las columnas se posicionan manualmente con ^FO{colX + offset}.
+    // Code128B module count (without quiet zones — die-cut gaps between labels provide them):
+    //   start(11) + N×char(11) + check(11) + stop(13) = N×11 + 35
+    // With BY2 (2 dots/module = 0.25 mm @ 203 dpi, minimum for reliable scanning):
+    //   barcode dots = (N×11 + 35) × 2
+    // For a 10-char code: 145 × 2 = 290 ≈ labelW(289) → starts at column edge
+    const bcDots = (data: string) => (data.length * 11 + 35) * 2;
+
     const rows: LabelProduct[][] = [];
     for (let i = 0; i < products.length; i += cols) rows.push(products.slice(i, i + cols));
 
     let zpl = "";
 
     for (const row of rows) {
+        // One ^XA…^XZ per label row; ^PW activates full printhead width for all columns
         zpl += `^XA^LH0,0^PW${totalW}^LL${labelH}^CI28`;
 
         for (let c = 0; c < row.length; c++) {
-            const product = row[c];
+            const p    = row[c];
             const colX = labelW * c;
-            const bv = (product.barcode || product.sku).replace(/[^A-Za-z0-9\-\. \$\/\+\%]/g, "").trim();
-            let y = startY;
+            const bv   = stripAccents(p.barcode || p.sku)
+                .replace(/[^A-Za-z0-9\-\. \$\/\+\%]/g, "").trim();
+            let y = vMargin;
 
-            // 1. Nombre centrado dentro de la columna con ^FB
+            // 1. Nombre — ^FB centra en innerW, trunca a 22 chars
             if (config.showName) {
-                zpl += `^FO${colX + margin},${y}^A0N,${nameFs},${nameFs}^FB${innerW},1,0,C^FD${product.name.substring(0, 22).toUpperCase()}^FS`;
-                y += nameFs + gap;
+                const name = stripAccents(p.name).substring(0, 22).toUpperCase();
+                zpl += `^FO${colX + margin},${y}^A0N,${nameH},${nameW}^FB${innerW},1,0,C^FD${name}^FS`;
+                y += nameSlot;
             }
 
-            // 2. Barcode centrado horizontalmente por ancho estimado Code128
+            // 2. Código de barras — BY2 para módulos de 2 dots, HRI apagado (se imprime separado)
             if (config.showBarcode && bv) {
-                const bcW = estimateBcW(bv);
-                const bcX = colX + margin + Math.max(0, Math.floor((innerW - bcW) / 2));
-                const interp = config.showSku ? "Y" : "N";
-                zpl += `^FO${bcX},${y}^BY1,2,${bcH}^BCN,,${interp},N^FD${bv}^FS`;
-                y += bcH + interpH + gap;
-            } else if (config.showSku) {
-                zpl += `^FO${colX + margin},${y}^A0N,20,20^FB${innerW},1,0,C^FD${product.sku}^FS`;
-                y += 20 + gap;
+                const bw  = bcDots(bv);
+                // Centra dentro de la columna; si supera labelW ancla al borde izquierdo
+                const bcX = colX + Math.max(0, Math.floor((labelW - bw) / 2));
+                zpl += `^FO${bcX},${y}^BY2,2,${bcH}^BCN,,N,N^FD${bv}^FS`;
+                y += bcH + gap;
             }
 
-            // 3. Precio centrado dentro de la columna con ^FB
-            if (config.showPrice && y + priceFs <= labelH) {
-                zpl += `^FO${colX + margin},${y}^A0N,${priceFs},${priceFs}^FB${innerW},1,0,C^FD${COP(product.sale_price).replace(/\s/g, "")}^FS`;
+            // 3. HRI (texto del código) — campo separado para control total del layout
+            if (config.showSku) {
+                const skuText = bv || p.sku;
+                zpl += `^FO${colX + margin},${y}^A0N,${skuH},${skuW}^FB${innerW},1,0,C^FD${skuText}^FS`;
+                y += skuSlot;
+            }
+
+            // 4. Precio
+            if (config.showPrice) {
+                const price = COP(p.sale_price).replace(/\s/g, "");
+                zpl += `^FO${colX + margin},${y}^A0N,${priceH},${priceW}^FB${innerW},1,0,C^FD${price}^FS`;
             }
         }
 
@@ -265,6 +279,13 @@ async function printViaQZ(printerName: string, html: string, config: LabelConfig
         density: config.dpi,
     });
     await qz.print(cfg, [{ type: "html", format: "plain", data: html }]);
+}
+
+async function printZplViaQZ(printerName: string, zpl: string): Promise<void> {
+    const qz = await getQZ();
+    await connectQZ(qz);
+    const cfg = qz.configs.create(printerName);
+    await qz.print(cfg, [{ type: "raw", format: "plain", data: zpl }]);
 }
 
 // ── Components ────────────────────────────────────────────────────────────────
@@ -449,8 +470,8 @@ export default function LabelsPage() {
 
         if (config.printMode === "zpl" && config.printerName) {
             try {
-                const html = buildLabelHtml(all, config, false);
-                await printViaQZ(config.printerName, html, config);
+                const zpl = buildZPL(all, config);
+                await printZplViaQZ(config.printerName, zpl);
                 toast.success(`${totalLabels} etiqueta${totalLabels !== 1 ? "s" : ""} enviada${totalLabels !== 1 ? "s" : ""} a ${config.printerName}`);
             } catch (err: any) {
                 toast.error("Error al imprimir: " + (err?.message ?? "QZ Tray no disponible"));
