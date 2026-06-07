@@ -122,6 +122,35 @@ export default function PurchasesPage() {
     const [paidAmount, setPaidAmount] = useState<string>("");
     const [paymentMethod, setPaymentMethod] = useState("CASH");
     const [paymentSource, setPaymentSource] = useState<"CASH" | "CARTERA">("CASH");
+
+    // ── Abono modal ────────────────────────────────────────────────────────────
+    const [abonoModal, setAbonoModal] = useState<{ purchaseId: string; balance: number; supplierName: string } | null>(null);
+    const [abonoAmount, setAbonoAmount] = useState("");
+    const [abonoSource, setAbonoSource] = useState<"CASH" | "CARTERA">("CASH");
+    const [abonoMethod, setAbonoMethod] = useState("CASH");
+    const [isSubmittingAbono, setIsSubmittingAbono] = useState(false);
+
+    const handleAbono = async () => {
+        if (!abonoModal) return;
+        const amt = parseFloat(abonoAmount);
+        if (isNaN(amt) || amt <= 0 || amt > abonoModal.balance) return toast.warning("Monto inválido");
+        setIsSubmittingAbono(true);
+        try {
+            await api.post(`/purchases/${abonoModal.purchaseId}/payments`, {
+                amount: amt,
+                method: abonoSource === "CARTERA" ? "CASH" : abonoMethod,
+                paymentSource: abonoSource,
+            });
+            toast.success("Abono registrado con éxito");
+            setAbonoModal(null);
+            setAbonoAmount("");
+            setAbonoSource("CASH");
+            setAbonoMethod("CASH");
+            fetchHistory();
+        } catch (err: any) {
+            toast.error(err.response?.data?.message || "Error al registrar el abono");
+        } finally { setIsSubmittingAbono(false); }
+    };
     const [dueDate, setDueDate] = useState("");
 
     // ── Draft (pausa) ──────────────────────────────────────────────────────────
@@ -346,6 +375,79 @@ export default function PurchasesPage() {
     // ──────────────────────────────────────────────────────────────────────────
     return (
         <DashboardLayout>
+            {/* ── Modal de Abono ── */}
+            {abonoModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setAbonoModal(null)} />
+                    <div className="relative w-full max-w-sm bg-app-card border border-app-border rounded-2xl shadow-2xl z-10 p-6 flex flex-col gap-5">
+                        <div>
+                            <h3 className="font-bold text-app-text text-lg">Registrar Abono</h3>
+                            <p className="text-xs text-app-text-muted mt-0.5">Saldo pendiente: <span className="text-rose-400 font-bold">{cop(abonoModal.balance)}</span></p>
+                            {abonoModal.supplierName && <p className="text-xs text-app-text-muted">Proveedor: {abonoModal.supplierName}</p>}
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-medium text-app-text-muted mb-1.5">Monto del Abono</label>
+                            <input
+                                type="number" min="1" step="100"
+                                autoFocus
+                                placeholder={cop(abonoModal.balance)}
+                                value={abonoAmount}
+                                onChange={e => setAbonoAmount(e.target.value)}
+                                className="w-full bg-app-bg border border-app-border rounded-xl px-4 py-3 text-app-text text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/40"
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-medium text-app-text-muted mb-1.5">Fuente del Pago</label>
+                            <div className="flex gap-2 bg-app-bg p-1 rounded-xl border border-app-border">
+                                <button
+                                    onClick={() => setAbonoSource("CASH")}
+                                    className={`flex-1 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${abonoSource === "CASH" ? "bg-violet-600 text-white" : "text-app-text-muted hover:text-app-text"}`}
+                                >
+                                    Sale de Caja
+                                </button>
+                                <button
+                                    onClick={() => setAbonoSource("CARTERA")}
+                                    className={`flex-1 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${abonoSource === "CARTERA" ? "bg-app-accent text-white" : "text-app-text-muted hover:text-app-text"}`}
+                                >
+                                    Sale de Cartera
+                                </button>
+                            </div>
+                        </div>
+
+                        {abonoSource === "CASH" && (
+                            <div>
+                                <label className="block text-xs font-medium text-app-text-muted mb-1.5">Método de Pago</label>
+                                <select
+                                    value={abonoMethod}
+                                    onChange={e => setAbonoMethod(e.target.value)}
+                                    className="w-full bg-app-bg border border-app-border rounded-xl px-3 py-2.5 text-app-text text-sm focus:outline-none focus:ring-1 focus:ring-violet-500/40"
+                                >
+                                    <option value="CASH">Efectivo</option>
+                                    <option value="CARD">Tarjeta</option>
+                                    <option value="TRANSFER">Transferencia</option>
+                                </select>
+                            </div>
+                        )}
+
+                        <div className="flex gap-3 pt-1">
+                            <button onClick={() => setAbonoModal(null)} className="flex-1 py-2.5 rounded-xl border border-app-border text-app-text-muted text-sm hover:text-app-text transition-colors">
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={handleAbono}
+                                disabled={isSubmittingAbono || !abonoAmount}
+                                className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm transition-colors flex items-center justify-center gap-2 disabled:opacity-40"
+                            >
+                                {isSubmittingAbono ? <Loader2 size={15} className="animate-spin" /> : <CheckCircle2 size={15} />}
+                                Confirmar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <div className="mb-6">
                 {/* Banner de borrador pausado */}
                 {hasDraft && (
@@ -912,19 +1014,10 @@ export default function PurchasesPage() {
                                             {view === "debts" && balance > 0 && (
                                                 <div className="mt-4 flex justify-end">
                                                     <button
-                                                        onClick={() => {
-                                                            const payAmount = prompt(`¿Cuánto deseas abonar a esta deuda? (Saldo actual: ${cop(balance)})`);
-                                                            if (payAmount) {
-                                                                const amt = parseFloat(payAmount);
-                                                                if (isNaN(amt) || amt <= 0 || amt > balance) return toast.warning("Monto inválido");
-                                                                api.post(`/purchases/${p.id}/payments`, { amount: amt, method: 'CASH' })
-                                                                   .then(() => { toast.success("Abono registrado con éxito"); fetchHistory(); })
-                                                                   .catch(err => alert(err.response?.data?.message || "Error al pagar"));
-                                                            }
-                                                        }}
+                                                        onClick={() => setAbonoModal({ purchaseId: p.id, balance, supplierName: p.suppliers?.name || "" })}
                                                         className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-white text-xs font-bold rounded-xl transition-all shadow-lg shadow-emerald-900/20 flex items-center gap-2"
                                                     >
-                                                        <CheckCircle2 size={14} /> Registrar Abono (Efectivo)
+                                                        <CheckCircle2 size={14} /> Registrar Abono
                                                     </button>
                                                 </div>
                                             )}
