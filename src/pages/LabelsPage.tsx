@@ -191,8 +191,9 @@ function buildZPL(products: LabelProduct[], config: LabelConfig): string {
     // BY1 (1 dot/module = 0.125 mm @ 203 dpi): a 10-char code = 145 dots → fits with quiet zones
     // BY2 (0.25 mm/module): a 10-char code = 290 dots ≥ labelW(289) → no room for quiet zones
     // Quiet zone mínima: 51 dots ≈ 6.4 mm (estándar Code128 exige ≥ 6.35 mm)
-    const QZ     = Math.round(6.35 * DPI / 25.4);   // ~51 dots
-    const bcDots = (data: string) => data.length * 11 + 35;  // BY1 → 1 dot/module
+    const QZ        = Math.round(6.35 * DPI / 25.4);   // ~51 dots
+    const bcDots    = (data: string) => data.length * 11 + 35;  // BY1 → 1 dot/module
+    const vOffset   = 20;  // dots de desplazamiento vertical global (ajustar para centrar)
 
     const rows: LabelProduct[][] = [];
     for (let i = 0; i < products.length; i += cols) rows.push(products.slice(i, i + cols));
@@ -201,7 +202,7 @@ function buildZPL(products: LabelProduct[], config: LabelConfig): string {
 
     for (const row of rows) {
         // One ^XA…^XZ per label row; ^PW activates full printhead width for all columns
-        zpl += `^XA^LH0,0^PW${totalW}^LL${labelH}^CI28`;
+        zpl += `^XA^LH0,0^LT${vOffset}^PW${totalW}^LL${labelH}^CI28`;
 
         for (let c = 0; c < row.length; c++) {
             const p    = row[c];
