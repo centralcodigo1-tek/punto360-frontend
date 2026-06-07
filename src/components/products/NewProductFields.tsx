@@ -64,6 +64,17 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
   const [newAttrValues, setNewAttrValues] = useState("");
   const [addingAttr, setAddingAttr] = useState(false);
 
+  // Plantillas de atributos predeterminados
+  interface AttrTemplate { id: string; name: string; values: string[]; }
+  const [templates, setTemplates] = useState<AttrTemplate[]>([]);
+  const [showTemplates, setShowTemplates] = useState(false);
+  const [newTmplName, setNewTmplName] = useState("");
+  const [newTmplValues, setNewTmplValues] = useState("");
+
+  const fetchTemplates = async () => {
+    try { const r = await api.get("/products/attribute-templates"); setTemplates(r.data); } catch { /* silencioso */ }
+  };
+
   // Variantes pendientes de confirmar (generación automática)
   const [pendingVariants, setPendingVariants] = useState<PendingVariant[]>([]);
   const [savingPending, setSavingPending] = useState(false);
@@ -273,6 +284,10 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
           setActiveProductId(newProductId);
           setProductJustCreated(true);
           setShowVariants(true);
+          // Auto-aplicar plantillas de atributos predeterminadas
+          try {
+            await api.post(`/products/${newProductId}/apply-templates`);
+          } catch { /* sin plantillas o error ignorado */ }
           toast.success("Producto creado. Ahora agrega sus variantes.");
         } else {
           toast.success("Producto creado exitosamente");
@@ -554,6 +569,67 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
                   ))}
                 </div>
               )}
+
+              {/* ── Plantillas de atributos ── */}
+              <div className="bg-app-bg border border-app-border rounded-xl overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => { setShowTemplates(v => !v); if (!showTemplates) fetchTemplates(); }}
+                  className="w-full flex items-center justify-between px-4 py-3 text-xs font-black uppercase tracking-widest text-app-text-muted hover:text-app-text transition-colors"
+                >
+                  <span>Plantillas predeterminadas</span>
+                  <span className="text-[10px] text-violet-400">{showTemplates ? "▲ Ocultar" : "▼ Gestionar"}</span>
+                </button>
+                {showTemplates && (
+                  <div className="border-t border-app-border px-4 pb-4 pt-3 space-y-3">
+                    {templates.length === 0 && <p className="text-xs text-app-text-muted">Sin plantillas. Agrega una abajo.</p>}
+                    {templates.map(t => (
+                      <div key={t.id} className="flex items-center justify-between gap-2 bg-app-card rounded-lg px-3 py-2">
+                        <div>
+                          <span className="text-sm font-bold text-app-text">{t.name}</span>
+                          <span className="ml-2 text-[11px] text-app-text-muted">{t.values.join(", ")}</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            await api.delete(`/products/attribute-templates/${t.id}`);
+                            fetchTemplates();
+                          }}
+                          className="text-app-text-muted hover:text-rose-400 transition-colors shrink-0"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    ))}
+                    <div className="grid grid-cols-2 gap-2 pt-1">
+                      <input
+                        type="text" placeholder="Nombre (ej. Talla)"
+                        value={newTmplName} onChange={e => setNewTmplName(e.target.value)}
+                        className="bg-app-card border border-app-border rounded-lg px-3 py-2 text-sm text-app-text focus:outline-none focus:border-violet-500/50"
+                      />
+                      <input
+                        type="text" placeholder="Valores: 35, 36, 37, 38"
+                        value={newTmplValues} onChange={e => setNewTmplValues(e.target.value)}
+                        className="bg-app-card border border-app-border rounded-lg px-3 py-2 text-sm text-app-text focus:outline-none focus:border-violet-500/50"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      disabled={!newTmplName.trim() || !newTmplValues.trim()}
+                      onClick={async () => {
+                        const vals = newTmplValues.split(",").map(v => v.trim()).filter(Boolean);
+                        await api.post("/products/attribute-templates", { name: newTmplName.trim(), values: vals });
+                        setNewTmplName(""); setNewTmplValues("");
+                        fetchTemplates();
+                        toast.success("Plantilla guardada");
+                      }}
+                      className="flex items-center gap-2 px-4 py-2 bg-violet-500/10 hover:bg-violet-500/20 text-violet-400 rounded-lg text-sm font-bold transition-colors border border-violet-500/20 disabled:opacity-40"
+                    >
+                      <Plus size={13} /> Guardar plantilla
+                    </button>
+                  </div>
+                )}
+              </div>
 
               {/* ── Agregar atributo ── */}
               <div className="bg-app-bg border border-app-border rounded-xl p-4 space-y-3">
