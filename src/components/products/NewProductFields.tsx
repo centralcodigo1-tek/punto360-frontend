@@ -254,9 +254,12 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
           attribute_value_ids: v.valueIds,
         })),
       });
-      const { created, errors } = res.data as { created: number; errors: number };
-      if (errors === 0) toast.success(`${created} variante${created !== 1 ? "s" : ""} creada${created !== 1 ? "s" : ""}`);
-      else toast.warning(`${created} creadas, ${errors} con error`);
+      const { created, errors, duplicateSkus } = res.data as { created: number; errors: number; duplicateSkus: string[] };
+      if (errors === 0) {
+        toast.success(`${created} variante${created !== 1 ? "s" : ""} creada${created !== 1 ? "s" : ""}`);
+      } else {
+        toast.warning(`${created} creadas. ${errors} SKU${errors !== 1 ? "s" : ""} ya existía${errors !== 1 ? "n" : ""}: ${duplicateSkus.join(", ")}`);
+      }
 
       if (addToQueue && created > 0) {
         const items = snapshot
