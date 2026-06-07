@@ -85,6 +85,7 @@ export default function PosPage() {
   const [showScanner, setShowScanner] = useState(false);
   const [showCashPad, setShowCashPad] = useState(false);
   const isTouch = window.matchMedia("(pointer: coarse)").matches;
+  const isBillCompany = user?.companyId === 'f87452d7-6d54-4ccd-88f1-b99d597594d8';
   
   const [cashReceived, setCashReceived] = useState<string>("");
   const [isPriceEditing, setIsPriceEditing] = useState<string | null>(null);
@@ -857,7 +858,7 @@ export default function PosPage() {
                 
                 {paymentMethod === 'CASH' && cartTotal > 0 && (
                     <div className="space-y-3 pt-2 animate-in slide-in-from-bottom-2 duration-300">
-                        {isTouch ? (
+                        {(isTouch || isBillCompany) ? (
                             /* Pantalla táctil: botón que abre el teclado de billetes */
                             <button onClick={() => setShowCashPad(true)}
                                 className="w-full py-3 rounded-xl border-2 border-app-accent/40 bg-app-accent/10 text-app-accent font-black text-sm active:scale-95 transition-all flex items-center justify-center gap-2">
@@ -879,7 +880,7 @@ export default function PosPage() {
                                 </div>
                             </div>
                         )}
-                        {!isTouch && (
+                        {!isTouch && !isBillCompany && (
                             <div className="flex justify-between items-center bg-emerald-500/10 p-2.5 rounded-xl border border-emerald-500/20">
                                 <span className="text-emerald-500 font-black text-[9px] uppercase tracking-widest">Cambio</span>
                                 <span className="text-xl font-black text-emerald-500 animate-in fade-in duration-500">${change.toLocaleString()}</span>
