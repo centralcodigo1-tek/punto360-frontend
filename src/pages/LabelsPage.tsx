@@ -64,6 +64,17 @@ const COP = (v: number) =>
 
 const mmToIn = (mm: number) => mm / 25.4;
 
+// Ordena SKUs agrupando por color (parte alfa al final) y luego por talla (dígitos)
+// Ej: F87935PERLAC, F87936PERLAC, F87935PERLAN, F87936PERLAN
+function skuSortKey(sku: string): string {
+    const m = sku.match(/^([A-Z]+)(\d+)([A-Z].*)$/i);
+    if (!m) return sku;
+    const digits = m[2]; // ej. "87935"
+    const color  = m[3]; // ej. "PERLAC"
+    const talla  = digits.slice(-2).padStart(4, "0"); // últimos 2 dígitos = talla
+    return `${color}${talla}`; // "PERLAC0035" → agrupa por color primero
+}
+
 
 // ── HTML generator ────────────────────────────────────────────────────────────
 // Pre-genera los barcodes en el cliente (JsBarcode ya importado) e incrusta
@@ -373,7 +384,9 @@ export default function LabelsPage() {
     const printQueueItems = async () => {
         if (printQueue.length === 0) return;
         setQueueLoading(true);
-        const items: LabelProduct[] = printQueue.map(q => {
+        const items: LabelProduct[] = [...printQueue]
+        .sort((a, b) => skuSortKey(a.sku).localeCompare(skuSortKey(b.sku)))
+        .map(q => {
             // Buscar en productos cargados para obtener precio actualizado
             let sale_price = Number(q.sale_price) || 0;
             for (const p of allProducts) {
@@ -443,6 +456,7 @@ export default function LabelsPage() {
         if (p.variants && p.variants.length > 0) {
             return p.variants
                 .filter(v => v.stockCount > 0)
+                .sort((a, b) => skuSortKey(a.sku).localeCompare(skuSortKey(b.sku)))
                 .map(v => ({
                     id: v.id,
                     name: p.name,
