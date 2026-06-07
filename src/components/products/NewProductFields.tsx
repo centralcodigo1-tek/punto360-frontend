@@ -259,11 +259,13 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
       else toast.warning(`${created} creadas, ${errors} con error`);
 
       if (addToQueue && created > 0) {
-        const items = snapshot.map(v => ({
-          label: v.label,
-          sku: v.sku,
-          quantity: Math.max(1, Number(v.stock) || 1),
-        }));
+        const items = snapshot
+          .filter(v => Number(v.stock) > 0)
+          .map(v => ({
+            label: v.label,
+            sku: v.sku,
+            quantity: Number(v.stock),
+          }));
         try {
           await api.post("/print-queue", { items });
           toast.success("Agregado a cola de impresión");
