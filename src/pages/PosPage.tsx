@@ -9,6 +9,11 @@ import BarcodeScannerModal from "../components/ui/BarcodeScannerModal";
 import CashPadModal from "../components/ui/CashPadModal";
 import type { ProductRow } from "./InventoryPage";
 
+interface VariantMapEntry {
+  id: string; sku: string; sale_price: number;
+  product_id: string; unit_type: string; stock: number; label: string;
+}
+
 interface VariantOption {
   id: string;
   sku: string;
@@ -91,6 +96,7 @@ export default function PosPage() {
   const [printData, setPrintData] = useState<{ items: CartItem[]; total: number; change: number; paymentMethod: string; customerName?: string } | null>(null);
   const [paperWidth, setPaperWidth] = useState<number>(() => Number(localStorage.getItem('receipt_paper_width') || 80));
   const [branchName, setBranchName] = useState<string>("");
+  const variantMap = useRef<Record<string, VariantMapEntry>>({});
 
   const fetchShiftStats = async () => {
     try {
@@ -165,6 +171,7 @@ export default function PosPage() {
   useEffect(() => {
     fetchProducts();
     fetchCustomers();
+    api.get("/products/variant-map").then(res => { variantMap.current = res.data; }).catch(() => {});
     api.get("/cash-registers/current")
       .then(res => {
         setHasCashSession(!!res.data);
@@ -217,7 +224,26 @@ export default function PosPage() {
     ));
     if (hasProductMatch) return;
 
-    // No product match — single unified scan call (handles SKU and barcode in one query)
+    // Check preloaded variant map first (O(1), no network)
+    const mapped = variantMap.current[q] ?? variantMap.current[q.toUpperCase()];
+    if (mapped) {
+      const parentProduct = products.find(p => p.id === mapped.product_id);
+      if (parentProduct) {
+        if (mapped.stock === 0) { toast.error("Variante sin stock disponible"); setSearchQuery(""); return; }
+        setCart(prev => {
+          const existing = prev.find(i => i.variantId === mapped.id);
+          if (existing) {
+            if (existing.quantity >= mapped.stock) return prev;
+            return prev.map(i => i.variantId === mapped.id ? { ...i, quantity: i.quantity + 1 } : i);
+          }
+          return [...prev, { product: parentProduct, quantity: 1, customPrice: mapped.sale_price, variantId: mapped.id, variantLabel: mapped.label }];
+        });
+        setSearchQuery("");
+        return;
+      }
+    }
+
+    // Fallback: API call (handles edge cases not in map)
     const timeout = setTimeout(async () => {
       try {
         const res = await api.get(`/products/scan/${encodeURIComponent(q)}`);
