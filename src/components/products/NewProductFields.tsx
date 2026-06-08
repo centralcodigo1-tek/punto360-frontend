@@ -225,7 +225,15 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
 
         return { label, sku, barcode: "", sale_price: form.sale_price, cost_price: form.cost_price, stock: "", valueIds };
       })
-      .filter((x): x is PendingVariant => x !== null);
+      .filter((x): x is PendingVariant => x !== null)
+      .sort((a, b) => {
+        const partsA = a.label.split(" / ");
+        const partsB = b.label.split(" / ");
+        const lastA = partsA[partsA.length - 1];
+        const lastB = partsB[partsB.length - 1];
+        if (lastA !== lastB) return lastA.localeCompare(lastB);
+        return a.label.localeCompare(b.label);
+      });
 
     if (newPending.length === 0) {
       toast.info("Todas las combinaciones ya existen");
