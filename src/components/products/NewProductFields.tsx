@@ -205,7 +205,16 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
     const usedSkus = new Set<string>();
     let hasDuplicates = false;
 
-    const newPending: PendingVariant[] = combos
+    // Ordenar combos por posición original del primer atributo (color),
+    // luego por posición del segundo (talla) — respeta el orden de creación del usuario
+    const sortedCombos = [...combos].sort((a, b) => {
+      const lastA = a[a.length - 1].position;
+      const lastB = b[b.length - 1].position;
+      if (lastA !== lastB) return lastA - lastB;
+      return a[0].position - b[0].position;
+    });
+
+    const newPending: PendingVariant[] = sortedCombos
       .map(combo => {
         const valueIds = combo.map(v => v.id);
         const key = [...valueIds].sort().join("|");
@@ -214,7 +223,6 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
         const label = combo.map(v => v.value).join(" / ");
         let sku = buildShortVariantSku(form.sku, combo.map(v => v.value));
 
-        // Si el SKU generado colisiona, agregar sufijo numérico
         if (usedSkus.has(sku)) {
           hasDuplicates = true;
           let i = 2;
@@ -225,15 +233,7 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
 
         return { label, sku, barcode: "", sale_price: form.sale_price, cost_price: form.cost_price, stock: "", valueIds };
       })
-      .filter((x): x is PendingVariant => x !== null)
-      .sort((a, b) => {
-        const partsA = a.label.split(" / ");
-        const partsB = b.label.split(" / ");
-        const lastA = partsA[partsA.length - 1];
-        const lastB = partsB[partsB.length - 1];
-        if (lastA !== lastB) return lastA.localeCompare(lastB);
-        return a.label.localeCompare(b.label);
-      });
+      .filter((x): x is PendingVariant => x !== null);
 
     if (newPending.length === 0) {
       toast.info("Todas las combinaciones ya existen");
