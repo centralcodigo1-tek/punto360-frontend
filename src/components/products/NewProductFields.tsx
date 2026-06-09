@@ -41,6 +41,74 @@ interface NewProductFieldsProps {
   fromPurchase?: boolean;
 }
 
+// Tarjeta de atributo con opción de agregar valores inline
+function AttributeCard({ attr, productId, onDelete, onValueAdded }: {
+  attr: Attribute;
+  productId: string;
+  onDelete: () => void;
+  onValueAdded: () => void;
+}) {
+  const [adding, setAdding] = useState(false);
+  const [newVal, setNewVal] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const handleAdd = async () => {
+    const val = newVal.trim();
+    if (!val) return;
+    setSaving(true);
+    try {
+      await import("../../api/axios").then(m =>
+        m.api.post(`/products/${productId}/attributes/${attr.id}/values`, { value: val })
+      );
+      setNewVal(""); setAdding(false);
+      onValueAdded();
+    } catch { /* silencioso */ }
+    finally { setSaving(false); }
+  };
+
+  return (
+    <div className="bg-app-bg border border-app-border rounded-xl p-3">
+      <div className="flex items-center justify-between mb-2">
+        <span className="font-bold text-sm text-app-text">{attr.name}</span>
+        <button type="button" onClick={onDelete} className="text-app-text-muted hover:text-rose-400 transition-colors">
+          <Trash2 size={14} />
+        </button>
+      </div>
+      <div className="flex flex-wrap gap-1.5 mb-2">
+        {attr.values.map(v => (
+          <span key={v.id} className="px-2 py-0.5 bg-violet-500/10 text-violet-400 text-[11px] font-bold rounded-full border border-violet-500/20">{v.value}</span>
+        ))}
+      </div>
+      {adding ? (
+        <div className="flex gap-1.5 mt-1">
+          <input
+            autoFocus
+            type="text"
+            value={newVal}
+            onChange={e => setNewVal(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAdd(); } if (e.key === 'Escape') { setAdding(false); setNewVal(""); } }}
+            placeholder={`Nuevo ${attr.name.toLowerCase()}...`}
+            className="flex-1 bg-app-card border border-violet-500/30 rounded-lg px-2.5 py-1.5 text-sm text-app-text focus:outline-none focus:border-violet-500/60"
+          />
+          <button type="button" onClick={handleAdd} disabled={saving || !newVal.trim()}
+            className="px-3 py-1.5 bg-violet-600 hover:bg-violet-500 text-white rounded-lg text-xs font-bold disabled:opacity-40 transition-colors">
+            {saving ? <Loader2 size={12} className="animate-spin" /> : "Agregar"}
+          </button>
+          <button type="button" onClick={() => { setAdding(false); setNewVal(""); }}
+            className="px-2 py-1.5 text-app-text-muted hover:text-app-text rounded-lg transition-colors">
+            <X size={14} />
+          </button>
+        </div>
+      ) : (
+        <button type="button" onClick={() => setAdding(true)}
+          className="flex items-center gap-1 text-[11px] text-violet-400 hover:text-violet-300 font-bold transition-colors mt-0.5">
+          <Plus size={11} /> Agregar valor
+        </button>
+      )}
+    </div>
+  );
+}
+
 // Producto cartesiano de arrays
 function cartesian<T>(arrays: T[][]): T[][] {
   return arrays.reduce<T[][]>(
@@ -610,19 +678,13 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel,
               {attributes.length > 0 && (
                 <div className="space-y-2">
                   {attributes.map(attr => (
-                    <div key={attr.id} className="bg-app-bg border border-app-border rounded-xl p-3">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="font-bold text-sm text-app-text">{attr.name}</span>
-                        <button type="button" onClick={() => handleDeleteAttribute(attr.id)} className="text-app-text-muted hover:text-rose-400 transition-colors">
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                      <div className="flex flex-wrap gap-1.5">
-                        {attr.values.map(v => (
-                          <span key={v.id} className="px-2 py-0.5 bg-violet-500/10 text-violet-400 text-[11px] font-bold rounded-full border border-violet-500/20">{v.value}</span>
-                        ))}
-                      </div>
-                    </div>
+                    <AttributeCard
+                      key={attr.id}
+                      attr={attr}
+                      productId={activeProductId!}
+                      onDelete={() => handleDeleteAttribute(attr.id)}
+                      onValueAdded={() => fetchVariantData(activeProductId!)}
+                    />
                   ))}
                 </div>
               )}
