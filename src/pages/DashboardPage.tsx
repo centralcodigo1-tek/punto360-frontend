@@ -48,6 +48,7 @@ const paymentLabel: Record<string, string> = {
 export default function DashboardPage() {
   const { user, hasPermission } = useAuth();
   const navigate = useNavigate();
+  const isCajero = user?.role === 'CAJERO';
   const firstName = user?.userName?.split(" ")[0] || "Administrador";
 
   const [stats, setStats] = useState<Stats | null>(null);
@@ -128,7 +129,7 @@ export default function DashboardPage() {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-5 mb-8">
+          {!isCajero && <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-5 mb-8">
             {statCards.map((card) => (
               <div
                 key={card.title}
@@ -149,11 +150,11 @@ export default function DashboardPage() {
                 )}
               </div>
             ))}
-          </div>
+          </div>}
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Recent Sales Table */}
-            <div className="lg:col-span-2 bg-app-card backdrop-blur-md border border-app-border rounded-2xl shadow-xl overflow-hidden flex flex-col">
+            {!isCajero && <div className="lg:col-span-2 bg-app-card backdrop-blur-md border border-app-border rounded-2xl shadow-xl overflow-hidden flex flex-col">
               <div className="flex items-center justify-between px-6 py-4 border-b border-app-border">
                 <h3 className="font-semibold text-app-text flex items-center gap-2">
                   <CheckCircle2 size={16} className="text-emerald-400" />
@@ -199,7 +200,7 @@ export default function DashboardPage() {
                   })}
                 </div>
               )}
-            </div>
+            </div>}
 
             {/* Acciones Rápidas */}
             <div className="flex flex-col gap-6">
