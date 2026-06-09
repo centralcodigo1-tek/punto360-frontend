@@ -50,6 +50,7 @@ export default function ReportsPage() {
   const [byWeekday, setByWeekday] = useState<WeekdayStat[]>([]);
   const [topCustomers, setTopCustomers] = useState<TopCustomer[]>([]);
   const [invKpis, setInvKpis] = useState<InventoryKpis | null>(null);
+  const [productSort, setProductSort] = useState<'revenue' | 'quantity'>('revenue');
 
   useEffect(() => { fetchAll(); }, [range]);
 
@@ -163,6 +164,7 @@ export default function ReportsPage() {
                     { label: 'Margen de Ganancia', value: `${(summary?.profitMargin ?? 0).toFixed(1)}%`, icon: <Percent size={20} />, color: 'amber' },
                     { label: 'Ticket Promedio', value: cop(summary?.averageTicket || 0), icon: <TrendingUp size={20} />, color: 'violet' },
                     { label: 'Transacciones', value: String(summary?.transactionCount || 0), icon: <BarChart3 size={20} />, color: 'cyan' },
+                    { label: 'Unidades Vendidas', value: topProducts.reduce((s, p) => s + p.quantity, 0).toLocaleString('es-CO'), icon: <ShoppingBag size={20} />, color: 'teal' },
                     { label: 'Costo Total', value: cop(summary?.totalCost || 0), icon: <ArrowUpRight size={20} />, color: 'rose' },
                   ].map((k, i) => (
                     <div key={i} className="bg-app-card border border-app-border rounded-2xl p-5 relative overflow-hidden group">
@@ -280,15 +282,36 @@ export default function ReportsPage() {
               <div className="space-y-6">
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                   <div className="lg:col-span-2 bg-app-card border border-app-border rounded-2xl p-6">
-                    <h3 className="font-bold text-app-text mb-4 flex items-center gap-2"><ArrowUpRight size={16} className="text-emerald-400" /> Top 10 Productos por Ingresos</h3>
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="font-bold text-app-text flex items-center gap-2">
+                        <ArrowUpRight size={16} className="text-emerald-400" />
+                        Top 10 Productos
+                      </h3>
+                      <div className="flex gap-1 bg-app-bg border border-app-border p-1 rounded-xl">
+                        <button onClick={() => setProductSort('revenue')}
+                          className={`px-3 py-1 rounded-lg text-[11px] font-bold transition-all ${productSort === 'revenue' ? 'bg-app-accent text-white' : 'text-app-text-muted hover:text-app-text'}`}>
+                          Por ingresos
+                        </button>
+                        <button onClick={() => setProductSort('quantity')}
+                          className={`px-3 py-1 rounded-lg text-[11px] font-bold transition-all ${productSort === 'quantity' ? 'bg-app-accent text-white' : 'text-app-text-muted hover:text-app-text'}`}>
+                          Por unidades
+                        </button>
+                      </div>
+                    </div>
                     <div className="h-80">
                       <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={topProducts} layout="vertical" margin={{ left: 10, right: 30 }}>
+                        <BarChart
+                          data={[...topProducts].sort((a, b) => b[productSort] - a[productSort]).slice(0, 10)}
+                          layout="vertical" margin={{ left: 10, right: 30 }}
+                        >
                           <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" horizontal={false} />
-                          <XAxis type="number" stroke="#ffffff40" fontSize={9} tickFormatter={v => `$${(v / 1000).toFixed(0)}k`} />
+                          <XAxis type="number" stroke="#ffffff40" fontSize={9}
+                            tickFormatter={v => productSort === 'revenue' ? `$${(v / 1000).toFixed(0)}k` : String(v)} />
                           <YAxis dataKey="name" type="category" stroke="#ffffff80" fontSize={10} width={130} />
-                          <Tooltip cursor={{ fill: '#ffffff05' }} contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #ffffff20', borderRadius: '12px' }} formatter={(v: any) => cop(Number(v))} />
-                          <Bar dataKey="revenue" fill="#8b5cf6" radius={[0, 4, 4, 0]} barSize={18} />
+                          <Tooltip cursor={{ fill: '#ffffff05' }}
+                            contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #ffffff20', borderRadius: '12px' }}
+                            formatter={(v: any) => productSort === 'revenue' ? cop(Number(v)) : `${Number(v).toLocaleString('es-CO')} uds`} />
+                          <Bar dataKey={productSort} fill={productSort === 'revenue' ? '#8b5cf6' : '#06b6d4'} radius={[0, 4, 4, 0]} barSize={18} />
                         </BarChart>
                       </ResponsiveContainer>
                     </div>
@@ -333,7 +356,7 @@ export default function ReportsPage() {
                       <span className="col-span-2 text-right">Ingresos</span>
                       <span className="col-span-2 text-right">Promedio</span>
                     </div>
-                    {topProducts.map((p, i) => (
+                    {[...topProducts].sort((a, b) => b[productSort] - a[productSort]).map((p, i) => (
                       <div key={i} className="grid grid-cols-12 gap-2 px-6 py-3 hover:bg-app-bg/30 transition-colors items-center">
                         <span className="col-span-1 text-xs font-black text-app-text-muted">{i + 1}</span>
                         <div className="col-span-5">
