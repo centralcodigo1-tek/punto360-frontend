@@ -29,12 +29,16 @@ interface PendingVariant {
 }
 interface Category { id: string; name: string; }
 
-export interface SavedProduct { id: string; name: string; sku: string; sale_price: number; has_variants: boolean; }
+export interface SavedProduct {
+  id: string; name: string; sku: string; sale_price: number; has_variants: boolean;
+  fromPurchaseStocks?: { sku: string; quantity: number; cost: number }[];
+}
 
 interface NewProductFieldsProps {
   initialData?: ProductRow;
   onSaveSuccess?: (product?: SavedProduct) => void;
   onCancel?: () => void;
+  fromPurchase?: boolean;
 }
 
 // Producto cartesiano de arrays
@@ -45,7 +49,7 @@ function cartesian<T>(arrays: T[][]): T[][] {
   );
 }
 
-export default function NewProductFields({ initialData, onSaveSuccess, onCancel }: NewProductFieldsProps) {
+export default function NewProductFields({ initialData, onSaveSuccess, onCancel, fromPurchase = false }: NewProductFieldsProps) {
   const isEdit = !!initialData;
   const [activeProductId, setActiveProductId] = useState<string | null>(initialData?.id ?? null);
   const [productJustCreated, setProductJustCreated] = useState(false);
@@ -55,6 +59,9 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
   const [isLoading, setIsLoading] = useState(false);
   const [isCreatingCategory, setIsCreatingCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
+
+  // Stocks ingresados durante creación desde compras
+  const [purchaseStocksSnapshot, setPurchaseStocksSnapshot] = useState<{ sku: string; quantity: number; cost: number }[]>([]);
 
   // Variantes
   const [showVariants, setShowVariants] = useState(false);
@@ -260,13 +267,20 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
     setSavingPending(true);
     const snapshot = [...pendingVariants];
     try {
+      if (fromPurchase) {
+        setPurchaseStocksSnapshot(snapshot.map(v => ({
+          sku: v.sku,
+          quantity: Number(v.stock) || 0,
+          cost: Number(v.cost_price) || 0,
+        })));
+      }
       const res = await api.post(`/products/${activeProductId}/variants/batch`, {
         variants: snapshot.map(v => ({
           sku: v.sku,
           barcode: v.barcode || undefined,
           sale_price: Number(v.sale_price),
           cost_price: Number(v.cost_price) || 0,
-          stock: Number(v.stock) || 0,
+          stock: fromPurchase ? 0 : (Number(v.stock) || 0),
           attribute_value_ids: v.valueIds,
         })),
       });
@@ -313,7 +327,11 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
         toast.success("Producto actualizado exitosamente");
         if (onSaveSuccess) onSaveSuccess();
       } else {
-        const res = await api.post("/products", payload);
+        const stockEntered = Number(form.stock) || 0;
+        const res = await api.post("/products", {
+          ...payload,
+          stock: fromPurchase ? 0 : payload.stock,
+        });
         const newProductId: string = res.data.id;
 
         if (form.has_variants) {
@@ -327,7 +345,10 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
           toast.success("Producto creado. Ahora agrega sus variantes.");
         } else {
           toast.success("Producto creado exitosamente");
-          if (onSaveSuccess) onSaveSuccess({ id: newProductId, name: res.data.name, sku: res.data.sku, sale_price: res.data.sale_price, has_variants: false });
+          if (onSaveSuccess) onSaveSuccess({
+            id: newProductId, name: res.data.name, sku: res.data.sku, sale_price: res.data.sale_price, has_variants: false,
+            fromPurchaseStocks: fromPurchase ? [{ sku: res.data.sku, quantity: stockEntered, cost: Number(form.cost_price) || 0 }] : undefined,
+          });
         }
       }
     } catch (error) {
@@ -875,7 +896,7 @@ export default function NewProductFields({ initialData, onSaveSuccess, onCancel 
         {productJustCreated ? (
           <button
             type="button"
-            onClick={() => { if (onSaveSuccess) onSaveSuccess(activeProductId ? { id: activeProductId, name: form.name, sku: form.sku, sale_price: Number(form.sale_price), has_variants: true } : undefined); }}
+            onClick={() => { if (onSaveSuccess) onSaveSuccess(activeProductId ? { id: activeProductId, name: form.name, sku: form.sku, sale_price: Number(form.sale_price), has_variants: true, fromPurchaseStocks: fromPurchase ? purchaseStocksSnapshot : undefined } : undefined); }}
             className="px-6 py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-lg shadow-emerald-500/20 transition-all font-semibold flex items-center gap-2"
           >
             <CheckCircle2 size={18} />

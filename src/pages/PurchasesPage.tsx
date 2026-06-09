@@ -143,7 +143,7 @@ export default function PurchasesPage() {
         }));
         setAllProducts(refreshed);
         const created = refreshed.find(p => p.id === product.id);
-        if (created) addItem(created, true);
+        if (created) addItem(created, product.fromPurchaseStocks);
     };
 
     // ── Abono modal ────────────────────────────────────────────────────────────
@@ -254,7 +254,7 @@ export default function PurchasesPage() {
     }, [productSearch, allProducts]);
 
     // ── Add product to items ───────────────────────────────────────────────────
-    const addItem = async (product: Product, prefillStock = false) => {
+    const addItem = async (product: Product, purchaseStocks?: { sku: string; quantity: number; cost: number }[]) => {
         setProductSearch(""); setShowProductDropdown(false);
 
         if (product.has_variants) {
@@ -266,15 +266,18 @@ export default function PurchasesPage() {
                     stockCount: (v.stock ?? []).reduce((sum: number, s: any) => sum + Number(s.quantity), 0),
                 }));
                 setVariantPickerProduct({ ...product, variants: loaded });
-                setVariantEntries(loaded.map(v => ({
-                    variantId: v.id,
-                    label: variantLabel(v),
-                    sku: v.sku,
-                    quantity: prefillStock && v.stockCount > 0 ? String(v.stockCount) : "",
-                    cost: String(v.cost_price ?? 0),
-                    salePrice: String(v.sale_price ?? 0),
-                    stockCount: v.stockCount,
-                })));
+                setVariantEntries(loaded.map(v => {
+                    const snap = purchaseStocks?.find(s => s.sku === v.sku);
+                    return {
+                        variantId: v.id,
+                        label: variantLabel(v),
+                        sku: v.sku,
+                        quantity: snap && snap.quantity > 0 ? String(snap.quantity) : "",
+                        cost: snap ? String(snap.cost) : String(v.cost_price ?? 0),
+                        salePrice: String(v.sale_price ?? 0),
+                        stockCount: v.stockCount,
+                    };
+                }));
             } catch {
                 toast.error("No se pudieron cargar las variantes");
             } finally { setLoadingVariants(false); }
@@ -282,10 +285,13 @@ export default function PurchasesPage() {
         }
 
         if (items.find(i => i.productId === product.id && !i.variantId)) return;
+        const snap = purchaseStocks?.[0];
         setItems(prev => [...prev, {
             productId: product.id, productName: product.name,
             sku: product.sku, unit_type: product.unit_type,
-            quantity: 1, cost: product.cost_price, salePrice: 0,
+            quantity: snap ? snap.quantity : 1,
+            cost: snap ? snap.cost : product.cost_price,
+            salePrice: product.sale_price,
             stockTotal: product.stockTotal,
             currentCost: product.cost_price,
             currentSalePrice: product.sale_price,
@@ -415,6 +421,7 @@ export default function PurchasesPage() {
                     </div>
                     <div className="p-6 max-w-7xl mx-auto w-full">
                         <NewProductFields
+                            fromPurchase
                             onSaveSuccess={handleNewProductSaved}
                             onCancel={() => setShowNewProductModal(false)}
                         />
