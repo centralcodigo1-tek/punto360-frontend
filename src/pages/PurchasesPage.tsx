@@ -142,7 +142,7 @@ export default function PurchasesPage() {
         }));
         setAllProducts(refreshed);
         const created = refreshed.find(p => p.id === product.id);
-        if (created) addItem(created);
+        if (created) addItem(created, true);
     };
 
     // ── Abono modal ────────────────────────────────────────────────────────────
@@ -253,7 +253,7 @@ export default function PurchasesPage() {
     }, [productSearch, allProducts]);
 
     // ── Add product to items ───────────────────────────────────────────────────
-    const addItem = async (product: Product) => {
+    const addItem = async (product: Product, prefillStock = false) => {
         setProductSearch(""); setShowProductDropdown(false);
 
         if (product.has_variants) {
@@ -269,7 +269,7 @@ export default function PurchasesPage() {
                     variantId: v.id,
                     label: variantLabel(v),
                     sku: v.sku,
-                    quantity: "",
+                    quantity: prefillStock && v.stockCount > 0 ? String(v.stockCount) : "",
                     cost: String(v.cost_price ?? 0),
                     salePrice: String(v.sale_price ?? 0),
                     stockCount: v.stockCount,
