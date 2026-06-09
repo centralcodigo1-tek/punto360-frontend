@@ -1,5 +1,6 @@
 import { toast } from "../lib/toast";
 import { useEffect, useState, useMemo } from "react";
+import { createPortal } from "react-dom";
 import DashboardLayout from "../layouts/DashboardLayout";
 import { api } from "../api/axios";
 import { useAuth } from "../auth/AuthContext";
@@ -397,9 +398,9 @@ export default function PurchasesPage() {
     // ──────────────────────────────────────────────────────────────────────────
     return (
         <DashboardLayout>
-            {/* ── Modal Nuevo Producto ── */}
-            {showNewProductModal && (
-                <div className="fixed inset-0 z-[70] flex flex-col bg-app-bg overflow-y-auto">
+            {/* ── Modal Nuevo Producto (portal) ── */}
+            {showNewProductModal && createPortal(
+                <div className="fixed inset-0 z-[9999] flex flex-col bg-app-bg overflow-y-auto">
                     <div className="sticky top-0 z-10 bg-app-sidebar border-b border-app-border px-6 py-4 flex items-center gap-3">
                         <button
                             onClick={() => setShowNewProductModal(false)}
@@ -412,13 +413,14 @@ export default function PurchasesPage() {
                             <p className="text-xs text-app-text-muted mt-0.5">Se agregará a la compra al guardar</p>
                         </div>
                     </div>
-                    <div className="p-6">
+                    <div className="p-6 max-w-7xl mx-auto w-full">
                         <NewProductFields
                             onSaveSuccess={handleNewProductSaved}
                             onCancel={() => setShowNewProductModal(false)}
                         />
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
 
             {/* ── Modal de Abono ── */}
