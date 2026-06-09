@@ -40,6 +40,27 @@ export default function CarteraPage() {
     const [isConverting, setIsConverting] = useState(false);
     const [filter, setFilter] = useState<"ALL" | "INCOME" | "EXPENSE">("ALL");
 
+    const [showIncomeForm, setShowIncomeForm] = useState(false);
+    const [incomeAmount, setIncomeAmount] = useState("");
+    const [incomeReason, setIncomeReason] = useState("");
+    const [isSavingIncome, setIsSavingIncome] = useState(false);
+
+    const handleAddIncome = async () => {
+        const parsed = parseFloat(incomeAmount);
+        if (isNaN(parsed) || parsed <= 0) return toast.error("Ingresa un monto válido.");
+        if (!incomeReason.trim()) return toast.error("Ingresa el motivo del ingreso.");
+        setIsSavingIncome(true);
+        try {
+            await api.post("/cartera/income", { amount: parsed, reason: incomeReason.trim() });
+            setIncomeAmount(""); setIncomeReason("");
+            setShowIncomeForm(false);
+            fetchSummary();
+            toast.success("Ingreso registrado correctamente");
+        } catch (e: any) {
+            toast.error(e.response?.data?.message || "Error al registrar el ingreso.");
+        } finally { setIsSavingIncome(false); }
+    };
+
     const transferBalance = summary?.movements
         .filter(m => m.reason.includes('Transferencia'))
         .reduce((sum, m) => m.type === 'INCOME' ? sum + Number(m.amount) : sum - Number(m.amount), 0) ?? 0;
@@ -132,6 +153,13 @@ export default function CarteraPage() {
                                 Pasar a Efectivo
                             </button>
                         )}
+                        <button
+                            onClick={() => setShowIncomeForm(true)}
+                            className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-sm transition-all shadow-lg shadow-emerald-900/20"
+                        >
+                            <ArrowUpCircle size={16} />
+                            Ingreso Manual
+                        </button>
                         <button
                             onClick={() => setShowExpenseForm(true)}
                             className="flex items-center gap-2 px-4 py-2.5 bg-app-accent hover:opacity-90 text-white font-bold rounded-xl text-sm transition-all shadow-lg shadow-app-accent/20"
@@ -309,6 +337,64 @@ export default function CarteraPage() {
                             <button onClick={handleConvert} disabled={isConverting} className="flex-1 py-3 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-black text-sm transition-all flex items-center justify-center gap-2 shadow-lg shadow-violet-900/20">
                                 {isConverting ? <Loader2 size={16} className="animate-spin" /> : <ArrowLeftRight size={16} />}
                                 Confirmar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal ingreso manual */}
+            {showIncomeForm && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={() => setShowIncomeForm(false)} />
+                    <div className="relative w-full max-w-md bg-app-bg border border-app-border rounded-3xl shadow-2xl p-6 animate-in zoom-in duration-200">
+                        <div className="flex items-center justify-between mb-6">
+                            <div>
+                                <h2 className="text-lg font-black text-app-text">Ingreso Manual a Cartera</h2>
+                                <p className="text-xs text-app-text-muted mt-0.5">Saldo inicial, ajuste u otro concepto</p>
+                            </div>
+                            <button onClick={() => setShowIncomeForm(false)} className="text-app-text-muted hover:text-app-text transition-colors">
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-xs font-bold text-app-text-muted uppercase tracking-widest mb-1.5">Monto</label>
+                                <div className="relative">
+                                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-400 font-bold">$</span>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        autoFocus
+                                        value={incomeAmount}
+                                        onChange={e => setIncomeAmount(e.target.value)}
+                                        placeholder="0"
+                                        className="w-full bg-app-card border border-app-border rounded-xl pl-8 pr-4 py-3 text-app-text text-xl font-black focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+                                        onKeyDown={e => e.key === 'Enter' && handleAddIncome()}
+                                    />
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-app-text-muted uppercase tracking-widest mb-1.5">Concepto</label>
+                                <input
+                                    type="text"
+                                    value={incomeReason}
+                                    onChange={e => setIncomeReason(e.target.value)}
+                                    placeholder="Ej: Saldo inicial, Ajuste de cartera..."
+                                    className="w-full bg-app-card border border-app-border rounded-xl px-4 py-3 text-app-text placeholder-app-text-muted/50 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+                                    onKeyDown={e => e.key === 'Enter' && handleAddIncome()}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="flex gap-3 mt-6">
+                            <button onClick={() => setShowIncomeForm(false)} className="flex-1 py-3 rounded-xl border border-app-border text-app-text-muted font-bold text-sm hover:text-app-text transition-colors">
+                                Cancelar
+                            </button>
+                            <button onClick={handleAddIncome} disabled={isSavingIncome} className="flex-1 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-sm transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-900/20">
+                                {isSavingIncome ? <Loader2 size={16} className="animate-spin" /> : <ArrowUpCircle size={16} />}
+                                Registrar
                             </button>
                         </div>
                     </div>
