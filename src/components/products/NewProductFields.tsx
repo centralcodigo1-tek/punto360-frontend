@@ -41,6 +41,50 @@ interface NewProductFieldsProps {
   fromPurchase?: boolean;
 }
 
+// Chip de valor editable con doble clic
+function EditableValueChip({ valueId, value, onRenamed }: { valueId: string; value: string; onRenamed: () => void }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
+  const [saving, setSaving] = useState(false);
+
+  const save = async () => {
+    const trimmed = draft.trim();
+    if (!trimmed || trimmed === value) { setEditing(false); setDraft(value); return; }
+    setSaving(true);
+    try {
+      await import("../../api/axios").then(m =>
+        m.api.patch(`/products/attribute-values/${valueId}`, { value: trimmed })
+      );
+      setEditing(false);
+      onRenamed();
+    } catch { setDraft(value); setEditing(false); }
+    finally { setSaving(false); }
+  };
+
+  if (editing) {
+    return (
+      <input
+        autoFocus
+        value={draft}
+        onChange={e => setDraft(e.target.value)}
+        onBlur={save}
+        onKeyDown={e => { if (e.key === 'Enter') save(); if (e.key === 'Escape') { setEditing(false); setDraft(value); } }}
+        className="px-2 py-0.5 bg-violet-500/20 text-violet-300 text-[11px] font-bold rounded-full border border-violet-500/50 outline-none w-24"
+      />
+    );
+  }
+
+  return (
+    <span
+      title="Doble clic para editar"
+      onDoubleClick={() => { setDraft(value); setEditing(true); }}
+      className={`px-2 py-0.5 bg-violet-500/10 text-violet-400 text-[11px] font-bold rounded-full border border-violet-500/20 cursor-pointer hover:bg-violet-500/20 transition-colors select-none ${saving ? 'opacity-50' : ''}`}
+    >
+      {value}
+    </span>
+  );
+}
+
 // Tarjeta de atributo con opción de agregar valores inline
 function AttributeCard({ attr, productId, onDelete, onValueAdded }: {
   attr: Attribute;
@@ -76,7 +120,7 @@ function AttributeCard({ attr, productId, onDelete, onValueAdded }: {
       </div>
       <div className="flex flex-wrap gap-1.5 mb-2">
         {attr.values.map(v => (
-          <span key={v.id} className="px-2 py-0.5 bg-violet-500/10 text-violet-400 text-[11px] font-bold rounded-full border border-violet-500/20">{v.value}</span>
+          <EditableValueChip key={v.id} valueId={v.id} value={v.value} onRenamed={onValueAdded} />
         ))}
       </div>
       {adding ? (
