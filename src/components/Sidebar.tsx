@@ -12,6 +12,7 @@ interface SidebarProps {
 export default function Sidebar({ isMobileOpen = false, onClose }: SidebarProps) {
     const { hasPermission, user } = useAuth();
     const isAdmin = user?.role === 'ADMIN';
+    const isCajero = user?.role === 'CAJERO';
     const canManageUsers     = hasPermission('users.manage')     || isAdmin;
     const canViewReports     = hasPermission('reports.view')     || isAdmin;
     const canManageCustomers = hasPermission('customers.manage') || isAdmin;
@@ -52,7 +53,7 @@ export default function Sidebar({ isMobileOpen = false, onClose }: SidebarProps)
         { name: "Inventario", path: "/inventario", icon: Package, show: true },
         { name: "Importar", path: "/importar-productos", icon: FileUp, show: canManageProviders },
         { name: "Etiquetas", path: "/etiquetas", icon: Tag, show: canManageProviders },
-        { name: "Historial", path: "/historial", icon: History, show: true },
+        { name: "Historial", path: "/historial", icon: History, show: !isCajero },
         { name: "Clientes", path: "/clientes", icon: Users, show: canManageCustomers || hasPermission('pos.access') },
         { name: "Cartera", path: "/cartera", icon: Briefcase, show: canManageCustomers },
         { name: "Arqueos", path: "/arqueos", icon: Archive, show: canViewReports },

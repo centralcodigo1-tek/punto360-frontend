@@ -62,8 +62,9 @@ interface LiveStats {
 }
 
 export default function CashRegisterPage() {
-    const { hasPermission } = useAuth();
+    const { hasPermission, user } = useAuth();
     const canViewFinancials = hasPermission("reports.view");
+    const isCajero = user?.role === 'CAJERO';
 
     const [session, setSession] = useState<Session | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -374,7 +375,7 @@ export default function CashRegisterPage() {
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                 {[
                     { label: "Fondo Inicial", value: formatCOP(Number(session.opening_amount)), icon: <Wallet size={18}/>, color: "from-slate-600 to-slate-500", show: true },
-                    { label: "Ventas Efectivo", value: liveStats ? formatCOP(liveStats.cashSales) : "—", icon: <DollarSign size={18}/>, color: "from-emerald-600 to-teal-500", show: true },
+                    { label: "Ventas Efectivo", value: liveStats ? formatCOP(liveStats.cashSales) : "—", icon: <DollarSign size={18}/>, color: "from-emerald-600 to-teal-500", show: !isCajero },
                     { label: "Gastos de Caja", value: formatCOP(totalExpenses), icon: <TrendingDown size={18}/>, color: "from-rose-600 to-pink-500", show: true },
                     { label: "Total Ventas Turno", value: liveStats ? formatCOP(liveStats.totalSales) : "—", sub: liveStats ? `${liveStats.ticketsCount} tickets` : "", icon: <ClipboardList size={18}/>, color: "from-violet-600 to-purple-500", show: canViewFinancials },
                     { label: "Ventas de la Tienda", value: liveStats ? formatCOP(liveStats.totalNegocio ?? liveStats.totalSales) : "—", icon: <DollarSign size={18}/>, color: "from-teal-600 to-cyan-500", show: canViewFinancials && liveStats !== null },

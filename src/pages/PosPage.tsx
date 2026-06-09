@@ -66,6 +66,7 @@ interface CartItem {
 export default function PosPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const isCajero = user?.role === 'CAJERO';
   const [products, setProducts] = useState<ProductRow[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -528,76 +529,78 @@ export default function PosPage() {
             {searchQuery === '' ? (
               /* ── Resumen de turno ── */
               <div className="flex flex-col gap-4 animate-in fade-in duration-300">
-                {/* Total ventas */}
-                <div className="bg-app-card border border-app-border rounded-2xl p-6 flex flex-col items-center justify-center gap-2 shadow-lg">
-                  <div className="flex items-center gap-2 text-app-text-muted">
-                    <TrendingUp size={16} />
-                    <span className="text-[10px] font-black uppercase tracking-widest">Total ventas del turno</span>
-                  </div>
-                  <span className="text-4xl font-black text-app-text tracking-tight">
-                    {shiftStats ? cop(shiftStats.totalSales) : '—'}
-                  </span>
-                  <div className="flex items-center gap-1.5 text-app-text-muted mt-1">
-                    <Receipt size={13} />
-                    <span className="text-[11px] font-bold">
-                      {shiftStats ? `${shiftStats.ticketsCount} ticket${shiftStats.ticketsCount !== 1 ? 's' : ''}` : '0 tickets'}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Desglose por método de pago */}
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="bg-app-card border border-app-border rounded-2xl p-4 flex flex-col gap-1.5 shadow">
-                    <div className="flex items-center gap-1.5 text-emerald-500">
-                      <Banknote size={15} />
-                      <span className="text-[9px] font-black uppercase tracking-widest">Efectivo</span>
-                    </div>
-                    <span className="text-xl font-black text-app-text">
-                      {shiftStats ? cop(shiftStats.cashSales) : '—'}
-                    </span>
-                  </div>
-                  <div className="bg-app-card border border-app-border rounded-2xl p-4 flex flex-col gap-1.5 shadow">
-                    <div className="flex items-center gap-1.5 text-blue-400">
-                      <CreditCard size={15} />
-                      <span className="text-[9px] font-black uppercase tracking-widest">Tarjeta</span>
-                    </div>
-                    <span className="text-xl font-black text-app-text">
-                      {shiftStats ? cop(shiftStats.cardSales) : '—'}
-                    </span>
-                  </div>
-                  <div className="bg-app-card border border-app-border rounded-2xl p-4 flex flex-col gap-1.5 shadow">
-                    <div className="flex items-center gap-1.5 text-violet-400">
-                      <Wallet size={15} />
-                      <span className="text-[9px] font-black uppercase tracking-widest">Transf.</span>
-                    </div>
-                    <span className="text-xl font-black text-app-text">
-                      {shiftStats ? cop(shiftStats.transferSales) : '—'}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Desglose consignación */}
-                {shiftStats && (
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="bg-app-card border border-app-border rounded-2xl p-4 flex flex-col gap-1.5 shadow">
-                      <div className="flex items-center gap-1.5 text-teal-400">
-                        <ShoppingCart size={15} />
-                        <span className="text-[9px] font-black uppercase tracking-widest">Ventas de la Tienda</span>
+                {/* Total ventas + desglose — oculto para CAJERO */}
+                {!isCajero && (
+                  <>
+                    <div className="bg-app-card border border-app-border rounded-2xl p-6 flex flex-col items-center justify-center gap-2 shadow-lg">
+                      <div className="flex items-center gap-2 text-app-text-muted">
+                        <TrendingUp size={16} />
+                        <span className="text-[10px] font-black uppercase tracking-widest">Total ventas del turno</span>
                       </div>
-                      <span className="text-xl font-black text-app-text">
-                        {cop(shiftStats.totalNegocio ?? shiftStats.totalSales)}
+                      <span className="text-4xl font-black text-app-text tracking-tight">
+                        {shiftStats ? cop(shiftStats.totalSales) : '—'}
                       </span>
-                    </div>
-                    <div className="bg-app-card border border-app-border rounded-2xl p-4 flex flex-col gap-1.5 shadow">
-                      <div className="flex items-center gap-1.5 text-amber-400">
-                        <Layers size={15} />
-                        <span className="text-[9px] font-black uppercase tracking-widest">Ventas por Consención</span>
+                      <div className="flex items-center gap-1.5 text-app-text-muted mt-1">
+                        <Receipt size={13} />
+                        <span className="text-[11px] font-bold">
+                          {shiftStats ? `${shiftStats.ticketsCount} ticket${shiftStats.ticketsCount !== 1 ? 's' : ''}` : '0 tickets'}
+                        </span>
                       </div>
-                      <span className="text-xl font-black text-app-text">
-                        {cop(shiftStats.totalConsignment ?? 0)}
-                      </span>
                     </div>
-                  </div>
+
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="bg-app-card border border-app-border rounded-2xl p-4 flex flex-col gap-1.5 shadow">
+                        <div className="flex items-center gap-1.5 text-emerald-500">
+                          <Banknote size={15} />
+                          <span className="text-[9px] font-black uppercase tracking-widest">Efectivo</span>
+                        </div>
+                        <span className="text-xl font-black text-app-text">
+                          {shiftStats ? cop(shiftStats.cashSales) : '—'}
+                        </span>
+                      </div>
+                      <div className="bg-app-card border border-app-border rounded-2xl p-4 flex flex-col gap-1.5 shadow">
+                        <div className="flex items-center gap-1.5 text-blue-400">
+                          <CreditCard size={15} />
+                          <span className="text-[9px] font-black uppercase tracking-widest">Tarjeta</span>
+                        </div>
+                        <span className="text-xl font-black text-app-text">
+                          {shiftStats ? cop(shiftStats.cardSales) : '—'}
+                        </span>
+                      </div>
+                      <div className="bg-app-card border border-app-border rounded-2xl p-4 flex flex-col gap-1.5 shadow">
+                        <div className="flex items-center gap-1.5 text-violet-400">
+                          <Wallet size={15} />
+                          <span className="text-[9px] font-black uppercase tracking-widest">Transf.</span>
+                        </div>
+                        <span className="text-xl font-black text-app-text">
+                          {shiftStats ? cop(shiftStats.transferSales) : '—'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {shiftStats && (
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="bg-app-card border border-app-border rounded-2xl p-4 flex flex-col gap-1.5 shadow">
+                          <div className="flex items-center gap-1.5 text-teal-400">
+                            <ShoppingCart size={15} />
+                            <span className="text-[9px] font-black uppercase tracking-widest">Ventas de la Tienda</span>
+                          </div>
+                          <span className="text-xl font-black text-app-text">
+                            {cop(shiftStats.totalNegocio ?? shiftStats.totalSales)}
+                          </span>
+                        </div>
+                        <div className="bg-app-card border border-app-border rounded-2xl p-4 flex flex-col gap-1.5 shadow">
+                          <div className="flex items-center gap-1.5 text-amber-400">
+                            <Layers size={15} />
+                            <span className="text-[9px] font-black uppercase tracking-widest">Ventas por Consención</span>
+                          </div>
+                          <span className="text-xl font-black text-app-text">
+                            {cop(shiftStats.totalConsignment ?? 0)}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
 
                 <p className="text-center text-[10px] font-black uppercase tracking-widest text-app-text-muted opacity-40 mt-2">
