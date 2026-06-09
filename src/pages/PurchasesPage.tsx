@@ -7,6 +7,7 @@ import {
     PackagePlus, Search, Trash2, Plus, ChevronDown, ChevronUp,
     Loader2, CheckCircle2, Truck, Calendar, ShoppingBag, Layers, Pause, RotateCcw, X
 } from "lucide-react";
+import NewProductFields, { type SavedProduct } from "../components/products/NewProductFields";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface Supplier { id: string; name: string; phone?: string; }
@@ -122,6 +123,27 @@ export default function PurchasesPage() {
     const [paidAmount, setPaidAmount] = useState<string>("");
     const [paymentMethod, setPaymentMethod] = useState("CASH");
     const [paymentSource, setPaymentSource] = useState<"CASH" | "CARTERA">("CASH");
+
+    // ── New product modal ──────────────────────────────────────────────────────
+    const [showNewProductModal, setShowNewProductModal] = useState(false);
+
+    const handleNewProductSaved = async (product?: SavedProduct) => {
+        if (!product) { setShowNewProductModal(false); return; }
+        setShowNewProductModal(false);
+        // Reload products list
+        const pRes = await api.get("/products");
+        const refreshed: Product[] = pRes.data.map((p: any) => ({
+            id: p.id, name: p.name, sku: p.sku,
+            unit_type: p.unit_type || "UNIT",
+            has_variants: p.has_variants ?? false,
+            cost_price: p.cost_price ?? 0,
+            sale_price: p.sale_price ?? 0,
+            stockTotal: (p.stock ?? []).reduce((sum: number, s: any) => sum + Number(s.quantity), 0),
+        }));
+        setAllProducts(refreshed);
+        const created = refreshed.find(p => p.id === product.id);
+        if (created) addItem(created);
+    };
 
     // ── Abono modal ────────────────────────────────────────────────────────────
     const [abonoModal, setAbonoModal] = useState<{ purchaseId: string; balance: number; supplierName: string } | null>(null);
@@ -375,6 +397,30 @@ export default function PurchasesPage() {
     // ──────────────────────────────────────────────────────────────────────────
     return (
         <DashboardLayout>
+            {/* ── Modal Nuevo Producto ── */}
+            {showNewProductModal && (
+                <div className="fixed inset-0 z-[70] flex flex-col bg-app-bg overflow-y-auto">
+                    <div className="sticky top-0 z-10 bg-app-sidebar border-b border-app-border px-6 py-4 flex items-center gap-3">
+                        <button
+                            onClick={() => setShowNewProductModal(false)}
+                            className="p-2 rounded-xl bg-app-bg border border-app-border text-app-text-muted hover:text-app-text transition-colors"
+                        >
+                            <X size={18} />
+                        </button>
+                        <div>
+                            <h2 className="font-bold text-app-text text-lg leading-none">Nuevo Producto</h2>
+                            <p className="text-xs text-app-text-muted mt-0.5">Se agregará a la compra al guardar</p>
+                        </div>
+                    </div>
+                    <div className="p-6">
+                        <NewProductFields
+                            onSaveSuccess={handleNewProductSaved}
+                            onCancel={() => setShowNewProductModal(false)}
+                        />
+                    </div>
+                </div>
+            )}
+
             {/* ── Modal de Abono ── */}
             {abonoModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -644,7 +690,7 @@ export default function PurchasesPage() {
                                     onFocus={() => setShowProductDropdown(true)}
                                     className="w-full bg-app-bg border border-app-border rounded-xl pl-9 pr-4 py-2.5 text-app-text text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/40"
                                 />
-                                {showProductDropdown && filteredProducts.length > 0 && (
+                                {showProductDropdown && productSearch && (
                                     <div className="absolute top-full left-0 right-0 mt-1 bg-app-bg border border-app-border rounded-xl shadow-2xl z-20 overflow-hidden">
                                         {filteredProducts.map(p => (
                                             <button
@@ -664,6 +710,15 @@ export default function PurchasesPage() {
                                                 </div>
                                             </button>
                                         ))}
+                                        {filteredProducts.length === 0 && (
+                                            <p className="px-4 py-2.5 text-sm text-app-text-muted">No se encontraron resultados</p>
+                                        )}
+                                        <button
+                                            onClick={() => { setShowProductDropdown(false); setProductSearch(""); setShowNewProductModal(true); }}
+                                            className="w-full flex items-center gap-2 px-4 py-2.5 border-t border-app-border text-emerald-400 hover:bg-emerald-500/10 text-sm font-bold transition-colors"
+                                        >
+                                            <Plus size={15} /> Crear nuevo producto
+                                        </button>
                                     </div>
                                 )}
                             </div>

@@ -29,6 +29,7 @@ export interface ProductRow {
 export default function InventoryPage() {
     const { user, hasPermission } = useAuth();
     const canManageInventory = hasPermission("inventory.manage") || user?.role === "ADMIN";
+    const canCreateProduct = canManageInventory || user?.role === "CAJERO";
     
     // Core State
     const [allProducts, setAllProducts] = useState<ProductRow[]>([]);
@@ -152,7 +153,7 @@ export default function InventoryPage() {
                    filterCategory={filterCategory}
                    setFilterCategory={setFilterCategory}
                    categories={categories}
-                   canCreate={canManageInventory}
+                   canCreate={canCreateProduct}
                 />
 
                 {/* Tabla */}
