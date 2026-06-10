@@ -35,8 +35,9 @@ export default function SalesHistoryPage() {
     const { hasPermission, user } = useAuth();
     const canViewFinancials = hasPermission("reports.view");
     const isCajero = !hasPermission("inventory.manage") && user?.role !== "ADMIN";
-    const today = new Date().toISOString().split('T')[0];
-    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const localDate = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    const today = localDate(new Date());
+    const sevenDaysAgo = localDate(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000));
     const [startDate, setStartDate] = useState(isCajero ? today : sevenDaysAgo);
     const [endDate, setEndDate] = useState(today);
     const [saleTypeFilter, setSaleTypeFilter] = useState<"" | "WHOLESALE" | "RETAIL">("");

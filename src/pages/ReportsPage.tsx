@@ -31,9 +31,10 @@ const cop = (v: number) => new Intl.NumberFormat("es-CO", { style: "currency", c
 
 type Tab = 'ventas' | 'productos' | 'clientes' | 'inventario';
 
-const today = new Date().toISOString().split('T')[0];
-const daysAgo = (n: number) => new Date(Date.now() - n * 86400000).toISOString().split('T')[0];
-const startOfMonth = () => { const d = new Date(); d.setDate(1); return d.toISOString().split('T')[0]; };
+const localDate = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+const today = localDate(new Date());
+const daysAgo = (n: number) => localDate(new Date(Date.now() - n * 86400000));
+const startOfMonth = () => { const d = new Date(); d.setDate(1); return localDate(d); };
 
 export default function ReportsPage() {
   const { hasPermission } = useAuth();
