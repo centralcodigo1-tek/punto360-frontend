@@ -151,22 +151,19 @@ export default function ArqueosPage() {
     const { hasPermission, user } = useAuth();
     const navigate = useNavigate();
 
-    const canView = hasPermission("reports.view") || user?.role === 'ADMIN';
-    if (!canView) {
-        navigate("/");
-        return null;
-    }
-
     const [arqueos, setArqueos] = useState<Arqueo[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [expandedId, setExpandedId] = useState<string | null>(null);
 
+    const canView = hasPermission("reports.view") || user?.role === 'ADMIN';
+
     useEffect(() => {
+        if (!canView) { navigate("/"); return; }
         api.get("/cash-registers/history")
             .then(res => setArqueos(res.data))
             .catch(console.error)
             .finally(() => setIsLoading(false));
-    }, []);
+    }, [canView]);
 
     const toggle = (id: string) => setExpandedId(prev => prev === id ? null : id);
 
