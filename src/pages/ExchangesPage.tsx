@@ -23,11 +23,6 @@ interface ExchangeRecord {
 const cop = (v: number) => new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", minimumFractionDigits: 0 }).format(v);
 const fDate = (d: string) => new Date(d).toLocaleDateString("es-CO", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 
-const PAYMENT_LABELS: Record<string, string> = { CASH: "Efectivo", CARD: "Tarjeta", TRANSFER: "Transferencia" };
-const PAYMENT_ICONS: Record<string, React.ReactNode> = {
-  CASH: <Banknote size={14} />, CARD: <CreditCard size={14} />, TRANSFER: <Building2 size={14} />
-};
-
 // ── Product Selector ──────────────────────────────────────────────────────────
 function ProductSelector({
   label, products, value, variant, onSelect, onVariantSelect
