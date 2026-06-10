@@ -13,6 +13,7 @@ interface Variant { id: string; sku: string; sale_price: number; label?: string;
 interface ExchangeRecord {
   id: string; created_at: string; difference: number; payment_method: string | null; notes: string | null;
   returnedProduct: { name: string; sku: string } | null;
+  returnedProductName: string | null;
   returnedVariant: { label: string; sku: string } | null;
   newProduct: { name: string; sku: string } | null;
   newVariant: { label: string; sku: string } | null;
@@ -152,6 +153,8 @@ export default function ExchangesPage() {
   const [successMsg, setSuccessMsg] = useState("");
 
   // Form state
+  const [isExternal, setIsExternal] = useState(false);
+  const [retExternalName, setRetExternalName] = useState("");
   const [retProduct, setRetProduct] = useState<Product | null>(null);
   const [retVariant, setRetVariant] = useState<Variant | null>(null);
   const [retPrice, setRetPrice] = useState("");
@@ -183,21 +186,25 @@ export default function ExchangesPage() {
   const newPriceNum = parseFloat(newPrice) || 0;
   const difference = newPriceNum - retPriceNum;
 
+  const retReady = isExternal
+    ? (retExternalName.trim().length > 0 && retPriceNum > 0)
+    : (retProduct && (!retProduct.has_variants || retVariant) && retPriceNum > 0);
+
   const canSubmit =
-    retProduct &&
-    (!retProduct.has_variants || retVariant) &&
-    retPriceNum > 0 &&
+    retReady &&
     newProduct &&
     (!newProduct.has_variants || newVariant) &&
     newPriceNum > 0;
 
   const handleSubmit = async () => {
-    if (!canSubmit || !retProduct || !newProduct) return;
+    if (!canSubmit || !newProduct) return;
     setIsSaving(true);
     try {
       await api.post("/exchanges", {
-        returnedProductId: retProduct.id,
-        returnedVariantId: retVariant?.id,
+        isExternalReturn: isExternal,
+        returnedProductId: isExternal ? undefined : retProduct?.id,
+        returnedVariantId: isExternal ? undefined : retVariant?.id,
+        returnedProductName: isExternal ? retExternalName.trim() : undefined,
         returnedQuantity: 1,
         returnedPrice: retPriceNum,
         newProductId: newProduct.id,
@@ -208,6 +215,7 @@ export default function ExchangesPage() {
         notes: notes || null,
       });
       // Reset
+      setIsExternal(false); setRetExternalName("");
       setRetProduct(null); setRetVariant(null); setRetPrice("");
       setNewProduct(null); setNewVariant(null); setNewPrice("");
       setNotes(""); setPayMethod("CASH");
@@ -269,8 +277,9 @@ export default function ExchangesPage() {
                   <div key={e.id} className="px-5 py-3 flex items-center gap-4">
                     <div className="flex-1 min-w-0 grid grid-cols-3 gap-3 items-center">
                       <div className="min-w-0">
-                        <p className="text-xs text-rose-400 font-bold truncate">↩ {e.returnedProduct?.name ?? '—'}</p>
+                        <p className="text-xs text-rose-400 font-bold truncate">↩ {e.returnedProduct?.name ?? e.returnedProductName ?? '—'}</p>
                         {e.returnedVariant && <p className="text-[10px] text-rose-400/60">{e.returnedVariant.label}</p>}
+                        {!e.returnedProduct && e.returnedProductName && <p className="text-[10px] text-amber-400/70">Externo</p>}
                         <p className="text-[10px] text-app-text-muted">{cop(Number(e.returned_price))}</p>
                       </div>
                       <div className="flex justify-center"><ArrowRight size={14} className="text-app-text-muted" /></div>
@@ -299,31 +308,60 @@ export default function ExchangesPage() {
 
           {/* Producto devuelto */}
           <div className="bg-app-card border border-rose-500/20 rounded-2xl p-6 space-y-4">
-            <div className="flex items-center gap-2 mb-1">
-              <div className="w-2 h-2 rounded-full bg-rose-400" />
-              <p className="font-black text-app-text text-sm uppercase tracking-wider">Producto que devuelve</p>
+            <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-rose-400" />
+                <p className="font-black text-app-text text-sm uppercase tracking-wider">Producto que devuelve</p>
+              </div>
+              <button
+                onClick={() => { setIsExternal(e => !e); setRetProduct(null); setRetVariant(null); setRetExternalName(""); setRetPrice(""); }}
+                className={`text-[11px] font-bold px-3 py-1 rounded-lg border transition-all ${isExternal ? 'bg-amber-500/20 border-amber-500/40 text-amber-400' : 'bg-app-bg border-app-border text-app-text-muted hover:text-app-text'}`}>
+                {isExternal ? '✕ Sin referencia' : 'Sin referencia'}
+              </button>
             </div>
-            <ProductSelector
-              label="Buscar producto devuelto"
-              products={products}
-              value={retProduct}
-              variant={retVariant}
-              onSelect={p => { setRetProduct(p); setRetVariant(null); }}
-              onVariantSelect={setRetVariant}
-            />
-            {retProduct && (!retProduct.has_variants || retVariant) && (
-              <div>
-                <label className="text-[11px] font-black uppercase text-app-text-muted tracking-wider">Precio original pagado</label>
-                <div className="flex items-center gap-2 mt-1.5 bg-app-bg border border-app-border rounded-xl px-3 py-2.5">
-                  <DollarSign size={14} className="text-app-text-muted shrink-0" />
+
+            {isExternal ? (
+              <div className="space-y-3">
+                <div>
+                  <label className="text-[11px] font-black uppercase text-app-text-muted tracking-wider">Nombre del producto</label>
                   <input
-                    type="number" value={retPrice} onChange={e => setRetPrice(e.target.value)}
-                    placeholder="0"
-                    className="bg-transparent text-sm text-app-text flex-1 focus:outline-none"
+                    value={retExternalName} onChange={e => setRetExternalName(e.target.value)}
+                    placeholder="Ej: Tenis Nike Talla 40 Negro"
+                    className="mt-1.5 w-full bg-app-bg border border-app-border rounded-xl px-3 py-2.5 text-sm text-app-text placeholder:text-app-text-muted focus:outline-none focus:border-amber-500/50"
                   />
                 </div>
-                <p className="text-[10px] text-app-text-muted mt-1">Ingresa el precio que pagó el cliente originalmente</p>
+                <div>
+                  <label className="text-[11px] font-black uppercase text-app-text-muted tracking-wider">Precio original pagado</label>
+                  <div className="flex items-center gap-2 mt-1.5 bg-app-bg border border-app-border rounded-xl px-3 py-2.5">
+                    <DollarSign size={14} className="text-app-text-muted shrink-0" />
+                    <input type="number" value={retPrice} onChange={e => setRetPrice(e.target.value)}
+                      placeholder="0" className="bg-transparent text-sm text-app-text flex-1 focus:outline-none" />
+                  </div>
+                </div>
+                <p className="text-[10px] text-amber-400/70">Stock no se ajusta — producto externo al sistema</p>
               </div>
+            ) : (
+              <>
+                <ProductSelector
+                  label="Buscar producto devuelto"
+                  products={products}
+                  value={retProduct}
+                  variant={retVariant}
+                  onSelect={p => { setRetProduct(p); setRetVariant(null); }}
+                  onVariantSelect={setRetVariant}
+                />
+                {retProduct && (!retProduct.has_variants || retVariant) && (
+                  <div>
+                    <label className="text-[11px] font-black uppercase text-app-text-muted tracking-wider">Precio original pagado</label>
+                    <div className="flex items-center gap-2 mt-1.5 bg-app-bg border border-app-border rounded-xl px-3 py-2.5">
+                      <DollarSign size={14} className="text-app-text-muted shrink-0" />
+                      <input type="number" value={retPrice} onChange={e => setRetPrice(e.target.value)}
+                        placeholder="0" className="bg-transparent text-sm text-app-text flex-1 focus:outline-none" />
+                    </div>
+                    <p className="text-[10px] text-app-text-muted mt-1">Precio que pagó el cliente originalmente</p>
+                  </div>
+                )}
+              </>
             )}
           </div>
 
@@ -418,7 +456,7 @@ export default function ExchangesPage() {
           </div>
         )}
 
-        {!canSubmit && !retProduct && !newProduct && (
+        {!canSubmit && !retProduct && !retExternalName && !newProduct && (
           <div className="bg-app-card border border-app-border rounded-2xl p-10 text-center">
             <Package size={36} className="mx-auto text-app-text-muted opacity-20 mb-3" />
             <p className="text-app-text-muted text-sm">Selecciona los productos para registrar el cambio</p>
