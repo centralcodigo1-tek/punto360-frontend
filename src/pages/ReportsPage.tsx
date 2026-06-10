@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import DashboardLayout from "../layouts/DashboardLayout";
 import { api } from "../api/axios";
 import { useAuth } from "../auth/AuthContext";
+import { useTheme } from "../theme/ThemeContext";
 import {
   TrendingUp, DollarSign, PieChart, BarChart3,
   Calendar, ArrowUpRight, Loader2, Filter, Percent,
@@ -36,6 +37,16 @@ const startOfMonth = () => { const d = new Date(); d.setDate(1); return d.toISOS
 
 export default function ReportsPage() {
   const { hasPermission } = useAuth();
+  const { theme } = useTheme();
+  const isLight = theme === 'light' || theme === 'neon-light';
+
+  const axisColor    = isLight ? '#64748b' : '#ffffff60';
+  const gridColor    = isLight ? '#00000012' : '#ffffff10';
+  const tooltipBg    = isLight ? '#ffffff' : '#0f172a';
+  const tooltipBorder = isLight ? '#e2e8f0' : '#ffffff20';
+  const tooltipColor = isLight ? '#1e293b' : '#f1f5f9';
+  const tooltipStyle = { backgroundColor: tooltipBg, border: `1px solid ${tooltipBorder}`, borderRadius: '12px', color: tooltipColor };
+
   const [tab, setTab] = useState<Tab>('ventas');
   const [range, setRange] = useState({ start: daysAgo(7), end: today });
   const [isLoading, setIsLoading] = useState(true);
@@ -189,10 +200,10 @@ export default function ReportsPage() {
                               <stop offset="95%" stopColor="#06b6d4" stopOpacity={0} />
                             </linearGradient>
                           </defs>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
-                          <XAxis dataKey="date" stroke="#ffffff40" fontSize={10} tickFormatter={d => d.slice(5).replace('-', '/')} />
-                          <YAxis stroke="#ffffff40" fontSize={10} tickFormatter={v => `$${(v / 1000).toFixed(0)}k`} />
-                          <Tooltip contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #ffffff20', borderRadius: '12px' }} formatter={(v: any) => [cop(Number(v)), 'Ventas']} />
+                          <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
+                          <XAxis dataKey="date" stroke={axisColor} fontSize={10} tickFormatter={d => d.slice(5).replace('-', '/')} />
+                          <YAxis stroke={axisColor} fontSize={10} tickFormatter={v => `$${(v / 1000).toFixed(0)}k`} />
+                          <Tooltip contentStyle={tooltipStyle} formatter={(v: any) => [cop(Number(v)), 'Ventas']} />
                           <Area type="monotone" dataKey="revenue" stroke="#06b6d4" fill="url(#gRev)" />
                         </AreaChart>
                       </ResponsiveContainer>
@@ -207,7 +218,7 @@ export default function ReportsPage() {
                           <Pie data={payments} cx="50%" cy="50%" innerRadius={45} outerRadius={65} paddingAngle={4} dataKey="total" nameKey="method">
                             {payments.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                           </Pie>
-                          <Tooltip contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #ffffff20', borderRadius: '12px' }} formatter={(v: any) => cop(Number(v))} />
+                          <Tooltip contentStyle={tooltipStyle} formatter={(v: any) => cop(Number(v))} />
                           <Legend wrapperStyle={{ fontSize: '11px' }} />
                         </RePieChart>
                       </ResponsiveContainer>
@@ -239,10 +250,10 @@ export default function ReportsPage() {
                     <div className="h-56">
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={byHour.filter(h => h.revenue > 0 || byHour.some(x => x.revenue > 0))} margin={{ left: -20 }}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
-                          <XAxis dataKey="label" stroke="#ffffff40" fontSize={9} />
-                          <YAxis stroke="#ffffff40" fontSize={9} tickFormatter={v => `$${(v / 1000).toFixed(0)}k`} />
-                          <Tooltip contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #ffffff20', borderRadius: '12px' }} formatter={(v: any) => [cop(Number(v)), 'Ventas']} />
+                          <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
+                          <XAxis dataKey="label" stroke={axisColor} fontSize={9} />
+                          <YAxis stroke={axisColor} fontSize={9} tickFormatter={v => `$${(v / 1000).toFixed(0)}k`} />
+                          <Tooltip contentStyle={tooltipStyle} formatter={(v: any) => [cop(Number(v)), 'Ventas']} />
                           <Bar dataKey="revenue" radius={[4, 4, 0, 0]} barSize={14}>
                             {byHour.map((h, i) => {
                               const max = Math.max(...byHour.map(x => x.revenue));
@@ -259,10 +270,10 @@ export default function ReportsPage() {
                     <div className="h-56">
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={byWeekday} margin={{ left: -20 }}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
-                          <XAxis dataKey="day" stroke="#ffffff40" fontSize={11} />
-                          <YAxis stroke="#ffffff40" fontSize={9} tickFormatter={v => `$${(v / 1000).toFixed(0)}k`} />
-                          <Tooltip contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #ffffff20', borderRadius: '12px' }} formatter={(v: any) => [cop(Number(v)), 'Ventas']} />
+                          <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
+                          <XAxis dataKey="day" stroke={axisColor} fontSize={11} />
+                          <YAxis stroke={axisColor} fontSize={9} tickFormatter={v => `$${(v / 1000).toFixed(0)}k`} />
+                          <Tooltip contentStyle={tooltipStyle} formatter={(v: any) => [cop(Number(v)), 'Ventas']} />
                           <Bar dataKey="revenue" radius={[4, 4, 0, 0]} barSize={28}>
                             {byWeekday.map((d, i) => {
                               const max = Math.max(...byWeekday.map(x => x.revenue));
@@ -304,12 +315,12 @@ export default function ReportsPage() {
                           data={[...topProducts].sort((a, b) => b[productSort] - a[productSort]).slice(0, 10)}
                           layout="vertical" margin={{ left: 10, right: 30 }}
                         >
-                          <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" horizontal={false} />
-                          <XAxis type="number" stroke="#ffffff40" fontSize={9}
+                          <CartesianGrid strokeDasharray="3 3" stroke={gridColor} horizontal={false} />
+                          <XAxis type="number" stroke={axisColor} fontSize={9}
                             tickFormatter={v => productSort === 'revenue' ? `$${(v / 1000).toFixed(0)}k` : String(v)} />
-                          <YAxis dataKey="name" type="category" stroke="#ffffff80" fontSize={10} width={130} />
-                          <Tooltip cursor={{ fill: '#ffffff05' }}
-                            contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #ffffff20', borderRadius: '12px' }}
+                          <YAxis dataKey="name" type="category" stroke={axisColor} fontSize={10} width={130} />
+                          <Tooltip cursor={{ fill: isLight ? '#00000008' : '#ffffff05' }}
+                            contentStyle={tooltipStyle}
                             formatter={(v: any) => productSort === 'revenue' ? cop(Number(v)) : `${Number(v).toLocaleString('es-CO')} uds`} />
                           <Bar dataKey={productSort} fill={productSort === 'revenue' ? '#8b5cf6' : '#06b6d4'} radius={[0, 4, 4, 0]} barSize={18} />
                         </BarChart>
@@ -325,7 +336,7 @@ export default function ReportsPage() {
                           <Pie data={categories} cx="50%" cy="50%" innerRadius={50} outerRadius={70} paddingAngle={4} dataKey="revenue" nameKey="category">
                             {categories.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                           </Pie>
-                          <Tooltip contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #ffffff20', borderRadius: '12px' }} formatter={(v: any) => cop(Number(v))} />
+                          <Tooltip contentStyle={tooltipStyle} formatter={(v: any) => cop(Number(v))} />
                         </RePieChart>
                       </ResponsiveContainer>
                     </div>
@@ -382,10 +393,10 @@ export default function ReportsPage() {
                     <div className="h-64">
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={topCustomers.slice(0, 8)} layout="vertical" margin={{ left: 10, right: 30 }}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" horizontal={false} />
-                          <XAxis type="number" stroke="#ffffff40" fontSize={9} tickFormatter={v => `$${(v / 1000).toFixed(0)}k`} />
-                          <YAxis dataKey="name" type="category" stroke="#ffffff80" fontSize={10} width={100} />
-                          <Tooltip cursor={{ fill: '#ffffff05' }} contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #ffffff20', borderRadius: '12px' }} formatter={(v: any) => cop(Number(v))} />
+                          <CartesianGrid strokeDasharray="3 3" stroke={gridColor} horizontal={false} />
+                          <XAxis type="number" stroke={axisColor} fontSize={9} tickFormatter={v => `$${(v / 1000).toFixed(0)}k`} />
+                          <YAxis dataKey="name" type="category" stroke={axisColor} fontSize={10} width={100} />
+                          <Tooltip cursor={{ fill: isLight ? '#00000008' : '#ffffff05' }} contentStyle={tooltipStyle} formatter={(v: any) => cop(Number(v))} />
                           <Bar dataKey="total" fill="#8b5cf6" radius={[0, 4, 4, 0]} barSize={16} />
                         </BarChart>
                       </ResponsiveContainer>
