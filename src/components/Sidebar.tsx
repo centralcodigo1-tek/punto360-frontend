@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
-import { Package, LayoutDashboard, ShoppingCart, History, Factory, Layers, PackagePlus, Truck, Users, BarChart3, Archive, ChevronLeft, ChevronRight, Palette, X, Briefcase, FileUp, Tag, ArrowLeftRight } from "lucide-react";
+import { Package, LayoutDashboard, ShoppingCart, History, Factory, Layers, PackagePlus, Truck, Users, BarChart3, Archive, ChevronLeft, ChevronRight, Palette, X, Briefcase, FileUp, Tag, ArrowLeftRight, Handshake } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
 import { useTheme } from "../theme/ThemeContext";
 
@@ -55,6 +55,7 @@ export default function Sidebar({ isMobileOpen = false, onClose }: SidebarProps)
         { name: "Etiquetas", path: "/etiquetas", icon: Tag, show: canManageProviders || isCajero },
         { name: "Historial", path: "/historial", icon: History, show: !isCajero },
         { name: "Cambios", path: "/cambios", icon: ArrowLeftRight, show: true },
+        { name: "Consignaciones", path: "/consignaciones", icon: Handshake, show: canManageProviders || user?.role === 'ADMIN' },
         { name: "Clientes", path: "/clientes", icon: Users, show: canManageCustomers || hasPermission('pos.access') },
         { name: "Cartera", path: "/cartera", icon: Briefcase, show: canManageCustomers },
         { name: "Arqueos", path: "/arqueos", icon: Archive, show: canViewReports },
