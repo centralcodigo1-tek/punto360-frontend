@@ -4,7 +4,7 @@ import { api } from "../api/axios";
 import { useAuth } from "../auth/AuthContext";
 import { toast } from "../lib/toast";
 import {
-  Handshake, Search, Plus, Trash2, ChevronDown, ChevronUp,
+  Handshake, Search, Trash2, ChevronDown, ChevronUp,
   Loader2, CheckCircle2, Ban, AlertTriangle, User, Phone, X
 } from "lucide-react";
 
