@@ -3,6 +3,8 @@ import { useAuth } from '../auth/AuthContext';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { FiUser, FiLock, FiEye, FiEyeOff } from "react-icons/fi";
 import { Factory } from 'lucide-react';
+import LogoPunto360 from "../assets/imgs/LogoPunto360.svg";
+
 
 export default function LoginPage() {
     const { login } = useAuth();
@@ -46,7 +48,7 @@ export default function LoginPage() {
                 <div className="mb-8 text-center text-white">
                     <div className="flex justify-center mb-4">
                         <div className="p-3 bg-white/10 rounded-2xl backdrop-blur-md border border-white/20 shadow-xl">
-                            <Factory size={36} className="text-cyan-400" />
+                            <LogoPunto360 />
                         </div>
                     </div>
                     <h1 className="text-3xl font-bold tracking-tight mb-2">PUNTO 360</h1>
