@@ -47,7 +47,7 @@ export default function LoginPage() {
                 <div className="mb-8 text-center text-white">
                     <div className="flex justify-center mb-4">
                         <div className="p-3 bg-white/10 rounded-2xl backdrop-blur-md border border-white/20 shadow-xl">
-                            <LogoPunto360 />
+                            <img src={LogoPunto360} alt="Punto 360" className="w-9 h-9 object-contain" />
                         </div>
                     </div>
                     <h1 className="text-3xl font-bold tracking-tight mb-2">PUNTO 360</h1>
