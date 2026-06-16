@@ -6,7 +6,7 @@ import { api } from "../api/axios";
 import { useAuth } from "../auth/AuthContext";
 import {
     PackagePlus, Search, Trash2, Plus, ChevronDown, ChevronUp,
-    Loader2, CheckCircle2, Truck, Calendar, ShoppingBag, Layers, Pause, RotateCcw, X
+    Loader2, CheckCircle2, Truck, Calendar, ShoppingBag, Layers, Pause, RotateCcw, X, Ban, AlertTriangle
 } from "lucide-react";
 import NewProductFields, { type SavedProduct } from "../components/products/NewProductFields";
 
@@ -144,6 +144,23 @@ export default function PurchasesPage() {
         setAllProducts(refreshed);
         const created = refreshed.find(p => p.id === product.id);
         if (created) addItem(created, product.fromPurchaseStocks);
+    };
+
+    // ── Cancel modal ───────────────────────────────────────────────────────────
+    const [cancelConfirm, setCancelConfirm] = useState<string | null>(null);
+    const [isCancelling, setIsCancelling] = useState(false);
+
+    const handleCancelPurchase = async () => {
+        if (!cancelConfirm) return;
+        setIsCancelling(true);
+        try {
+            await api.delete(`/purchases/${cancelConfirm}`);
+            toast.success("Compra anulada. El stock y los movimientos de caja han sido revertidos.");
+            setCancelConfirm(null);
+            fetchHistory();
+        } catch (err: any) {
+            toast.error(err.response?.data?.message || "Error al anular la compra.");
+        } finally { setIsCancelling(false); }
     };
 
     // ── Abono modal ────────────────────────────────────────────────────────────
@@ -428,6 +445,39 @@ export default function PurchasesPage() {
                     </div>
                 </div>,
                 document.body
+            )}
+
+            {/* ── Modal Anular Compra ── */}
+            {cancelConfirm && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setCancelConfirm(null)} />
+                    <div className="relative w-full max-w-sm bg-app-card border border-rose-500/30 rounded-2xl shadow-2xl z-10 p-6 flex flex-col gap-5">
+                        <div className="flex items-start gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-rose-500/20 flex items-center justify-center shrink-0">
+                                <AlertTriangle size={20} className="text-rose-400" />
+                            </div>
+                            <div>
+                                <h3 className="font-bold text-app-text text-lg">Anular Compra</h3>
+                                <p className="text-sm text-app-text-muted mt-1">
+                                    Esta acción revertirá el stock recibido y los movimientos de caja o cartera asociados. No se puede deshacer.
+                                </p>
+                            </div>
+                        </div>
+                        <div className="flex gap-3">
+                            <button onClick={() => setCancelConfirm(null)} className="flex-1 py-2.5 rounded-xl border border-app-border text-app-text-muted text-sm hover:text-app-text transition-colors">
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={handleCancelPurchase}
+                                disabled={isCancelling}
+                                className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-sm transition-colors flex items-center justify-center gap-2 disabled:opacity-40"
+                            >
+                                {isCancelling ? <Loader2 size={15} className="animate-spin" /> : <Ban size={15} />}
+                                Anular
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
 
             {/* ── Modal de Abono ── */}
@@ -1005,7 +1055,10 @@ export default function PurchasesPage() {
                                                 <p className="text-sm font-medium text-app-text truncate">
                                                     {p.suppliers?.name || "Sin proveedor"}
                                                 </p>
-                                                {view === "debts" && isOverdue && (
+                                                {p.status === 'CANCELLED' && (
+                                                    <span className="text-[8px] font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30 px-1.5 py-0.5 rounded uppercase">Anulada</span>
+                                                )}
+                                                {view === "debts" && isOverdue && p.status !== 'CANCELLED' && (
                                                     <span className="text-[8px] font-bold bg-rose-500 text-white px-1.5 py-0.5 rounded uppercase">Vencido</span>
                                                 )}
                                             </div>
@@ -1075,16 +1128,24 @@ export default function PurchasesPage() {
                                                 ))}
                                             </div>
 
-                                            {view === "debts" && balance > 0 && (
-                                                <div className="mt-4 flex justify-end">
+                                            <div className="mt-4 flex justify-end gap-2">
+                                                {view === "debts" && balance > 0 && p.status !== 'CANCELLED' && (
                                                     <button
                                                         onClick={() => setAbonoModal({ purchaseId: p.id, balance, supplierName: p.suppliers?.name || "" })}
                                                         className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-white text-xs font-bold rounded-xl transition-all shadow-lg shadow-emerald-900/20 flex items-center gap-2"
                                                     >
                                                         <CheckCircle2 size={14} /> Registrar Abono
                                                     </button>
-                                                </div>
-                                            )}
+                                                )}
+                                                {!isCajero && p.status !== 'CANCELLED' && (
+                                                    <button
+                                                        onClick={() => setCancelConfirm(p.id)}
+                                                        className="px-4 py-2 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 text-xs font-bold rounded-xl transition-all flex items-center gap-2"
+                                                    >
+                                                        <Ban size={14} /> Anular Compra
+                                                    </button>
+                                                )}
+                                            </div>
                                         </div>
                                     )}
                                 </div>
