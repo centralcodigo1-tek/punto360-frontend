@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useAuth } from '../auth/AuthContext';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { FiUser, FiLock, FiEye, FiEyeOff } from "react-icons/fi";
-import { Factory } from 'lucide-react';
 import LogoPunto360 from "../assets/imgs/LogoPunto360.svg";
 
 
