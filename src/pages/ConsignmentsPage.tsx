@@ -30,6 +30,7 @@ interface ConsignmentRecord {
   items: {
     id: string; product_id: string; variant_id?: string;
     quantity: number; consignor_price: number;
+    current_stock: number; sold_quantity: number; amount_owed: number;
     product: { name: string; sku: string; unit_type: string } | null;
   }[];
 }
@@ -197,6 +198,8 @@ export default function ConsignmentsPage() {
   };
 
   const totalOwed = (items: ConsignmentRecord["items"]) =>
+    items.reduce((sum, i) => sum + i.amount_owed, 0);
+  const totalConsigned = (items: ConsignmentRecord["items"]) =>
     items.reduce((sum, i) => sum + i.quantity * i.consignor_price, 0);
 
   return (
@@ -463,7 +466,7 @@ export default function ConsignmentsPage() {
                     </div>
                     <div className="text-right shrink-0">
                       <p className="text-amber-400 font-bold text-sm">{cop(owed)}</p>
-                      <p className="text-[10px] text-app-text-muted">si vende todo</p>
+                      <p className="text-[10px] text-app-text-muted">por pagar</p>
                     </div>
                     {isOpen ? <ChevronUp size={15} className="text-app-text-muted shrink-0" /> : <ChevronDown size={15} className="text-app-text-muted shrink-0" />}
                   </button>
@@ -471,24 +474,43 @@ export default function ConsignmentsPage() {
                   {isOpen && (
                     <div className="px-6 pb-4 animate-in zoom-in-95 duration-200">
                       {c.notes && <p className="text-xs text-app-text-muted mb-3 italic">{c.notes}</p>}
+
+                      {/* Resumen de ventas */}
+                      <div className="grid grid-cols-3 gap-3 mb-3">
+                        <div className="bg-app-bg border border-app-border rounded-xl p-3 text-center">
+                          <p className="text-[10px] text-app-text-muted uppercase font-bold mb-1">Consignado</p>
+                          <p className="text-sm font-black text-app-text">{cop(totalConsigned(c.items ?? []))}</p>
+                        </div>
+                        <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-3 text-center">
+                          <p className="text-[10px] text-emerald-400 uppercase font-bold mb-1">Vendido</p>
+                          <p className="text-sm font-black text-emerald-400">
+                            {(c.items ?? []).reduce((s, i) => s + i.sold_quantity, 0)} uds
+                          </p>
+                        </div>
+                        <div className="bg-amber-500/5 border border-amber-500/20 rounded-xl p-3 text-center">
+                          <p className="text-[10px] text-amber-400 uppercase font-bold mb-1">Por pagar</p>
+                          <p className="text-sm font-black text-amber-400">{cop(owed)}</p>
+                        </div>
+                      </div>
+
                       <div className="bg-app-bg rounded-xl overflow-hidden border border-app-border">
-                        <div className="grid grid-cols-12 gap-2 px-4 py-2 text-[10px] font-bold text-app-text-muted uppercase border-b border-app-border">
-                          <span className="col-span-5">Producto</span>
-                          <span className="col-span-3 text-right">Cantidad</span>
-                          <span className="col-span-4 text-right">Precio consignador</span>
+                        <div className="grid grid-cols-12 gap-1 px-4 py-2 text-[10px] font-bold text-app-text-muted uppercase border-b border-app-border">
+                          <span className="col-span-4">Producto</span>
+                          <span className="col-span-2 text-right">Consignado</span>
+                          <span className="col-span-2 text-right">En stock</span>
+                          <span className="col-span-2 text-right">Vendido</span>
+                          <span className="col-span-2 text-right">Por pagar</span>
                         </div>
                         {(c.items ?? []).map((item, idx) => (
-                          <div key={idx} className="grid grid-cols-12 gap-2 px-4 py-2.5 border-b border-app-border last:border-0">
-                            <div className="col-span-5">
-                              <p className="text-sm text-app-text">{item.product?.name || 'N/A'}</p>
+                          <div key={idx} className="grid grid-cols-12 gap-1 px-4 py-2.5 border-b border-app-border last:border-0">
+                            <div className="col-span-4">
+                              <p className="text-sm text-app-text truncate">{item.product?.name || 'N/A'}</p>
                               <p className="text-[10px] text-app-text-muted">{item.product?.sku}</p>
                             </div>
-                            <span className="col-span-3 text-right text-sm text-app-text-muted">
-                              {item.quantity}{item.product?.unit_type === "WEIGHT" ? " Kg" : " Uds"}
-                            </span>
-                            <span className="col-span-4 text-right text-sm font-medium text-amber-400">
-                              {cop(item.consignor_price)}
-                            </span>
+                            <span className="col-span-2 text-right text-sm text-app-text-muted">{item.quantity}</span>
+                            <span className="col-span-2 text-right text-sm text-cyan-400">{item.current_stock}</span>
+                            <span className="col-span-2 text-right text-sm font-bold text-emerald-400">{item.sold_quantity}</span>
+                            <span className="col-span-2 text-right text-sm font-bold text-amber-400">{cop(item.amount_owed)}</span>
                           </div>
                         ))}
                       </div>
