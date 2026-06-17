@@ -43,6 +43,9 @@ export default function ConsignmentsPage() {
   const { user, hasPermission } = useAuth();
   const canManage = hasPermission("purchases.manage") || hasPermission("inventory.manage") || user?.role === "ADMIN";
 
+  // ── Consignors ─────────────────────────────────────────────────────────────
+  const [consignors, setConsignors] = useState<{ name: string; phone: string | null }[]>([]);
+
   // ── Products ───────────────────────────────────────────────────────────────
   const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [productSearch, setProductSearch] = useState("");
@@ -79,6 +82,7 @@ export default function ConsignmentsPage() {
 
   useEffect(() => {
     api.get("/products").then(r => setAllProducts(r.data));
+    api.get("/consignments/consignors").then(r => setConsignors(r.data)).catch(() => {});
     fetchConsignments();
   }, []);
 
@@ -311,6 +315,24 @@ export default function ConsignmentsPage() {
             {/* Consignador */}
             <div className="flex flex-col gap-3">
               <h3 className="text-[10px] font-bold text-amber-400 uppercase tracking-widest">Consignador</h3>
+
+              {consignors.length > 0 && (
+                <select
+                  onChange={e => {
+                    const c = consignors.find(c => c.name === e.target.value);
+                    if (c) { setConsignorName(c.name); setConsignorPhone(c.phone ?? ""); }
+                    else { setConsignorName(""); setConsignorPhone(""); }
+                  }}
+                  defaultValue=""
+                  className="w-full bg-app-bg border border-amber-500/30 rounded-xl px-4 py-2.5 text-app-text text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/40"
+                >
+                  <option value="">— Seleccionar consignador existente —</option>
+                  {consignors.map(c => (
+                    <option key={c.name} value={c.name}>{c.name}{c.phone ? ` · ${c.phone}` : ""}</option>
+                  ))}
+                </select>
+              )}
+
               <div className="relative">
                 <User size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-app-text-muted" />
                 <input type="text" placeholder="Nombre del consignador *" value={consignorName} onChange={e => setConsignorName(e.target.value)}
