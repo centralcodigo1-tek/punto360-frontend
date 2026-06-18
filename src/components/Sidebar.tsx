@@ -55,7 +55,7 @@ export default function Sidebar({ isMobileOpen = false, onClose }: SidebarProps)
         { name: "Etiquetas", path: "/etiquetas", icon: Tag, show: canManageProviders || isCajero },
         { name: "Historial", path: "/historial", icon: History, show: !isCajero },
         { name: "Cambios", path: "/cambios", icon: ArrowLeftRight, show: true },
-        { name: "Consignaciones", path: "/consignaciones", icon: Handshake, show: canManageProviders || user?.role === 'ADMIN' },
+        { name: "Consignaciones", path: "/consignaciones", icon: Handshake, show: true },
         { name: "Clientes", path: "/clientes", icon: Users, show: canManageCustomers || hasPermission('pos.access') },
         { name: "Cartera", path: "/cartera", icon: Briefcase, show: canManageCustomers },
         { name: "Arqueos", path: "/arqueos", icon: Archive, show: canViewReports },
