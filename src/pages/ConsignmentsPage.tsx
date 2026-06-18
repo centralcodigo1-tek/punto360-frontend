@@ -31,7 +31,7 @@ interface ConsignmentRecord {
     id: string; product_id: string; variant_id?: string;
     quantity: number; consignor_price: number;
     current_stock: number; sold_quantity: number; amount_owed: number;
-    product: { name: string; sku: string; unit_type: string } | null;
+    product: { name: string; sku: string; unit_type: string; category_id?: string; categories?: { id: string; name: string } | null } | null;
   }[];
 }
 
@@ -69,6 +69,18 @@ export default function ConsignmentsPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [cancelConfirm, setCancelConfirm] = useState<string | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
+  const [categoryFilter, setCategoryFilter] = useState<string>("ALL");
+
+  const allCategories = useMemo(() => {
+    const map = new Map<string, string>();
+    consignments.forEach(c =>
+      (c.items ?? []).forEach(item => {
+        const cat = item.product?.categories;
+        if (cat) map.set(cat.id, cat.name);
+      })
+    );
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
+  }, [consignments]);
 
   const filteredProducts = useMemo(() =>
     productSearch.trim()
@@ -200,6 +212,11 @@ export default function ConsignmentsPage() {
       toast.error(e.response?.data?.message || "Error al anular.");
     } finally { setIsCancelling(false); }
   };
+
+  const filterItemsByCategory = (items: ConsignmentRecord["items"]) =>
+    categoryFilter === "ALL"
+      ? items
+      : items.filter(i => i.product?.categories?.id === categoryFilter);
 
   const totalOwed = (items: ConsignmentRecord["items"]) =>
     items.reduce((sum, i) => sum + i.amount_owed, 0);
@@ -448,9 +465,21 @@ export default function ConsignmentsPage() {
 
         {/* ── HISTORIAL ── */}
         <div className="bg-app-card border border-app-border rounded-2xl shadow-xl overflow-hidden flex flex-col">
-          <div className="px-6 py-4 border-b border-app-border flex items-center gap-2">
-            <Handshake size={16} className="text-amber-400" />
-            <h2 className="font-bold text-app-text">Historial de Consignaciones</h2>
+          <div className="px-6 py-4 border-b border-app-border flex items-center gap-3 flex-wrap">
+            <Handshake size={16} className="text-amber-400 shrink-0" />
+            <h2 className="font-bold text-app-text flex-1">Historial de Consignaciones</h2>
+            {allCategories.length > 0 && (
+              <select
+                value={categoryFilter}
+                onChange={e => setCategoryFilter(e.target.value)}
+                className="bg-app-bg border border-amber-500/30 rounded-xl px-3 py-1.5 text-app-text text-xs focus:outline-none focus:ring-2 focus:ring-amber-500/40"
+              >
+                <option value="ALL">Todas las categorías</option>
+                {allCategories.map(c => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            )}
           </div>
           <div className="flex-1 overflow-y-auto divide-y divide-app-border">
             {isLoading ? (
@@ -464,7 +493,9 @@ export default function ConsignmentsPage() {
               </div>
             ) : consignments.map(c => {
               const isOpen = expandedId === c.id;
-              const owed = totalOwed(c.items ?? []);
+              const filteredItems = filterItemsByCategory(c.items ?? []);
+              const owed = totalOwed(filteredItems);
+              if (categoryFilter !== "ALL" && filteredItems.length === 0) return null;
               return (
                 <div key={c.id}>
                   <button onClick={() => setExpandedId(isOpen ? null : c.id)}
@@ -501,12 +532,12 @@ export default function ConsignmentsPage() {
                       <div className="grid grid-cols-3 gap-3 mb-3">
                         <div className="bg-app-bg border border-app-border rounded-xl p-3 text-center">
                           <p className="text-[10px] text-app-text-muted uppercase font-bold mb-1">Consignado</p>
-                          <p className="text-sm font-black text-app-text">{cop(totalConsigned(c.items ?? []))}</p>
+                          <p className="text-sm font-black text-app-text">{cop(totalConsigned(filteredItems))}</p>
                         </div>
                         <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-3 text-center">
                           <p className="text-[10px] text-emerald-400 uppercase font-bold mb-1">Vendido</p>
                           <p className="text-sm font-black text-emerald-400">
-                            {(c.items ?? []).reduce((s, i) => s + i.sold_quantity, 0)} uds
+                            {filteredItems.reduce((s, i) => s + i.sold_quantity, 0)} uds
                           </p>
                         </div>
                         <div className="bg-amber-500/5 border border-amber-500/20 rounded-xl p-3 text-center">
@@ -523,7 +554,7 @@ export default function ConsignmentsPage() {
                           <span className="col-span-2 text-right">Vendido</span>
                           <span className="col-span-2 text-right">Por pagar</span>
                         </div>
-                        {(c.items ?? []).map((item, idx) => (
+                        {filteredItems.map((item, idx) => (
                           <div key={idx} className="grid grid-cols-12 gap-1 px-4 py-2.5 border-b border-app-border last:border-0">
                             <div className="col-span-4">
                               <p className="text-sm text-app-text truncate">{item.product?.name || 'N/A'}</p>
