@@ -1,5 +1,5 @@
 import { toast } from "../lib/toast";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import DashboardLayout from "../layouts/DashboardLayout";
 import { History, Search, ChevronDown, ChevronUp, AlertOctagon, CheckCircle2, RotateCcw } from "lucide-react";
 import { api } from "../api/axios";
@@ -17,6 +17,7 @@ interface SaleItem {
         name: string;
         sku: string;
         unit_type: "UNIT" | "WEIGHT";
+        categories?: { id: string; name: string } | null;
     };
 }
 
@@ -41,6 +42,7 @@ export default function SalesHistoryPage() {
     const [startDate, setStartDate] = useState(isCajero ? today : sevenDaysAgo);
     const [endDate, setEndDate] = useState(today);
     const [saleTypeFilter, setSaleTypeFilter] = useState<"" | "WHOLESALE" | "RETAIL">("");
+    const [categoryFilter, setCategoryFilter] = useState<string>("ALL");
     const [sales, setSales] = useState<Sale[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [fetchError, setFetchError] = useState(false);
@@ -73,9 +75,29 @@ export default function SalesHistoryPage() {
         setExpandedId(expandedId === id ? null : id);
     };
 
-    const totalCalculated = sales
+    const allCategories = useMemo(() => {
+        const map = new Map<string, string>();
+        sales.forEach(s => s.sale_items.forEach(i => {
+            const cat = i.products?.categories;
+            if (cat) map.set(cat.id, cat.name);
+        }));
+        return Array.from(map.entries()).map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
+    }, [sales]);
+
+    const filteredSales = useMemo(() => {
+        if (categoryFilter === "ALL") return sales;
+        return sales.map(s => ({
+            ...s,
+            sale_items: s.sale_items.filter(i => i.products?.categories?.id === categoryFilter),
+        })).filter(s => s.sale_items.length > 0);
+    }, [sales, categoryFilter]);
+
+    const totalCalculated = filteredSales
         .filter(s => s.status === 'PAID')
-        .reduce((sum, s) => sum + Number(s.total), 0);
+        .reduce((sum, s) => sum + (categoryFilter === "ALL"
+            ? Number(s.total)
+            : s.sale_items.reduce((a, i) => a + Number(i.subtotal), 0)
+        ), 0);
 
 
     const handleCancelSale = async (id: string) => {
@@ -120,7 +142,7 @@ export default function SalesHistoryPage() {
                 <p className="text-[10px] font-black text-app-text-muted uppercase tracking-widest mb-4 opacity-60">Mostrando ventas de hoy</p>
             )}
             {!isCajero && <div className="bg-app-card backdrop-blur-md rounded-2xl p-4 md:p-5 border border-app-border shadow-lg mb-6 flex flex-col md:flex-row gap-4 items-end">
-                <div className={`grid gap-3 w-full flex-1 ${user?.saleTypeEnabled ? "grid-cols-3" : "grid-cols-2"}`}>
+                <div className={`grid gap-3 w-full flex-1 ${user?.saleTypeEnabled ? "grid-cols-4" : "grid-cols-3"}`}>
                     <div className="relative">
                         <label className="block text-[9px] font-black text-app-text-muted mb-1 ml-1 uppercase tracking-widest">
                             Desde
@@ -159,6 +181,21 @@ export default function SalesHistoryPage() {
                             </select>
                         </div>
                     )}
+                    <div className="relative">
+                        <label className="block text-[9px] font-black text-app-text-muted mb-1 ml-1 uppercase tracking-widest">
+                            Categoría
+                        </label>
+                        <select
+                            value={categoryFilter}
+                            onChange={e => setCategoryFilter(e.target.value)}
+                            className="w-full bg-app-bg border border-app-border rounded-xl px-3 py-2.5 md:px-4 md:py-3 text-sm text-app-text focus:outline-none focus:ring-2 focus:ring-app-accent/30"
+                        >
+                            <option value="ALL">Todas</option>
+                            {allCategories.map(c => (
+                                <option key={c.id} value={c.id}>{c.name}</option>
+                            ))}
+                        </select>
+                    </div>
                 </div>
                 <button
                     onClick={fetchSales}
@@ -178,7 +215,7 @@ export default function SalesHistoryPage() {
                             <p className="text-app-accent font-black text-[9px] uppercase tracking-[0.3em] mb-1">VENTAS DEL PERIODO</p>
                             <h3 className="text-2xl md:text-3xl font-black text-app-text tracking-tight">{cop(totalCalculated)}</h3>
                             <p className="text-[9px] text-app-text-muted mt-2 flex items-center gap-1 font-bold italic opacity-60">
-                                 {sales.filter(s => s.status === 'PAID').length} Tickets cobrados
+                                 {filteredSales.filter(s => s.status === 'PAID').length} Tickets cobrados
                             </p>
                         </div>
                         <div className="absolute -right-4 -bottom-4 text-app-accent/5 rotate-12 transition-transform group-hover:scale-110 duration-500">
@@ -218,13 +255,13 @@ export default function SalesHistoryPage() {
                                         Error al cargar el historial. Verifica la conexión e intenta de nuevo.
                                     </td>
                                 </tr>
-                            ) : sales.length === 0 ? (
+                            ) : filteredSales.length === 0 ? (
                                 <tr>
                                     <td colSpan={7} className="px-6 py-12 text-center text-app-text-muted font-bold uppercase tracking-widest opacity-30 text-xs">
                                         Sin registros para este periodo.
                                     </td>
                                 </tr>
-                            ) : sales.map((sale) => {
+                            ) : filteredSales.map((sale) => {
                                 const isCancelled = sale.status === 'CANCELLED';
                                 const totalItems = sale.sale_items.length;
                                 const isExpanded = expandedId === sale.id;
@@ -327,11 +364,11 @@ export default function SalesHistoryPage() {
 
                 {/* VISTA MÓVIL: LISTA DE TARJETAS */}
                 <div className="md:hidden divide-y divide-app-border">
-                    {sales.length === 0 ? (
+                    {filteredSales.length === 0 ? (
                         <div className="px-6 py-12 text-center text-app-text-muted font-bold uppercase tracking-widest opacity-30 text-[10px]">
                             Sin registros.
                         </div>
-                    ) : sales.map((sale) => {
+                    ) : filteredSales.map((sale) => {
                         const isCancelled = sale.status === 'CANCELLED';
                         const isExpanded = expandedId === sale.id;
                         return (
