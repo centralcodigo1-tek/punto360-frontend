@@ -52,11 +52,11 @@ interface Arqueo {
 const cop = (n: number) =>
     new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(n);
 
-const fDate = (d: string) =>
-    new Date(d).toLocaleDateString("es-CO", { day: "2-digit", month: "short", year: "numeric" });
+const fDate = (d: string | null | undefined) =>
+    d ? new Date(d).toLocaleDateString("es-CO", { day: "2-digit", month: "short", year: "numeric" }) : "Sin fecha";
 
-const fTime = (d: string) =>
-    new Date(d).toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit" });
+const fTime = (d: string | null | undefined) =>
+    d ? new Date(d).toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit" }) : "--:--";
 
 function sessionDuration(opened: string, closed: string | null) {
     const end = closed ? new Date(closed) : new Date();
