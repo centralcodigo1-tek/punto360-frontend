@@ -18,7 +18,7 @@ import {
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface FinancialSummary { totalRevenue: number; totalCost: number; grossProfit: number; profitMargin: number; transactionCount: number; averageTicket: number; }
 interface TrendData { date: string; revenue: number; transactions: number; }
-interface TopProduct { name: string; sku: string; quantity: number; revenue: number; }
+interface TopProduct { name: string; sku: string; quantity: number; revenue: number; cost: number; profit: number; margin: number; }
 interface CategoryStat { category: string; revenue: number; quantity: number; }
 interface PaymentMethod { method: string; total: number; count: number; }
 interface HourStat { hour: number; label: string; revenue: number; count: number; }
@@ -62,7 +62,7 @@ export default function ReportsPage() {
   const [byWeekday, setByWeekday] = useState<WeekdayStat[]>([]);
   const [topCustomers, setTopCustomers] = useState<TopCustomer[]>([]);
   const [invKpis, setInvKpis] = useState<InventoryKpis | null>(null);
-  const [productSort, setProductSort] = useState<'revenue' | 'quantity'>('revenue');
+  const [productSort, setProductSort] = useState<'revenue' | 'quantity' | 'profit'>('revenue');
 
   useEffect(() => { fetchAll(); }, [range]);
 
@@ -302,11 +302,15 @@ export default function ReportsPage() {
                       <div className="flex gap-1 bg-app-bg border border-app-border p-1 rounded-xl">
                         <button onClick={() => setProductSort('revenue')}
                           className={`px-3 py-1 rounded-lg text-[11px] font-bold transition-all ${productSort === 'revenue' ? 'bg-app-accent text-white' : 'text-app-text-muted hover:text-app-text'}`}>
-                          Por ingresos
+                          Ingresos
+                        </button>
+                        <button onClick={() => setProductSort('profit')}
+                          className={`px-3 py-1 rounded-lg text-[11px] font-bold transition-all ${productSort === 'profit' ? 'bg-app-accent text-white' : 'text-app-text-muted hover:text-app-text'}`}>
+                          Ganancia
                         </button>
                         <button onClick={() => setProductSort('quantity')}
                           className={`px-3 py-1 rounded-lg text-[11px] font-bold transition-all ${productSort === 'quantity' ? 'bg-app-accent text-white' : 'text-app-text-muted hover:text-app-text'}`}>
-                          Por unidades
+                          Unidades
                         </button>
                       </div>
                     </div>
@@ -318,12 +322,12 @@ export default function ReportsPage() {
                         >
                           <CartesianGrid strokeDasharray="3 3" stroke={gridColor} horizontal={false} />
                           <XAxis type="number" stroke={axisColor} fontSize={9}
-                            tickFormatter={v => productSort === 'revenue' ? `$${(v / 1000).toFixed(0)}k` : String(v)} />
+                            tickFormatter={v => productSort === 'quantity' ? String(v) : `$${(v / 1000).toFixed(0)}k`} />
                           <YAxis dataKey="name" type="category" stroke={axisColor} fontSize={10} width={130} />
                           <Tooltip cursor={{ fill: isLight ? '#00000008' : '#ffffff05' }}
                             contentStyle={tooltipStyle}
-                            formatter={(v: any) => productSort === 'revenue' ? cop(Number(v)) : `${Number(v).toLocaleString('es-CO')} uds`} />
-                          <Bar dataKey={productSort} fill={productSort === 'revenue' ? '#8b5cf6' : '#06b6d4'} radius={[0, 4, 4, 0]} barSize={18} />
+                            formatter={(v: any) => productSort === 'quantity' ? `${Number(v).toLocaleString('es-CO')} uds` : cop(Number(v))} />
+                          <Bar dataKey={productSort} fill={productSort === 'revenue' ? '#8b5cf6' : productSort === 'profit' ? '#10b981' : '#06b6d4'} radius={[0, 4, 4, 0]} barSize={18} />
                         </BarChart>
                       </ResponsiveContainer>
                     </div>
@@ -363,21 +367,27 @@ export default function ReportsPage() {
                   <div className="divide-y divide-app-border">
                     <div className="grid grid-cols-12 gap-2 px-6 py-2 text-[10px] font-black uppercase text-app-text-muted tracking-widest">
                       <span className="col-span-1">#</span>
-                      <span className="col-span-5">Producto</span>
-                      <span className="col-span-2 text-center">Unidades</span>
+                      <span className="col-span-3">Producto</span>
+                      <span className="col-span-1 text-center">Uds.</span>
                       <span className="col-span-2 text-right">Ingresos</span>
-                      <span className="col-span-2 text-right">Promedio</span>
+                      <span className="col-span-2 text-right">Costo</span>
+                      <span className="col-span-2 text-right">Ganancia</span>
+                      <span className="col-span-1 text-right">Margen</span>
                     </div>
                     {[...topProducts].sort((a, b) => b[productSort] - a[productSort]).map((p, i) => (
                       <div key={i} className="grid grid-cols-12 gap-2 px-6 py-3 hover:bg-app-bg/30 transition-colors items-center">
                         <span className="col-span-1 text-xs font-black text-app-text-muted">{i + 1}</span>
-                        <div className="col-span-5">
+                        <div className="col-span-3">
                           <p className="text-sm font-bold text-app-text truncate">{p.name}</p>
                           <p className="text-[10px] text-app-accent font-mono">{p.sku}</p>
                         </div>
-                        <span className="col-span-2 text-center text-sm font-bold text-app-text">{p.quantity.toLocaleString()}</span>
-                        <span className="col-span-2 text-right text-sm font-black text-emerald-400">{cop(p.revenue)}</span>
-                        <span className="col-span-2 text-right text-xs text-app-text-muted">{cop(p.quantity > 0 ? p.revenue / p.quantity : 0)}</span>
+                        <span className="col-span-1 text-center text-sm font-bold text-app-text">{p.quantity.toLocaleString()}</span>
+                        <span className="col-span-2 text-right text-sm font-black text-app-text">{cop(p.revenue)}</span>
+                        <span className="col-span-2 text-right text-xs text-app-text-muted">{cop(p.cost ?? 0)}</span>
+                        <span className="col-span-2 text-right text-sm font-black text-emerald-400">{cop(p.profit ?? 0)}</span>
+                        <span className={`col-span-1 text-right text-xs font-bold ${(p.margin ?? 0) >= 30 ? 'text-emerald-400' : (p.margin ?? 0) >= 15 ? 'text-yellow-400' : 'text-red-400'}`}>
+                          {(p.margin ?? 0).toFixed(1)}%
+                        </span>
                       </div>
                     ))}
                   </div>
