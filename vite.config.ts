@@ -13,6 +13,14 @@ export default defineConfig({
       output: {
         manualChunks(id) {
           if (id.includes('qz-tray')) return 'qz-tray';
+          // Recharts y D3 en su propio chunk — se cachean por separado
+          if (id.includes('recharts') || id.includes('d3-') || id.includes('victory')) return 'charts';
+          // React ecosystem
+          if (id.includes('node_modules/react/') || id.includes('node_modules/react-dom/')) return 'react';
+          // React Router
+          if (id.includes('react-router')) return 'router';
+          // Otras dependencias grandes
+          if (id.includes('node_modules/axios') || id.includes('node_modules/lucide')) return 'vendor';
         },
       },
     },

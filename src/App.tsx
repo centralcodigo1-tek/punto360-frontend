@@ -4,6 +4,7 @@ import PrivateRoute from './routes/PrivateRoute';
 import SuperAdminRoute from './routes/SuperAdminRoute';
 import { ThemeProvider } from './theme/ThemeContext';
 import ToastContainer from './components/ui/ToastContainer';
+import { pingBackend } from './api/axios';
 
 const LoginPage                = lazy(() => import('./pages/LoginPage'));
 const RegisterPage             = lazy(() => import('./pages/RegisterPage'));
@@ -41,9 +42,12 @@ function PageLoader() {
   );
 }
 
-// Pre-descarga todos los chunks en segundo plano después del primer render
+// Pre-descarga todos los chunks y despierta el backend en segundo plano
 function Prefetcher() {
   useEffect(() => {
+    // Despertar backend inmediatamente
+    pingBackend();
+
     const prefetch = () => {
       import('./pages/DashboardPage');
       import('./pages/PosPage');
