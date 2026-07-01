@@ -154,13 +154,15 @@ export default function ReportsPage() {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 bg-app-card border border-app-border p-1 rounded-2xl w-fit">
-          {tabs.map(t => (
-            <button key={t.id} onClick={() => setTab(t.id)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all ${tab === t.id ? 'bg-app-accent text-white shadow-lg' : 'text-app-text-muted hover:text-app-text'}`}>
-              {t.icon}{t.label}
-            </button>
-          ))}
+        <div className="overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+          <div className="flex gap-1 bg-app-card border border-app-border p-1 rounded-2xl w-max min-w-full sm:w-fit sm:min-w-0">
+            {tabs.map(t => (
+              <button key={t.id} onClick={() => setTab(t.id)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${tab === t.id ? 'bg-app-accent text-white shadow-lg' : 'text-app-text-muted hover:text-app-text'}`}>
+                {t.icon}{t.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {isLoading ? (
@@ -398,24 +400,39 @@ export default function ReportsPage() {
                           </span>
                         </div>
                         {/* Mobile card */}
-                        <div className="sm:hidden px-4 py-3 space-y-1">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-black text-app-text-muted w-5">{i + 1}</span>
+                        <div className="sm:hidden px-4 py-3 space-y-2">
+                          <div className="flex items-start gap-2">
+                            <span className="text-xs font-black text-app-text-muted w-5 pt-0.5">{i + 1}</span>
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-bold text-app-text truncate">{p.name}</p>
                               <p className="text-[9px] text-app-accent font-mono truncate">{p.sku}</p>
                             </div>
-                            <span className={`text-sm font-black ${(p.margin ?? 0) >= 30 ? 'text-emerald-400' : (p.margin ?? 0) >= 15 ? 'text-yellow-400' : 'text-red-400'}`}>
-                              {(p.margin ?? 0).toFixed(1)}%
-                            </span>
                           </div>
-                          <div className="flex justify-between pl-7 text-xs">
-                            <span className="text-app-text-muted">{p.quantity.toLocaleString()} uds</span>
-                            <span className="text-app-text font-bold">{cop(p.revenue)}</span>
+                          <div className="pl-7 grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+                            <div className="flex justify-between">
+                              <span className="text-app-text-muted">Unidades</span>
+                              <span className="font-bold text-app-text">{p.quantity.toLocaleString()}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-app-text-muted">Ingresos</span>
+                              <span className="font-bold text-app-text">{cop(p.revenue)}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-app-text-muted">Costo</span>
+                              <span className="font-bold text-app-text-muted">{cop(p.cost ?? 0)}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-app-text-muted">Ganancia</span>
+                              <span className="font-black text-emerald-400">+{cop(p.profit ?? 0)}</span>
+                            </div>
                           </div>
-                          <div className="flex justify-between pl-7 text-xs">
-                            <span className="text-app-text-muted">Costo: {cop(p.cost ?? 0)}</span>
-                            <span className="text-emerald-400 font-black">+{cop(p.profit ?? 0)}</span>
+                          <div className="pl-7">
+                            <div className="flex items-center justify-between bg-app-bg rounded-lg px-3 py-1.5">
+                              <span className="text-[10px] text-app-text-muted font-bold uppercase tracking-wider">Margen de ganancia</span>
+                              <span className={`text-sm font-black ${(p.margin ?? 0) >= 30 ? 'text-emerald-400' : (p.margin ?? 0) >= 15 ? 'text-yellow-400' : 'text-red-400'}`}>
+                                {(p.margin ?? 0).toFixed(1)}%
+                              </span>
+                            </div>
                           </div>
                         </div>
                       </div>
