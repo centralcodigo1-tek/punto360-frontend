@@ -95,10 +95,11 @@ export default function Sidebar({ isMobileOpen = false, onClose }: SidebarProps)
                     <NavLink
                         key={item.path}
                         to={item.path}
+                        onClick={() => { if (isMobile && onClose) onClose(); }}
                         className={({ isActive }) =>
                             `flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-300 group ${
-                                isActive 
-                                ? "bg-app-accent/20 text-app-accent border border-app-accent/20 shadow-[0_0_20px_rgba(var(--theme-accent),0.1)]" 
+                                isActive
+                                ? "bg-app-accent/20 text-app-accent border border-app-accent/20 shadow-[0_0_20px_rgba(var(--theme-accent),0.1)]"
                                 : "text-app-text-muted hover:text-app-text hover:bg-app-card hover:translate-x-1"
                             }`
                         }
