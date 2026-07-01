@@ -28,6 +28,11 @@ interface InventoryKpis { totalValue: number; lowStock: number; outOfStock: numb
 
 const COLORS = ['#06b6d4', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#6366f1'];
 const cop = (v: number) => new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", minimumFractionDigits: 0 }).format(v);
+const fmtAxis = (v: number) => {
+  if (v >= 1_000_000) return `$${(v / 1_000_000 % 1 === 0 ? (v / 1_000_000).toFixed(0) : (v / 1_000_000).toFixed(1))}M`;
+  if (v >= 1_000)     return `$${(v / 1_000).toFixed(0)}k`;
+  return `$${v}`;
+};
 
 type Tab = 'ventas' | 'productos' | 'clientes' | 'inventario';
 
@@ -203,7 +208,7 @@ export default function ReportsPage() {
                           </defs>
                           <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
                           <XAxis dataKey="date" stroke={axisColor} fontSize={10} tickFormatter={d => d.slice(5).replace('-', '/')} />
-                          <YAxis stroke={axisColor} fontSize={10} tickFormatter={v => `$${(v / 1000).toFixed(0)}k`} />
+                          <YAxis stroke={axisColor} fontSize={10} tickFormatter={v => fmtAxis(Number(v))} />
                           <Tooltip contentStyle={tooltipStyle} formatter={(v: any) => [cop(Number(v)), 'Ventas']} />
                           <Area type="monotone" dataKey="revenue" stroke="#06b6d4" fill="url(#gRev)" />
                         </AreaChart>
@@ -253,7 +258,7 @@ export default function ReportsPage() {
                         <BarChart data={byHour.filter(h => h.revenue > 0 || byHour.some(x => x.revenue > 0))} margin={{ left: -20 }}>
                           <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
                           <XAxis dataKey="label" stroke={axisColor} fontSize={9} />
-                          <YAxis stroke={axisColor} fontSize={9} tickFormatter={v => `$${(v / 1000).toFixed(0)}k`} />
+                          <YAxis stroke={axisColor} fontSize={9} tickFormatter={v => fmtAxis(Number(v))} />
                           <Tooltip contentStyle={tooltipStyle} formatter={(v: any) => [cop(Number(v)), 'Ventas']} />
                           <Bar dataKey="revenue" radius={[4, 4, 0, 0]} barSize={14}>
                             {byHour.map((h, i) => {
@@ -273,7 +278,7 @@ export default function ReportsPage() {
                         <BarChart data={byWeekday} margin={{ left: -20 }}>
                           <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
                           <XAxis dataKey="day" stroke={axisColor} fontSize={11} />
-                          <YAxis stroke={axisColor} fontSize={9} tickFormatter={v => `$${(v / 1000).toFixed(0)}k`} />
+                          <YAxis stroke={axisColor} fontSize={9} tickFormatter={v => fmtAxis(Number(v))} />
                           <Tooltip contentStyle={tooltipStyle} formatter={(v: any) => [cop(Number(v)), 'Ventas']} />
                           <Bar dataKey="revenue" radius={[4, 4, 0, 0]} barSize={28}>
                             {byWeekday.map((d, i) => {
@@ -322,7 +327,7 @@ export default function ReportsPage() {
                         >
                           <CartesianGrid strokeDasharray="3 3" stroke={gridColor} horizontal={false} />
                           <XAxis type="number" stroke={axisColor} fontSize={9}
-                            tickFormatter={v => productSort === 'quantity' ? String(v) : `$${(v / 1000).toFixed(0)}k`} />
+                            tickFormatter={v => productSort === 'quantity' ? String(v) : fmtAxis(Number(v))} />
                           <YAxis dataKey="name" type="category" stroke={axisColor} fontSize={10} width={130} />
                           <Tooltip cursor={{ fill: isLight ? '#00000008' : '#ffffff05' }}
                             contentStyle={tooltipStyle}
@@ -365,7 +370,8 @@ export default function ReportsPage() {
                     <h3 className="font-bold text-app-text flex items-center gap-2"><ShoppingBag size={16} className="text-cyan-400" /> Detalle de Productos</h3>
                   </div>
                   <div className="divide-y divide-app-border">
-                    <div className="grid grid-cols-12 gap-2 px-6 py-2 text-[10px] font-black uppercase text-app-text-muted tracking-widest">
+                    {/* Cabecera — solo desktop */}
+                    <div className="hidden sm:grid grid-cols-12 gap-2 px-6 py-2 text-[10px] font-black uppercase text-app-text-muted tracking-widest">
                       <span className="col-span-1">#</span>
                       <span className="col-span-3">Producto</span>
                       <span className="col-span-1 text-center">Uds.</span>
@@ -375,19 +381,43 @@ export default function ReportsPage() {
                       <span className="col-span-1 text-right">Margen</span>
                     </div>
                     {[...topProducts].sort((a, b) => b[productSort] - a[productSort]).map((p, i) => (
-                      <div key={i} className="grid grid-cols-12 gap-2 px-6 py-3 hover:bg-app-bg/30 transition-colors items-center">
-                        <span className="col-span-1 text-xs font-black text-app-text-muted">{i + 1}</span>
-                        <div className="col-span-3">
-                          <p className="text-sm font-bold text-app-text truncate">{p.name}</p>
-                          <p className="text-[10px] text-app-accent font-mono">{p.sku}</p>
+                      <div key={i} className="hover:bg-app-bg/30 transition-colors">
+                        {/* Desktop row */}
+                        <div className="hidden sm:grid grid-cols-12 gap-2 px-6 py-3 items-center">
+                          <span className="col-span-1 text-xs font-black text-app-text-muted">{i + 1}</span>
+                          <div className="col-span-3">
+                            <p className="text-sm font-bold text-app-text truncate">{p.name}</p>
+                            <p className="text-[10px] text-app-accent font-mono">{p.sku}</p>
+                          </div>
+                          <span className="col-span-1 text-center text-sm font-bold text-app-text">{p.quantity.toLocaleString()}</span>
+                          <span className="col-span-2 text-right text-sm font-black text-app-text">{cop(p.revenue)}</span>
+                          <span className="col-span-2 text-right text-xs text-app-text-muted">{cop(p.cost ?? 0)}</span>
+                          <span className="col-span-2 text-right text-sm font-black text-emerald-400">{cop(p.profit ?? 0)}</span>
+                          <span className={`col-span-1 text-right text-xs font-bold ${(p.margin ?? 0) >= 30 ? 'text-emerald-400' : (p.margin ?? 0) >= 15 ? 'text-yellow-400' : 'text-red-400'}`}>
+                            {(p.margin ?? 0).toFixed(1)}%
+                          </span>
                         </div>
-                        <span className="col-span-1 text-center text-sm font-bold text-app-text">{p.quantity.toLocaleString()}</span>
-                        <span className="col-span-2 text-right text-sm font-black text-app-text">{cop(p.revenue)}</span>
-                        <span className="col-span-2 text-right text-xs text-app-text-muted">{cop(p.cost ?? 0)}</span>
-                        <span className="col-span-2 text-right text-sm font-black text-emerald-400">{cop(p.profit ?? 0)}</span>
-                        <span className={`col-span-1 text-right text-xs font-bold ${(p.margin ?? 0) >= 30 ? 'text-emerald-400' : (p.margin ?? 0) >= 15 ? 'text-yellow-400' : 'text-red-400'}`}>
-                          {(p.margin ?? 0).toFixed(1)}%
-                        </span>
+                        {/* Mobile card */}
+                        <div className="sm:hidden px-4 py-3 space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-black text-app-text-muted w-5">{i + 1}</span>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-bold text-app-text truncate">{p.name}</p>
+                              <p className="text-[9px] text-app-accent font-mono truncate">{p.sku}</p>
+                            </div>
+                            <span className={`text-sm font-black ${(p.margin ?? 0) >= 30 ? 'text-emerald-400' : (p.margin ?? 0) >= 15 ? 'text-yellow-400' : 'text-red-400'}`}>
+                              {(p.margin ?? 0).toFixed(1)}%
+                            </span>
+                          </div>
+                          <div className="flex justify-between pl-7 text-xs">
+                            <span className="text-app-text-muted">{p.quantity.toLocaleString()} uds</span>
+                            <span className="text-app-text font-bold">{cop(p.revenue)}</span>
+                          </div>
+                          <div className="flex justify-between pl-7 text-xs">
+                            <span className="text-app-text-muted">Costo: {cop(p.cost ?? 0)}</span>
+                            <span className="text-emerald-400 font-black">+{cop(p.profit ?? 0)}</span>
+                          </div>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -405,7 +435,7 @@ export default function ReportsPage() {
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={topCustomers.slice(0, 8)} layout="vertical" margin={{ left: 10, right: 30 }}>
                           <CartesianGrid strokeDasharray="3 3" stroke={gridColor} horizontal={false} />
-                          <XAxis type="number" stroke={axisColor} fontSize={9} tickFormatter={v => `$${(v / 1000).toFixed(0)}k`} />
+                          <XAxis type="number" stroke={axisColor} fontSize={9} tickFormatter={v => fmtAxis(Number(v))} />
                           <YAxis dataKey="name" type="category" stroke={axisColor} fontSize={10} width={100} />
                           <Tooltip cursor={{ fill: isLight ? '#00000008' : '#ffffff05' }} contentStyle={tooltipStyle} formatter={(v: any) => cop(Number(v))} />
                           <Bar dataKey="total" fill="#8b5cf6" radius={[0, 4, 4, 0]} barSize={16} />
