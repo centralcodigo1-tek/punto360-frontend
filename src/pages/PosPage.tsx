@@ -498,10 +498,10 @@ export default function PosPage() {
   return (
     <>
     <DashboardLayout>
-      <div className="flex gap-4 h-[calc(100vh-80px)] relative">
+      <div className="flex h-[calc(100vh-80px)] relative -mx-4 md:-mx-8 -mb-10">
 
         {/* ── COLUMNA IZQUIERDA: Catálogo ── */}
-        <div className="flex flex-col flex-1 min-w-0">
+        <div className="flex flex-col flex-1 min-w-0 px-4 md:px-8 pt-1 pb-4 overflow-hidden">
 
           {/* Barra superior */}
           <div className="flex items-center gap-2 mb-3">
@@ -573,7 +573,7 @@ export default function PosPage() {
         </div>
 
         {/* ── COLUMNA DERECHA: Ticket siempre visible ── */}
-        <div className="w-[400px] shrink-0 flex flex-col bg-app-sidebar border border-app-border rounded-2xl overflow-hidden">
+        <div className="w-[420px] shrink-0 flex flex-col bg-app-sidebar border-l border-app-border overflow-hidden">
 
               {/* Header ticket */}
               <div className="bg-app-accent/10 px-5 py-4 border-b border-app-border flex justify-between items-center shrink-0">
