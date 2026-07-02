@@ -90,7 +90,6 @@ export default function PosPage() {
   
   const [cashReceived, setCashReceived] = useState<string>("");
   const [isPriceEditing, setIsPriceEditing] = useState<string | null>(null);
-const [showTicket, setShowTicket] = useState(false);
   const [showStats, setShowStats] = useState(false);
   const [shiftStats, setShiftStats] = useState<ShiftStats | null>(null);
   const [pendingSales, setPendingSales] = useState<any[]>([]);
@@ -499,96 +498,84 @@ const [showTicket, setShowTicket] = useState(false);
   return (
     <>
     <DashboardLayout>
-      <div className="flex flex-col h-[calc(100vh-80px)] relative">
+      <div className="flex gap-4 h-[calc(100vh-80px)] relative">
 
-        {/* ── BARRA SUPERIOR ── */}
-        <div className="flex items-center gap-2 mb-3">
-          <div className="relative flex-1">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-app-text-muted" size={18} />
-            <input
-              type="text"
-              placeholder="Escanear o buscar producto..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-app-card border border-app-border rounded-2xl pl-12 pr-4 py-3 text-app-text placeholder-app-text-muted focus:outline-none focus:border-app-accent/50 font-medium text-sm shadow-sm"
-              autoFocus
-            />
-          </div>
-          <button onClick={() => setShowScanner(true)}
-            className="p-3 bg-app-card border border-app-border rounded-2xl text-app-text-muted hover:text-app-accent hover:border-app-accent/40 transition-colors shrink-0 shadow-sm">
-            <ScanLine size={20} />
-          </button>
-          {!isCajero && (
-            <button onClick={() => setShowStats(true)}
-              className="flex items-center gap-2 px-4 py-3 bg-app-card border border-app-border rounded-2xl hover:border-app-accent/40 transition-colors shrink-0 shadow-sm">
-              <TrendingUp size={16} className="text-app-accent" />
-              <div className="flex flex-col items-start leading-none">
-                <span className="text-[9px] font-black text-app-text-muted uppercase tracking-widest">Turno</span>
-                <span className="text-sm font-black text-app-text">{shiftStats ? cop(shiftStats.totalSales) : '$0'}</span>
-              </div>
+        {/* ── COLUMNA IZQUIERDA: Catálogo ── */}
+        <div className="flex flex-col flex-1 min-w-0">
+
+          {/* Barra superior */}
+          <div className="flex items-center gap-2 mb-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-app-text-muted" size={18} />
+              <input
+                type="text"
+                placeholder="Escanear o buscar producto..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-app-card border border-app-border rounded-2xl pl-12 pr-4 py-3 text-app-text placeholder-app-text-muted focus:outline-none focus:border-app-accent/50 font-medium text-sm shadow-sm"
+                autoFocus
+              />
+            </div>
+            <button onClick={() => setShowScanner(true)}
+              className="p-3 bg-app-card border border-app-border rounded-2xl text-app-text-muted hover:text-app-accent hover:border-app-accent/40 transition-colors shrink-0 shadow-sm">
+              <ScanLine size={20} />
             </button>
-          )}
-          <button onClick={() => setShowTicket(true)}
-            className="relative flex items-center gap-2 px-4 py-3 bg-app-accent text-white rounded-2xl hover:opacity-90 transition-opacity shrink-0 shadow-lg shadow-app-accent/30">
-            <ShoppingCart size={18} />
-            <div className="flex flex-col items-start leading-none">
-              <span className="text-[9px] font-black uppercase tracking-widest opacity-75">Ticket</span>
-              <span className="text-sm font-black">{cart.length > 0 ? cop(cartTotal) : 'Vacío'}</span>
-            </div>
-            {cart.length > 0 && (
-              <span className="absolute -top-2 -right-2 w-5 h-5 bg-white text-app-accent rounded-full text-[10px] font-black flex items-center justify-center shadow">
-                {cart.length}
-              </span>
+            {!isCajero && (
+              <button onClick={() => setShowStats(true)}
+                className="flex items-center gap-2 px-4 py-3 bg-app-card border border-app-border rounded-2xl hover:border-app-accent/40 transition-colors shrink-0 shadow-sm">
+                <TrendingUp size={16} className="text-app-accent" />
+                <div className="flex flex-col items-start leading-none">
+                  <span className="text-[9px] font-black text-app-text-muted uppercase tracking-widest">Turno</span>
+                  <span className="text-sm font-black text-app-text">{shiftStats ? cop(shiftStats.totalSales) : '$0'}</span>
+                </div>
+              </button>
             )}
-          </button>
+          </div>
+
+          {/* Lista de productos */}
+          <div className="flex-1 overflow-y-auto custom-scrollbar pb-4">
+            {searchQuery === '' ? (
+              <div className="flex flex-col items-center justify-center h-full text-center gap-3 text-app-text-muted opacity-30">
+                <ShoppingCart size={52} />
+                <p className="text-[11px] font-black uppercase tracking-widest">Escanea o busca un producto</p>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-1.5">
+                {visibleProducts.map(p => {
+                  const agotado = !p.is_consignment && !p.has_variants && p.stockCount === 0;
+                  return (
+                    <button
+                      key={p.id}
+                      onClick={() => addToCart(p)}
+                      disabled={agotado}
+                      className={`relative bg-app-card border ${agotado ? 'border-rose-500/20 opacity-50 cursor-not-allowed grayscale' : 'border-app-border hover:border-app-accent/50 hover:bg-app-accent/5 active:scale-[0.99]'} rounded-xl px-4 py-3 flex items-center gap-4 text-left transition-all`}
+                    >
+                      <div className="w-9 h-9 rounded-full bg-app-bg border border-app-border flex items-center justify-center font-black text-app-accent text-base shadow-inner shrink-0">
+                        {p.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="flex flex-col min-w-0 flex-1">
+                        <span className="text-app-text font-bold text-sm leading-tight truncate">{p.name}</span>
+                        <span className="text-app-accent font-mono text-[10px] font-black leading-none mt-0.5">{p.sku}</span>
+                      </div>
+                      <div className="flex items-center gap-3 shrink-0">
+                        {p.has_variants && <span className="px-2 py-0.5 bg-violet-500/20 text-violet-400 text-[9px] font-black rounded uppercase flex items-center gap-1"><Layers size={9}/>Vars</span>}
+                        {p.is_consignment && <span className="px-2 py-0.5 bg-amber-500/20 text-amber-400 text-[9px] font-black rounded uppercase">Consig.</span>}
+                        {agotado && <span className="px-2 py-0.5 bg-rose-500/20 text-rose-500 text-[9px] font-black rounded uppercase">Agotado</span>}
+                        {!p.is_consignment && !agotado && <span className="text-app-text-muted text-[10px] font-black uppercase w-14 text-right">{p.unit_type === 'WEIGHT' ? `${p.stockCount} Kg` : `${p.stockCount} Un.`}</span>}
+                        <span className="text-emerald-500 font-black text-base w-24 text-right">${p.sale_price.toLocaleString()}</span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* ── CATÁLOGO FULL WIDTH ── */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar pb-4">
-          {searchQuery === '' ? (
-            <div className="flex flex-col items-center justify-center h-full text-center gap-3 text-app-text-muted opacity-30">
-              <ShoppingCart size={52} />
-              <p className="text-[11px] font-black uppercase tracking-widest">Escanea o busca un producto</p>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-1.5">
-              {visibleProducts.map(p => {
-                const agotado = !p.is_consignment && !p.has_variants && p.stockCount === 0;
-                return (
-                  <button
-                    key={p.id}
-                    onClick={() => addToCart(p)}
-                    disabled={agotado}
-                    className={`relative bg-app-card border ${agotado ? 'border-rose-500/20 opacity-50 cursor-not-allowed grayscale' : 'border-app-border hover:border-app-accent/50 hover:bg-app-accent/5 active:scale-[0.99]'} rounded-xl px-4 py-3 flex items-center gap-4 text-left transition-all`}
-                  >
-                    <div className="w-9 h-9 rounded-full bg-app-bg border border-app-border flex items-center justify-center font-black text-app-accent text-base shadow-inner shrink-0">
-                      {p.name.charAt(0).toUpperCase()}
-                    </div>
-                    <div className="flex flex-col min-w-0 flex-1">
-                      <span className="text-app-text font-bold text-sm leading-tight truncate">{p.name}</span>
-                      <span className="text-app-accent font-mono text-[10px] font-black leading-none mt-0.5">{p.sku}</span>
-                    </div>
-                    <div className="flex items-center gap-3 shrink-0">
-                      {p.has_variants && <span className="px-2 py-0.5 bg-violet-500/20 text-violet-400 text-[9px] font-black rounded uppercase flex items-center gap-1"><Layers size={9}/>Vars</span>}
-                      {p.is_consignment && <span className="px-2 py-0.5 bg-amber-500/20 text-amber-400 text-[9px] font-black rounded uppercase">Consig.</span>}
-                      {agotado && <span className="px-2 py-0.5 bg-rose-500/20 text-rose-500 text-[9px] font-black rounded uppercase">Agotado</span>}
-                      {!p.is_consignment && !agotado && <span className="text-app-text-muted text-[10px] font-black uppercase w-14 text-right">{p.unit_type === 'WEIGHT' ? `${p.stockCount} Kg` : `${p.stockCount} Un.`}</span>}
-                      <span className="text-emerald-500 font-black text-base w-24 text-right">${p.sale_price.toLocaleString()}</span>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
+        {/* ── COLUMNA DERECHA: Ticket siempre visible ── */}
+        <div className="w-[400px] shrink-0 flex flex-col bg-app-sidebar border border-app-border rounded-2xl overflow-hidden">
 
-        {/* ── DRAWER TICKET (desliza desde la derecha) ── */}
-        {showTicket && (
-          <div className="fixed inset-0 z-[80] flex justify-end">
-            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowTicket(false)} />
-            <div className="relative w-full max-w-md h-full bg-app-sidebar border-l border-app-border shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
-
-              {/* Header drawer */}
+              {/* Header ticket */}
               <div className="bg-app-accent/10 px-5 py-4 border-b border-app-border flex justify-between items-center shrink-0">
                 <div className="flex items-center gap-3">
                   <ShoppingCart size={18} className="text-app-accent" />
@@ -610,9 +597,6 @@ const [showTicket, setShowTicket] = useState(false);
                       <Pause size={17} />
                     </button>
                   )}
-                  <button onClick={() => setShowTicket(false)} className="p-2 text-app-text-muted hover:text-app-text transition-colors rounded-lg hover:bg-app-bg">
-                    <X size={19} />
-                  </button>
                 </div>
               </div>
 
@@ -788,8 +772,6 @@ const [showTicket, setShowTicket] = useState(false);
                 </button>
               </div>
             </div>
-          </div>
-        )}
 
         {/* ── MODAL ESTADÍSTICAS DEL TURNO ── */}
         {showStats && !isCajero && (
