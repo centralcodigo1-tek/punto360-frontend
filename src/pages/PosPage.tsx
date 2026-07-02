@@ -90,8 +90,7 @@ export default function PosPage() {
   
   const [cashReceived, setCashReceived] = useState<string>("");
   const [isPriceEditing, setIsPriceEditing] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"catalog" | "cart">("catalog");
-  const [showTicket, setShowTicket] = useState(false);
+const [showTicket, setShowTicket] = useState(false);
   const [showStats, setShowStats] = useState(false);
   const [shiftStats, setShiftStats] = useState<ShiftStats | null>(null);
   const [pendingSales, setPendingSales] = useState<any[]>([]);
